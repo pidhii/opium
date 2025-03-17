@@ -1,10 +1,7 @@
 #include "opium/lisp_parser.hpp"
 #include "opium/lisp_reader.hpp"
-#include "opium/logging.hpp"
 #include "opium/prolog_repl.hpp"
-#include "opium/stl/vector.hpp"
 #include "opium/value.hpp"
-#include "opium/format.hpp"
 
 #include <cassert>
 #include <cctype>
@@ -21,10 +18,9 @@ main([[maybe_unused]] int argc, char **argv)
 
   prolog_repl pl;
   lisp_parser parser;
-  opi::vector<value> queries;
 
   // Read input file
-  std::ifstream infile{argv[1], std::ios::binary};
+  std::ifstream infile {argv[1], std::ios::binary};
   const auto tokens = parser.tokenize(infile);
   size_t cursor = 0;
   while (cursor < tokens.size())
