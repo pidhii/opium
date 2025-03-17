@@ -1,76 +1,58 @@
+#include "opium/lisp_parser.hpp"
+#include "opium/lisp_reader.hpp"
+#include "opium/logging.hpp"
+#include "opium/prolog_repl.hpp"
+#include "opium/stl/vector.hpp"
 #include "opium/value.hpp"
 #include "opium/format.hpp"
-#include "opium/predicate_runtime.hpp"
-#include "opium/stl/vector.hpp"
-#include "opium/lisp_parser.hpp"
-#include "opium/logging.hpp"
-#include "opium/prolog.hpp"
 
 #include <cassert>
 #include <cctype>
-#include <concepts>
 #include <fstream>
-#include <functional>
 #include <ios>
 #include <iostream>
-#include <ranges>
-#include <utility>
 #include <vector>
+
 
 int
 main([[maybe_unused]] int argc, char **argv)
 {
   using namespace opi;
 
-  std::ifstream infile{argv[1], std::ios::binary};
-
-  prolog pl;
+  prolog_repl pl;
   lisp_parser parser;
   opi::vector<value> queries;
 
+  // Read input file
+  std::ifstream infile{argv[1], std::ios::binary};
   const auto tokens = parser.tokenize(infile);
   size_t cursor = 0;
   while (cursor < tokens.size())
-  {
-    const value expr = parser.parse_tokens(tokens, cursor);
-    if (issym(car(expr), "predicate"))
-    {
-      const value signature = car(cdr(expr));
-      value body = cdr(cdr(expr));
-      switch (length(body))
-      {
-        case 0:
-          body = True;
-          break;
-        case 1:
-          body = car(body);
-          break;
-        default:
-          body = cons(sym("and"), body);
-          break;
-      }
-      pl.add_predicate(signature, body);
-    }
-    else if (issym(car(expr), "query"))
-      queries.push_back(car(cdr(expr)));
-    else
-      throw std::runtime_error{format("undefined expression: ", expr)};
-  }
+    pl << parser.parse_tokens(tokens, cursor);
 
-  for (const value query : queries)
+  // Helper function to read a line with prompt
+  auto prompt_line = [&](const std::string &prompt, std::string &line) -> bool {
+    std::cout << prompt;
+    std::cout.flush();
+    return bool(std::getline(std::cin, line));
+  };
+
+  std::cout << "\n"; // Empty line before the REPL
+
+  // Run REPL
+  lisp_reader reader {parser};
+  for (std::string line; prompt_line("> ", line); line.clear())
   {
-    predicate_runtime prt;
-    std::cout << "?- " << query << std::endl;
-    pl.make_true(prt, query, [&](const predicate_runtime &result_prt) {
-      std::cout << "=> yes" << std::endl;
-      for (const value var : result_prt.variables())
-      {
-        value val = nil;
-        if (result_prt.get_value(var, val))
-          std::cout << " " << var << " = " << val << std::endl;
-        else
-          std::cout << " " << var << " = ?" << std::endl;
-      }
-    });
+    // Feed new piece of text into the reader
+    reader << line;
+
+    // Process new expressions
+    value expr = nil;
+    while (reader >> expr)
+    {
+      try { pl << expr; }
+      catch (const opi::prolog_repl::error &exn)
+      { std::cout << exn.what() << std::endl; }
+    }
   }
 }
