@@ -53,10 +53,7 @@ match_arguments(predicate_runtime &prt, predicate_runtime &ert, value pexpr,
   }
 }
 
-////////////////////////////////////////////////////////////////////////////////
-//
-//                            Prolog program
-//
+// Predicate representation
 class predicate {
   public:
   // TODO: validate types
@@ -79,6 +76,7 @@ class predicate {
   arguments() const noexcept
   { return m_args; }
 
+  // Get predicate body/rule
   value
   body() const noexcept
   { return m_body; }
@@ -90,6 +88,7 @@ class predicate {
 }; // class opi::predicate
 
 
+// Prolog evaluator
 class prolog {
   public:
   // TODO: validate types
@@ -104,7 +103,11 @@ class prolog {
   auto
   predicate_branches(const std::string &name) const
   {
-    return std::ranges::subrange(m_db.find(name), m_db.end()) |
+    const auto it = m_db.find(name);
+    if (it == m_db.end())
+      throw std::runtime_error {format("no such predicate: ", name)};
+
+    return std::ranges::subrange(it, m_db.end()) |
            std::views::take(m_db.count(name));
   }
 
@@ -112,6 +115,12 @@ class prolog {
   make_true(predicate_runtime &prt, value expr, Cont cont) const;
 
   private:
+  template <typename Cont> requires std::regular_invocable<Cont> void
+  _make_and_true(predicate_runtime &ert, value clauses, Cont cont) const;
+
+  template <typename Cont> requires std::regular_invocable<Cont> void
+  _make_or_true(predicate_runtime &ert, value clauses, Cont cont) const;
+
   template <typename Cont> requires std::regular_invocable<Cont> void
   _make_predicate_true(predicate_runtime &ert, const predicate &pred,
                        value eargs, Cont cont) const;
@@ -128,56 +137,77 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont) const
   indent _ {};
   switch (e->t)
   {
-    case tag::pair:
-    {
-      if (not issym(car(e)))
-        throw std::runtime_error {
-          format("expression must start with a symbol: ", car(e))};
-
-      if (issym(car(e), "or"))
-      {
-        assert(!"unimplemented");
-      }
-      else if (issym(car(e), "and"))
+    case tag::pair: {
+      if (issym(car(e), "and"))
       {
         const value clauses = cdr(e);
-        // Case 1: sequentially process and-clauses
-        if (clauses->t == tag::pair)
-        {
-          // Separate head clause
-          const value head = car(clauses);
-          const value tail = cdr(clauses);
-          std::function<void()> andcont = [&] () {
-            make_true(ert, cons(car(e), tail), cont);
-          };
-          // Make head true and then proceed with other clauses
-          make_true(ert, head, andcont);
-        }
-        // Case 2: no clauses left <=> true
-        else
-          cont();
+        return _make_and_true(ert, clauses, cont);
       }
-      else
+      else if (issym(car(e), "or"))
       {
+        const value clauses = cdr(e);
+        return _make_or_true(ert, clauses, cont);
+      }
+      else if (issym(car(e)))
+      {
+        const std::string predname = car(e)->sym.data;
         const value eargs = cdr(e);
-        for (const auto &[_, p] : predicate_branches(car(e)->str.data))
+        for (const auto &[_, p] : predicate_branches(predname))
           _make_predicate_true(ert, p, eargs, cont);
+        return;
       }
       break;
     }
 
-    case tag::boolean:
-    {
+    case tag::boolean: {
       if (e->boolean)
         cont();
-      break;
+      return;
     }
 
-    default:
-      error("make_true unimplemented for ", e);
-      std::terminate();
+    default:;
+  }
+
+  error("invalid expression: ", e);
+  std::terminate();
+}
+
+
+template <typename Cont> requires std::regular_invocable<Cont> void
+prolog::_make_and_true(predicate_runtime &ert, value clauses, Cont cont) const
+{
+  // Case 1: sequentially process and-clauses
+  if (clauses->t == tag::pair)
+  {
+    // Separate head clause
+    const value head = car(clauses);
+    const value tail = cdr(clauses);
+    std::function<void()> andcont = [&] () { _make_and_true(ert, tail, cont); };
+    // Make head true and then proceed with other clauses
+    make_true(ert, head, andcont);
+  }
+  // Case 2: no clauses left <=> true
+  else
+    cont();
+}
+
+
+template <typename Cont> requires std::regular_invocable<Cont> void
+prolog::_make_or_true(predicate_runtime &ert, value clauses, Cont cont) const
+{
+  for (const value clause : range(clauses))
+  {
+    predicate_runtime crt;
+    for (const value var : ert.variables())
+    {
+      const bool ok = ert.unify(ert[var], crt[var]);
+      assert(ok && "Failed to create variable in or-clause");
+    }
+    make_true(crt, clause, cont);
+    crt.mark_dead();
   }
 }
+
 
 template <typename Cont> requires std::regular_invocable<Cont> void
 prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
@@ -222,7 +252,17 @@ main([[maybe_unused]] int argc, char **argv)
   {
     const value expr = parser.parse_tokens(tokens, cursor);
     if (issym(car(expr), "predicate"))
-      pl.add_predicate(car(cdr(expr)), cons(sym("and"), cdr(cdr(expr))));
+    {
+      const value signature = car(cdr(expr));
+      value body = cdr(cdr(expr));
+      switch (length(body))
+      {
+        case 0: body = True; break;
+        case 1: body = car(body); break;
+        default: body = cons(sym("and"), body); break;
+      }
+      pl.add_predicate(signature, body);
+    }
     else if (issym(car(expr), "query"))
       queries.push_back(car(cdr(expr)));
     else
