@@ -38,7 +38,10 @@ struct cell {
 
 class predicate_runtime {
   public:
-  predicate_runtime() = default;
+  predicate_runtime() : m_parent(nullptr) {}
+  
+  // Constructor with parent
+  explicit predicate_runtime(predicate_runtime* parent) : m_parent(parent) {}
 
   predicate_runtime(const predicate_runtime&) = delete;
   void operator = (const predicate_runtime&) = delete;
@@ -91,7 +94,7 @@ class predicate_runtime {
 
   // Assign a value to a variable
   bool
-  assign(cell* x, value val)
+  assign(cell *x, value val)
   { return unify(x, make_term(val)); }
 
   // Will effectively erase unifications with variables in this frame.
@@ -99,8 +102,9 @@ class predicate_runtime {
   mark_dead();
 
   private:
-  opi::unordered_map<value, cell*> m_varmap;
-  opi::vector<cell*> m_terms;
+  opi::unordered_map<value, cell *> m_varmap;
+  opi::vector<cell *> m_terms;
+  predicate_runtime *m_parent; // Parent runtime for variable lookup
 }; // class opi::predicate_runtime
 
 } // namespace opi

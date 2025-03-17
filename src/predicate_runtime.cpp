@@ -50,9 +50,14 @@ opi::predicate_runtime::get_value(value var, value &result) const noexcept
 {
   auto it = m_varmap.find(var);
   if (it == m_varmap.end())
+  {
+    // If variable not found in current runtime, check parent if available
+    if (m_parent != nullptr)
+      return m_parent->get_value(var, result);
     return false;
+  }
 
-  cell* rep = find(it->second);
+  cell *rep = find(it->second);
   if (rep->kind == cell::kind::value)
   {
     result = rep->val;

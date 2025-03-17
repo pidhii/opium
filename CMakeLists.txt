@@ -43,7 +43,13 @@ add_executable(test_lisp_parser tests/test_lisp_parser.cpp ${src})
 target_include_directories(test_lisp_parser PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries(test_lisp_parser PUBLIC -lgc GTest::gtest_main)
 
+# Prolog Tests
+add_executable(test_prolog tests/test_prolog.cpp ${src})
+target_include_directories(test_prolog PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(test_prolog PUBLIC -lgc GTest::gtest_main)
+
 # Register tests with CTest
 include(GoogleTest)
 gtest_discover_tests(test_predicate_runtime)
 gtest_discover_tests(test_lisp_parser)
+gtest_discover_tests(test_prolog)
