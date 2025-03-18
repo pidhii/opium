@@ -80,11 +80,6 @@ class predicate_runtime {
   has_value(value var) const noexcept
   { value _ = nil; return get_value(var, _); }
 
-  // Check `a` and `b` for equality. Two symbols are considered equal
-  // when represent identified variables.
-  bool
-  equal(value a, value b);
-
   // Unify two variables or a variable with a value
   //
   // Note asymmetry in arguments: LHS (`x`) will never be made a representative of

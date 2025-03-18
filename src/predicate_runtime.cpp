@@ -68,50 +68,6 @@ opi::predicate_runtime::get_value(value var, value &result) const noexcept
 
 
 bool
-opi::predicate_runtime::equal(value a, value b)
-{
-  // If both are variables, check if they are unified
-  if (is_variable(a) and is_variable(b))
-    return find((*this)[a]) == find((*this)[b]);
-
-  // Substitute variables
-  if (is_variable(a))
-    get_value(a, a);
-  if (is_variable(b))
-    get_value(b, b);
-
-  // Check structural equality
-  if (a->t != b->t)
-    return false;
-  switch (a->t)
-  {
-    case tag::sym:
-      return a->sym.len == b->sym.len and
-             std::strncmp(a->sym.data, b->sym.data, a->sym.len) == 0;
-
-    case tag::nil:
-      return true;
-
-    case tag::num:
-      return a->num == b->num;
-
-    case tag::str:
-      return a->str.len == b->str.len and
-             std::strncmp(a->str.data, b->str.data, a->str.len) == 0;
-
-    case tag::pair:
-      return equal(car(a), car(b)) and
-             equal(cdr(a), cdr(b));
-
-    case tag::boolean:
-      return a->boolean == b->boolean;
-  }
-
-  return false;
-}
-
-
-bool
 opi::predicate_runtime::unify(cell *x, cell *y)
 {
   cell* repx = find(x);
