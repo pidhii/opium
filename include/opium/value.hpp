@@ -319,7 +319,7 @@ range(value l)
 
 
 std::ostream&
-operator << (std::ostream &os, const opi::value val);
+operator << (std::ostream &os, const opi::value &val);
 
 inline bool
 opi::value::operator == (opi::value other) const noexcept

@@ -1,7 +1,13 @@
 #include "opium/value.hpp"
+#include "opium/hash.hpp"
+#include "opium/stl/unordered_set.hpp"
 
-std::ostream&
-operator << (std::ostream &os, const opi::value val)
+
+#define MAX_REPETITIONS 5
+
+static void
+_print(std::ostream &os, const opi::value &val,
+       opi::unordered_multiset<opi::value> &mem)
 {
   using namespace opi;
 
@@ -36,6 +42,16 @@ operator << (std::ostream &os, const opi::value val)
       break;
 
     case tag::pair: {
+      if (mem.count(val) > MAX_REPETITIONS)
+      {
+        os << "<pair @ " << &val << ">";
+        return;
+      }
+      else
+        // Momorize the pair so we dont print it multiple times in case of
+        // self-referencing structures
+        mem.insert(val);
+
       os << '(' << car(val);
       value elt = nil;
       for (elt = cdr(val); elt->t == tag::pair; elt = cdr(elt))
@@ -47,7 +63,13 @@ operator << (std::ostream &os, const opi::value val)
       break;
     }
   }
-
-  return os;
 }
 
+
+std::ostream&
+operator << (std::ostream &os, const opi::value &val)
+{
+  opi::unordered_multiset<opi::value> mem;
+  _print(os, val, mem);
+  return os;
+}
