@@ -6,6 +6,7 @@
 #include "opium/stl/vector.hpp"
 #include "opium/logging.hpp"
 
+#include <asm-generic/errno.h>
 #include <concepts>
 #include <functional>
 #include <string>
@@ -113,7 +114,7 @@ template <prolog_continuation Cont>
 void
 prolog::make_true(predicate_runtime &ert, value e, Cont cont) const
 {
-  debug("make_true ", e);
+  debug("make_true ", ert.substitute_vars(e));
   indent _ {};
   switch (e->t)
   {
@@ -209,11 +210,18 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
   predicate_runtime prt;
   if (match_arguments(prt, ert, pargs, eargs))
   {
-    debug("\e[38;5;2maccept\e[0m");
-    indent _{};
-    std::function<void(const predicate_runtime &)> newcont =
-        [&]([[maybe_unused]] const predicate_runtime &_) { cont(ert); };
-    make_true(prt, pred.body(), newcont);
+    const value signature = prt.substitute_vars(pargs);
+    debug("\e[38;5;2maccept\e[0m [signature=", pred.name(), signature, "]");
+    indent _ {};
+    if (prt.try_sign(&pred, signature, ert))
+    {
+      debug("signed PRT");
+      std::function<void(const predicate_runtime &)> newcont =
+          [&]([[maybe_unused]] const predicate_runtime &_) { cont(ert); };
+      make_true(prt, pred.body(), newcont);
+    }
+    else
+      debug("\e[38;5;3msignature clash\e[0m");
   }
   else
     debug("\e[38;5;1mreject\e[0m");

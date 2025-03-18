@@ -43,14 +43,30 @@ class predicate_runtime {
     using std::runtime_error::runtime_error;
   };
 
-  predicate_runtime() : m_parent(nullptr) {}
-  
-  // Constructor with parent
-  explicit predicate_runtime(predicate_runtime* parent) : m_parent(parent) {}
+  predicate_runtime()
+  : m_parent {nullptr},
+    m_preduid {nullptr},
+    m_signature {nil},
+    m_prev_frame {nullptr}
+  { }
 
+  // Constructor with parent
+  explicit predicate_runtime(predicate_runtime *parent)
+  : m_parent {parent}, m_preduid {nullptr}, m_signature {nil},
+    m_prev_frame {parent}
+  { }
+
+  // Disable copying
   predicate_runtime(const predicate_runtime&) = delete;
   void operator = (const predicate_runtime&) = delete;
 
+  // Will mark this frame wtth `name` and `signature` if unique and return true;
+  // otherwize -- when non-unique -- do nothing and return false.
+  bool
+  try_sign(const void *preduid, value signature,
+           const predicate_runtime &prev) noexcept;
+
+  // List owned variables
   auto
   variables() const noexcept
   { return std::views::keys(m_varmap); }
@@ -102,9 +118,14 @@ class predicate_runtime {
   mark_dead();
 
   private:
-  opi::unordered_map<value, cell *> m_varmap;
-  opi::vector<cell *> m_terms;
+  opi::unordered_map<value, cell *> m_varmap; // Associations table between
+                                              // variables and cells
+  opi::vector<cell *> m_terms; // Calues-cells created within this frame
   predicate_runtime *m_parent; // Parent runtime for variable lookup
+  const void *m_preduid;       // Active predicate
+  value m_signature; // Resolved signature of active predicate arguments to
+                     // identify recursion
+  const predicate_runtime *m_prev_frame;
 }; // class opi::predicate_runtime
 
 } // namespace opi

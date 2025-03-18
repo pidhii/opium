@@ -124,3 +124,21 @@ opi::predicate_runtime::substitute_vars(value x) const
   else
     return x;
 }
+
+bool
+opi::predicate_runtime::try_sign(const void *preduid, value signature,
+                                 const predicate_runtime &prev) noexcept
+{
+  for (const predicate_runtime *prt = &prev; prt; prt = prt->m_prev_frame)
+  {
+    if (prt->m_preduid != nullptr and
+        preduid == prt->m_preduid and
+        equal(signature, prt->m_signature))
+      return false;
+  }
+
+  m_preduid = preduid;
+  m_signature = signature;
+  m_prev_frame = &prev;
+  return true;
+}
