@@ -15,6 +15,9 @@ enable_testing ()
 # Include FetchContent for downloading dependencies
 include (FetchContent)
 
+# Find Boost
+find_package(Boost REQUIRED COMPONENTS program_options)
+
 # Download and configure Google Test
 FetchContent_Declare(
   googletest
@@ -29,7 +32,7 @@ FetchContent_MakeAvailable(googletest)
 file (GLOB src src/*.cpp)
 add_executable (opium main.cpp ${src})
 target_include_directories (opium PUBLIC ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries (opium PUBLIC -lgc)
+target_link_libraries (opium PUBLIC -lgc ${Boost_LIBRARIES})
 
 install (TARGETS opium DESTINATION bin)
 
