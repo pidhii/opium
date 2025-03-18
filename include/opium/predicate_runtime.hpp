@@ -4,6 +4,7 @@
 #include "opium/hash.hpp"
 #include "opium/stl/unordered_map.hpp"
 #include "opium/stl/vector.hpp"
+#include <stdexcept>
 
 
 namespace opi {
@@ -38,6 +39,10 @@ struct cell {
 
 class predicate_runtime {
   public:
+  struct error: public std::runtime_error {
+    using std::runtime_error::runtime_error;
+  };
+
   predicate_runtime() : m_parent(nullptr) {}
   
   // Constructor with parent

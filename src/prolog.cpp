@@ -1,5 +1,5 @@
 #include "opium/prolog.hpp"
-#include <iostream>
+
 
 bool
 opi::match_arguments(opi::predicate_runtime &prt, opi::predicate_runtime &ert,
@@ -35,6 +35,7 @@ opi::match_arguments(opi::predicate_runtime &prt, opi::predicate_runtime &ert,
       return equal(pexpr, eexpr);
   }
 }
+
 
 void
 opi::prolog::add_predicate(opi::value sig, opi::value body)

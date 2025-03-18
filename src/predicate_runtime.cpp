@@ -123,10 +123,7 @@ opi::predicate_runtime::unify(cell *x, cell *y)
 
   // Case 1: Both are values
   if (repx->kind == cell::kind::value and repy->kind == cell::kind::value)
-  {
-    // Values must be equal to unify
-    return equal(repx->val, repy->val);
-  }
+    throw error {"Can't unify two values"};
 
   // Case 2: x is a value, y is a variable
   if (repx->kind == cell::kind::value)

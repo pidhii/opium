@@ -6,6 +6,7 @@ opi::lisp_reader::lisp_reader(opi::lisp_parser &parser)
 : m_parser {parser}
 { }
 
+
 void
 opi::lisp_reader::operator << (const std::string &input)
 {
@@ -18,23 +19,15 @@ opi::lisp_reader::operator << (const std::string &input)
   while (true)
   {
     // Try parsing a single expression
-    try
-    {
-      // Use proxy cursor to avoid updating the actual one upon parse error
-      size_t tmpcursor = cursor;
-      m_values.push_back(m_parser.parse_tokens(m_tokens, tmpcursor));
-      cursor = tmpcursor;
-    }
-    catch (parse_error &exn)
-    {
-      // Not enough tokens to prouce an expression
-      break;
-    }
+    try { m_values.push_back(m_parser.parse_tokens(m_tokens, cursor)); }
+    catch (parse_error &exn) // Not enough tokens to prouce an expression
+    { break; }
   }
 
   // Erase consumed tokens
   m_tokens.erase(m_tokens.begin(), m_tokens.begin() + cursor);
 }
+
 
 bool
 opi::lisp_reader::operator >> (opi::value &result)

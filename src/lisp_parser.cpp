@@ -152,7 +152,7 @@ opi::lisp_parser::tokenize(std::istream &input)
 
 
 opi::value
-opi::lisp_parser::parse_tokens(const std::vector<token> &tokens, size_t &pos)
+opi::lisp_parser::_parse_tokens(const std::vector<token> &tokens, size_t &pos)
 {
   if (pos >= tokens.size())
     throw parse_error {"Unexpected end of input"};
@@ -179,7 +179,7 @@ opi::lisp_parser::parse_tokens(const std::vector<token> &tokens, size_t &pos)
 
 
 opi::value
-opi::lisp_parser::parse_list(const std::vector<token> &tokens, size_t &pos)
+opi::lisp_parser::_parse_list(const std::vector<token> &tokens, size_t &pos)
 {
   if (pos >= tokens.size())
     throw parse_error {"Unexpected end of input while parsing list"};
@@ -276,3 +276,25 @@ opi::lisp_parser::is_boolean(const std::string &s)
 bool
 opi::lisp_parser::is_nil(const std::string &s)
 { return s == "nil" or s == "()"; }
+
+
+opi::value
+opi::lisp_parser::parse_tokens(const std::vector<token> &tokens, size_t &pos)
+{
+  // Wrap actual tokenizer to preserve `pos` argument upon exception
+  size_t proxypos = pos;
+  const value result = _parse_tokens(tokens, proxypos);
+  pos = proxypos;
+  return result;
+}
+
+
+opi::value
+opi::lisp_parser::parse_list(const std::vector<token> &tokens, size_t &pos)
+{
+  // Wrap actual tokenizer to preserve `pos` argument upon exception
+  size_t proxypos = pos;
+  const value result = _parse_list(tokens, proxypos);
+  pos = proxypos;
+  return result;
+}

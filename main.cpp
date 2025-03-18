@@ -11,6 +11,16 @@
 #include <vector>
 
 
+// Helper function to read a line with prompt
+static bool
+prompt_line(const std::string &prompt, std::string &line)
+{
+  std::cout << prompt;
+  std::cout.flush();
+  return bool(std::getline(std::cin, line));
+}
+
+
 int
 main([[maybe_unused]] int argc, char **argv)
 {
@@ -25,13 +35,6 @@ main([[maybe_unused]] int argc, char **argv)
   size_t cursor = 0;
   while (cursor < tokens.size())
     pl << parser.parse_tokens(tokens, cursor);
-
-  // Helper function to read a line with prompt
-  auto prompt_line = [&](const std::string &prompt, std::string &line) -> bool {
-    std::cout << prompt;
-    std::cout.flush();
-    return bool(std::getline(std::cin, line));
-  };
 
   std::cout << "\n"; // Empty line before the REPL
 

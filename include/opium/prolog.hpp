@@ -9,7 +9,6 @@
 #include <concepts>
 #include <functional>
 #include <string>
-#include <utility>
 #include <cassert>
 #include <ranges>
 
@@ -54,10 +53,17 @@ class predicate {
   value m_body;
 }; // class opi::predicate
 
+template <typename Cont>
+concept prolog_continuation =
+    std::regular_invocable<Cont, const predicate_runtime &>;
 
 // Prolog evaluator
 class prolog {
   public:
+  struct error: public std::runtime_error {
+    using std::runtime_error::runtime_error;
+  };
+
   // TODO: validate types
   void
   add_predicate(value sig, value body);
@@ -65,29 +71,25 @@ class prolog {
   auto
   predicate_branches(const std::string &name) const;
 
-  template <typename Cont>
-    requires std::regular_invocable<Cont, const predicate_runtime&>
+  template <prolog_continuation Cont>
   void
   make_true(predicate_runtime &ert, value e, Cont cont) const;
 
   private:
-  template <typename Cont>
-    requires std::regular_invocable<Cont, const predicate_runtime&>
+  template <prolog_continuation Cont>
   void
   _make_and_true(predicate_runtime &ert, value clauses, Cont cont) const;
 
-  template <typename Cont>
-    requires std::regular_invocable<Cont, const predicate_runtime &>
+  template <prolog_continuation Cont>
   void
   _make_or_true(predicate_runtime &ert, value clauses, Cont cont) const;
 
-  template <typename Cont>
-    requires std::regular_invocable<Cont, const predicate_runtime &>
+  template <prolog_continuation Cont>
   void
   _make_predicate_true(predicate_runtime &ert, const predicate &pred,
                        value eargs, Cont cont) const;
 
-private:
+  private:
   opi::unordered_multimap<std::string, predicate> m_db;
 }; // class opi::prolog
 
@@ -101,14 +103,13 @@ prolog::predicate_branches(const std::string &name) const
 {
   const auto it = m_db.find(name);
   if (it == m_db.end())
-    throw std::runtime_error{opi::format("no such predicate: ", name)};
+    throw error {opi::format("No such predicate: ", name)};
 
   return std::ranges::subrange(it, m_db.end()) |
-          std::views::take(m_db.count(name));
+         std::views::take(m_db.count(name));
 }
 
-template <typename Cont>
-  requires std::regular_invocable<Cont, const predicate_runtime &>
+template <prolog_continuation Cont>
 void
 prolog::make_true(predicate_runtime &ert, value e, Cont cont) const
 {
@@ -147,12 +148,10 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont) const
     default:;
   }
 
-  error("invalid expression: ", e);
-  std::terminate();
+  throw error {format("Invalid expression: ", e)};
 }
 
-template <typename Cont>
-  requires std::regular_invocable<Cont, const predicate_runtime &>
+template <prolog_continuation Cont>
 void
 prolog::_make_and_true(predicate_runtime &ert, value clauses, Cont cont) const
 {
@@ -175,8 +174,7 @@ prolog::_make_and_true(predicate_runtime &ert, value clauses, Cont cont) const
 }
 
 
-template <typename Cont>
-  requires std::regular_invocable<Cont, const predicate_runtime&>
+template <prolog_continuation Cont>
 void
 prolog::_make_or_true(predicate_runtime &ert, value clauses, Cont cont) const
 {
@@ -199,8 +197,7 @@ prolog::_make_or_true(predicate_runtime &ert, value clauses, Cont cont) const
 }
 
 
-template <typename Cont>
-  requires std::regular_invocable<Cont, const predicate_runtime&>
+template <prolog_continuation Cont>
 void
 prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
                              value eargs, Cont cont) const

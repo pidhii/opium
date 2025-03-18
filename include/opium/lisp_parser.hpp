@@ -14,7 +14,7 @@ class lisp_parser {
   // Parse a LISP-style string into an opi::value
   value
   parse(const std::string &input);
-  
+
   // Parse a LISP-style input stream into an opi::value
   value
   parse(std::istream &input);
@@ -40,7 +40,7 @@ class lisp_parser {
   // Tokenize the input string
   std::vector<token>
   tokenize(const std::string &input);
-  
+
   // Tokenize the input stream
   std::vector<token>
   tokenize(std::istream &input);
@@ -56,7 +56,7 @@ class lisp_parser {
   // Parse an atom (symbol, number, string, etc.)
   value
   parse_atom(const token &token);
-
+  
   // Helper functions
   bool
   is_number(const std::string &s);
@@ -64,7 +64,15 @@ class lisp_parser {
   is_boolean(const std::string &s);
   bool
   is_nil(const std::string &s);
+
+  private:
+  value
+  _parse_tokens(const std::vector<token> &tokens, size_t &pos);
+
+  value
+  _parse_list(const std::vector<token> &tokens, size_t &pos);
 };
+
 
 // Exception class for parser errors
 struct parse_error: public std::runtime_error {
