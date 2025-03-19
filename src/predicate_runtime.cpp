@@ -1,30 +1,40 @@
 #include "opium/predicate_runtime.hpp"
+#include "opium/hash.hpp"
+#include "opium/stl/unordered_map.hpp"
+#include "opium/format.hpp"
+#include "opium/prolog.hpp"
 
 #include <cstring>
 #include <ranges>
 
 
-opi::cell*
-opi::predicate_runtime::operator [] (value var)
+// Helper function to check if a value is a variable
+static inline bool
+_starts_with_capital(const char *str, [[maybe_unused]] size_t len)
+{ return isupper(static_cast<unsigned char>(str[0])); }
+
+
+[[gnu::pure]] static inline bool
+_is_variable(opi::value x)
+{ return opi::issym(x) and _starts_with_capital(x->sym.data, x->sym.len); }
+
+
+
+opi::value
+opi::insert_cells(predicate_runtime &prt, value expr)
 {
-  auto it = m_varmap.find(var);
-  if (it == m_varmap.end())
-    it = m_varmap.emplace(var, make<cell>()).first;
-  return it->second;
+  if (_is_variable(expr))
+    return opi::cons(opi::sym("__cell"), opi::ptr(prt[expr]));
+  else if (expr->t == opi::tag::pair)
+    return opi::cons(insert_cells(prt, car(expr)),
+                     insert_cells(prt, cdr(expr)));
+  else
+    return expr;
 }
 
 
-opi::cell*
-opi::predicate_runtime::make_term(value val)
-{
-  cell *valcell = make<cell>(val);
-  m_terms.push_back(valcell);
-  return valcell;
-}
-
-
-opi::cell*
-opi::predicate_runtime::find(cell *x) const
+opi::cell *
+opi::find(cell *x)
 {
   // Path compression: make all nodes in the path point to the root
   // if (x->next != x)
@@ -46,29 +56,7 @@ opi::predicate_runtime::find(cell *x) const
 
 
 bool
-opi::predicate_runtime::get_value(value var, value &result) const noexcept
-{
-  auto it = m_varmap.find(var);
-  if (it == m_varmap.end())
-  {
-    // If variable not found in current runtime, check parent if available
-    if (m_parent != nullptr)
-      return m_parent->get_value(var, result);
-    return false;
-  }
-
-  cell *rep = find(it->second);
-  if (rep->kind == cell::kind::value)
-  {
-    result = rep->val;
-    return true;
-  }
-  return false;
-}
-
-
-bool
-opi::predicate_runtime::unify(cell *x, cell *y)
+opi::unify(cell *x, cell *y)
 {
   cell* repx = find(x);
   cell* repy = find(y);
@@ -79,7 +67,7 @@ opi::predicate_runtime::unify(cell *x, cell *y)
 
   // Case 1: Both are values
   if (repx->kind == cell::kind::value and repy->kind == cell::kind::value)
-    throw error {"Can't unify two values"};
+    throw std::runtime_error {"Can't unify two values"};
 
   // Case 2: x is a value, y is a variable
   if (repx->kind == cell::kind::value)
@@ -101,6 +89,117 @@ opi::predicate_runtime::unify(cell *x, cell *y)
 }
 
 
+
+static opi::value
+_reconstruct(opi::value x, opi::unordered_map<opi::cell*, opi::value> &mem);
+
+static opi::value
+_reconstruct(opi::cell *x, opi::unordered_map<opi::cell*, opi::value> &mem);
+
+static opi::value
+_reconstruct(opi::value x, opi::unordered_map<opi::cell*, opi::value> &mem)
+{
+  if (x->t == opi::tag::pair)
+  {
+    if (opi::issym(car(x), "__cell"))
+      return _reconstruct(static_cast<opi::cell*>(x->cdr->ptr), mem);
+    else
+      return cons(_reconstruct(car(x), mem), _reconstruct(cdr(x), mem));
+  }
+  else
+    return x;
+}
+
+static opi::value
+_reconstruct(opi::cell *x, opi::unordered_map<opi::cell*, opi::value> &mem)
+{
+  x = find(x);
+
+  const auto it = mem.find(x);
+  if (it != mem.end())
+    return it->second;
+
+  switch (x->kind)
+  {
+    case opi::cell::kind::value:
+      if (x->val->t == opi::tag::pair)
+      {
+        const opi::value val = opi::cons(opi::nil, opi::nil);
+        mem.emplace(x, val);
+        val->car = &*_reconstruct(car(x->val), mem);
+        val->cdr = &*_reconstruct(cdr(x->val), mem);
+        return val;
+      }
+      else
+        return x->val;
+
+    case opi::cell::kind::variable:
+      return opi::sym(opi::format("<variable:", x, ">"));
+  }
+  std::terminate();
+}
+
+
+opi::value
+opi::reconstruct(cell *x)
+{
+  opi::unordered_map<cell*, value> mem;
+  return _reconstruct(x, mem);
+}
+
+
+opi::value
+opi::reconstruct(value x)
+{
+  opi::unordered_map<cell*, value> mem;
+  return _reconstruct(x, mem);
+}
+
+
+bool
+opi::get_value(cell *x, value &result)
+{
+  x = find(x);
+  if (x->kind == cell::kind::value)
+  {
+    result = x->val;
+    return true;
+  }
+  return false;
+}
+
+
+
+opi::cell*
+opi::predicate_runtime::operator [] (value var)
+{
+  auto it = m_varmap.find(var);
+  if (it == m_varmap.end())
+    it = m_varmap.emplace(var, make<cell>()).first;
+  return it->second;
+}
+
+
+opi::cell*
+opi::predicate_runtime::operator [] (value var) const
+{
+  auto it = m_varmap.find(var);
+  if (it == m_varmap.end())
+    return make<cell>();
+  else
+    return it->second;
+}
+
+
+opi::cell*
+opi::predicate_runtime::make_term(value val)
+{
+  cell *valcell = make<cell>(val);
+  m_terms.push_back(valcell);
+  return valcell;
+}
+
+
 void
 opi::predicate_runtime::mark_dead()
 {
@@ -111,30 +210,23 @@ opi::predicate_runtime::mark_dead()
 }
 
 
-opi::value
-opi::predicate_runtime::substitute_vars(value x) const
-{
-  if (is_variable(x))
-  {
-    get_value(x, x);
-    return x;
-  }
-  else if (x->t == tag::pair)
-    return cons(substitute_vars(car(x)), substitute_vars(cdr(x)));
-  else
-    return x;
-}
-
 bool
 opi::predicate_runtime::try_sign(const void *preduid, value signature,
                                  const predicate_runtime &prev) noexcept
 {
   for (const predicate_runtime *prt = &prev; prt; prt = prt->m_prev_frame)
   {
-    if (prt->m_preduid != nullptr and
-        preduid == prt->m_preduid and
-        equal(signature, prt->m_signature))
-      return false;
+    if (preduid == prt->m_preduid)
+    {
+      assert(prt->m_preduid != nullptr);
+      const bool issimilar =
+          match_arguments(*this, *prt, signature, prt->m_signature);
+      debug("compare ", signature, " vs ", prt->m_signature, " -> ", issimilar);
+      if (issimilar)
+        return false;
+      mark_dead();
+      m_varmap.clear();
+    }
   }
 
   m_preduid = preduid;

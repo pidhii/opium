@@ -31,6 +31,7 @@ struct hash<opi::value> {
       case opi::tag::sym: return cstrhash{}({x->sym.data, x->sym.len});
       case opi::tag::str: return cstrhash{}({x->str.data, x->str.len});
       case opi::tag::num: return std::hash<long double>{}(x->num);
+      case opi::tag::ptr: return std::hash<void*>{}(x->ptr);
       case opi::tag::boolean: return std::hash<bool>{}(x->boolean);
       case opi::tag::pair: {
         size_t hsh = (*this)(opi::value {x->car});

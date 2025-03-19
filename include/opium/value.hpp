@@ -17,6 +17,7 @@ enum class tag {
   sym,
   str,
   num,
+  ptr,
   pair,
   boolean,
 };
@@ -54,6 +55,7 @@ struct object {
     struct { char *data; size_t len; } str;
     struct { object *car, *cdr; };
     long double num;
+    void *ptr;
     bool boolean;
   };
 }; // struct opi::object
@@ -90,6 +92,15 @@ num(long double val)
   ret->num = val;
   return ret;
 }
+
+inline value
+ptr(void *ptr)
+{
+  value ret {make<object>(tag::ptr)};
+  ret->ptr = ptr;
+  return ret;
+}
+
 
 inline value
 pair(value car, value cdr)
@@ -219,6 +230,9 @@ equal(value a, value b)
     case tag::num:
       return a->num == b->num;
 
+    case tag::ptr:
+      return a->ptr == b->ptr;
+
     case tag::str:
       return a->str.len == b->str.len and
              std::strncmp(a->str.data, b->str.data, a->str.len) == 0;
@@ -272,6 +286,17 @@ length(value l)
   size_t len = 0;
   for (; l->t == tag::pair; l = cdr(l), ++len);
   return len;
+}
+
+inline bool
+memq(value x, value l)
+{
+  for (; l->t == tag::pair; l = cdr(l))
+  {
+    if (is(x, car(l)))
+      return true;
+  }
+  return false;
 }
 
 

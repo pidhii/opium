@@ -13,11 +13,12 @@
 #include <cassert>
 #include <ranges>
 
+
 namespace opi {
 
 bool
-match_arguments(predicate_runtime &prt, predicate_runtime &ert, value pexpr,
-                value eexpr);
+match_arguments(predicate_runtime &prt, const predicate_runtime &ert,
+                value pexpr, value eexpr);
 
 
 // Predicate representation
@@ -54,9 +55,10 @@ class predicate {
   value m_body;
 }; // class opi::predicate
 
+
 template <typename Cont>
-concept prolog_continuation =
-    std::regular_invocable<Cont, const predicate_runtime &>;
+concept prolog_continuation = std::regular_invocable<Cont>;
+
 
 // Prolog evaluator
 class prolog {
@@ -66,7 +68,7 @@ class prolog {
   };
 
   // TODO: validate types
-  void
+  const predicate&
   add_predicate(value sig, value body);
 
   auto
@@ -110,11 +112,13 @@ prolog::predicate_branches(const std::string &name) const
          std::views::take(m_db.count(name));
 }
 
+
 template <prolog_continuation Cont>
 void
 prolog::make_true(predicate_runtime &ert, value e, Cont cont) const
 {
-  debug("make_true ", ert.substitute_vars(e));
+  debug("make_true ", reconstruct(e));
+
   indent _ {};
   switch (e->t)
   {
@@ -142,7 +146,7 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont) const
 
     case tag::boolean: {
       if (e->boolean)
-        cont(ert);
+        cont();
       return;
     }
 
@@ -152,26 +156,24 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont) const
   throw error {format("Invalid expression: ", e)};
 }
 
+
 template <prolog_continuation Cont>
 void
 prolog::_make_and_true(predicate_runtime &ert, value clauses, Cont cont) const
 {
-  // Case 1: sequentially process and-clauses
+    // Case 1: sequentially process and-clauses
   if (clauses->t == tag::pair)
   {
     // Separate head clause
     const value head = car(clauses);
     const value tail = cdr(clauses);
-    std::function<void(const predicate_runtime &)> andcont =
-        [&]([[maybe_unused]] const predicate_runtime &_) {
-          _make_and_true(ert, tail, cont);
-        };
+    std::function<void()> andcont = [&]() { _make_and_true(ert, tail, cont); };
     // Make head true and then proceed with other clauses
     make_true(ert, head, andcont);
   }
   // Case 2: no clauses left <=> true
   else
-    cont(ert);
+    cont();
 }
 
 
@@ -187,11 +189,11 @@ prolog::_make_or_true(predicate_runtime &ert, value clauses, Cont cont) const
     // Unify variables from parent frame with ones in the current frame
     for (const value var : ert.variables())
     {
-      const bool ok = ert.unify(ert[var], crt[var]);
+      const bool ok = unify(ert[var], crt[var]);
       assert(ok && "Failed to create variable in or-clause");
     }
     
-    debug("[pr] make_true(", clause, ") and <cont>");
+    debug("[or] make_true(", clause, ") and <cont>");
     make_true(crt, clause, cont);
     crt.mark_dead();
   }
@@ -203,25 +205,29 @@ void
 prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
                              value eargs, Cont cont) const
 {
-  const value pargs = list(pred.arguments());
-  debug("match ", eargs, " [=", ert.substitute_vars(eargs), "]", " on ",
-        pred.name(), list(pred.arguments()), " :- ", pred.body());
-
   predicate_runtime prt;
+
+  const value pargs = insert_cells(prt, list(pred.arguments()));
+  debug("match ", reconstruct(eargs), " on ", pred.name(), reconstruct(pargs),
+        " :- ", pred.body());
+
   if (match_arguments(prt, ert, pargs, eargs))
   {
-    const value signature = prt.substitute_vars(pargs);
+    const value signature = eargs;
     debug("\e[38;5;2maccept\e[0m [signature=", pred.name(), signature, "]");
     indent _ {};
     if (prt.try_sign(&pred, signature, ert))
     {
       debug("signed PRT");
-      std::function<void(const predicate_runtime &)> newcont =
-          [&]([[maybe_unused]] const predicate_runtime &_) { cont(ert); };
-      make_true(prt, pred.body(), newcont);
+      std::function<void()> newcont =
+          [&]() { cont(); };
+      make_true(prt, insert_cells(prt, pred.body()), newcont);
     }
     else
+    {
       debug("\e[38;5;3msignature clash\e[0m");
+      cont();
+    }
   }
   else
     debug("\e[38;5;1mreject\e[0m");

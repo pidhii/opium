@@ -4,21 +4,12 @@
 #include "opium/hash.hpp"
 #include "opium/stl/unordered_map.hpp"
 #include "opium/stl/vector.hpp"
+#include "opium/stl/deque.hpp"
+
 #include <stdexcept>
 
 
 namespace opi {
-
-
-// Helper function to check if a value is a variable
-inline bool
-starts_with_capital(const char *str, [[maybe_unused]] size_t len)
-{ return isupper(static_cast<unsigned char>(str[0])); }
-
-
-[[gnu::pure]] inline bool
-is_variable(value x)
-{ return issym(x) and starts_with_capital(x->sym.data, x->sym.len); }
 
 
 struct cell {
@@ -35,6 +26,35 @@ struct cell {
   kind kind;
   bool isdead; // Flag to undo logics via unlinking 'old' cells
 };
+
+
+// Find the representative cell
+cell *
+find(cell *x);
+
+// Unify two variables or a variable with a value
+//
+// Note asymmetry in arguments: LHS (`x`) will never be made a representative of
+// a chain. This guarantees preservation of hierarchy between LHS and RHS
+// variables and grants possibility to undo unifications by erasing RHS
+// variables from all link-chains.
+//
+// (sorry, not the best explanation, im not good at formulating my thoughs;
+//  in short it is required to make `mark_dead()` work)
+//
+// TODO: doesn't have to be a class method
+bool
+unify(cell *x, cell *y);
+
+// Reconstruct value from a cell
+value
+reconstruct(cell *x);
+
+value
+reconstruct(value x);
+
+bool
+get_value(cell *x, value &result);
 
 
 class predicate_runtime {
@@ -66,52 +86,30 @@ class predicate_runtime {
   try_sign(const void *preduid, value signature,
            const predicate_runtime &prev) noexcept;
 
-  // List owned variables
-  auto
+  // List visible variables
+  std::ranges::range auto
   variables() const noexcept
-  { return std::views::keys(m_varmap); }
-
-  // Substitute variables available in this frame.
-  value
-  substitute_vars(value x) const;
+  {
+    opi::deque<value> result;
+    for (const predicate_runtime *prt = this; prt; prt = prt->m_parent)
+    {
+      for (const auto &[key, _] : prt->m_varmap)
+        result.push_back(key);
+    }
+    return result;
+  }
 
   // Get the cell corresponding to the given variable
   cell*
   operator [] (value var);
 
+  cell*
+  operator [] (value var) const;
+
   // Get cell with value `val`. Cell will be owned by this runtime and will thus
   // be marked by `mark_dead()`.
   cell*
   make_term(value val);
-
-  // Find the representative cell for a variable
-  cell*
-  find(cell *x) const;
-
-  // Get the value of a variable if it has one
-  bool
-  get_value(value var, value &result) const noexcept;
-
-  bool
-  has_value(value var) const noexcept
-  { value _ = nil; return get_value(var, _); }
-
-  // Unify two variables or a variable with a value
-  //
-  // Note asymmetry in arguments: LHS (`x`) will never be made a representative of
-  // a chain. This guarantees preservation of hierarchy between LHS and RHS
-  // variables and grants possibility to undo unifications by erasing RHS
-  // variables from all link-chains.
-  //
-  // (sorry, not the best explanation, im not good at formulating my thoughs;
-  //  in short it is required to make `mark_dead()` work)
-  bool
-  unify(cell *x, cell *y);
-
-  // Assign a value to a variable
-  bool
-  assign(cell *x, value val)
-  { return unify(x, make_term(val)); }
 
   // Will effectively erase unifications with variables in this frame.
   void
@@ -127,5 +125,10 @@ class predicate_runtime {
                      // identify recursion
   const predicate_runtime *m_prev_frame;
 }; // class opi::predicate_runtime
+
+
+value
+insert_cells(predicate_runtime &prt, value expr);
+
 
 } // namespace opi

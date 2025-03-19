@@ -77,9 +77,6 @@ main(int argc, char **argv)
       size_t cursor = 0;
       while (cursor < tokens.size())
         pl << parser.parse_tokens(tokens, cursor);
-
-      // Empty line before the REPL
-      std::cout << "\n";
     }
     else
     {

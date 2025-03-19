@@ -1,13 +1,8 @@
 #include "opium/value.hpp"
-#include "opium/hash.hpp"
-#include "opium/stl/unordered_set.hpp"
 
-
-#define MAX_REPETITIONS 5
 
 static void
-_print(std::ostream &os, const opi::value &val,
-       opi::unordered_multiset<opi::value> &mem)
+_print(std::ostream &os, opi::value val, opi::value mem)
 {
   using namespace opi;
 
@@ -41,21 +36,35 @@ _print(std::ostream &os, const opi::value &val,
       os << val->num;
       break;
 
+    case tag::ptr:
+      os << val->ptr;
+      break;
+
     case tag::pair: {
-      if (mem.count(val) > MAX_REPETITIONS)
+      // Momorize the pair so we dont print it multiple times in case of
+      // self-referencing structures
+      if (memq(val, mem))
       {
-        os << "<pair @ " << &val << ">";
+        os << "...";
         return;
       }
-      else
-        // Momorize the pair so we dont print it multiple times in case of
-        // self-referencing structures
-        mem.insert(val);
+      mem = cons(val, mem);
 
-      os << '(' << car(val);
+      os << '(';
+      _print(os, car(val), mem);
       value elt = nil;
       for (elt = cdr(val); elt->t == tag::pair; elt = cdr(elt))
-        os << ' ' << car(elt);
+      { // Similar trick about self-referencing
+        if (memq(elt, mem))
+        {
+          os << "...)";
+          return;
+        }
+        mem = cons(elt, mem);
+        // Normal printing
+        os << ' ';
+        _print(os, car(elt), mem);
+      }
       if (is(elt, nil))
         os << ')';
       else
@@ -69,7 +78,6 @@ _print(std::ostream &os, const opi::value &val,
 std::ostream&
 operator << (std::ostream &os, const opi::value &val)
 {
-  opi::unordered_multiset<opi::value> mem;
-  _print(os, val, mem);
+  _print(os, val, opi::nil);
   return os;
 }

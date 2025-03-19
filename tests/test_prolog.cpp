@@ -1,4 +1,5 @@
 #include "opium/hash.hpp"
+#include "opium/predicate_runtime.hpp"
 #include "opium/prolog.hpp"
 #include "opium/stl/unordered_set.hpp"
 #include "opium/value.hpp"
@@ -28,9 +29,7 @@ protected:
   {
     bool success = false;
     opi::predicate_runtime prt;
-    pl.make_true(prt, query, [&success](const opi::predicate_runtime &) {
-      success = true;
-    });
+    pl.make_true(prt, query, [&success]() { success = true; });
     return success;
   }
 
@@ -42,10 +41,10 @@ protected:
     opi::unordered_set<opi::value> results;
 
     opi::predicate_runtime prt;
-    pl.make_true(prt, query, [&](const opi::predicate_runtime &result_prt) {
+    pl.make_true(prt, opi::insert_cells(prt, query), [&]() {
       success = true;
       opi::value query_result = opi::nil;
-      if (result_prt.get_value(var, query_result))
+      if (opi::get_value(prt[var], query_result))
         results.emplace(query_result);
     });
 
@@ -217,7 +216,9 @@ TEST_F(PrologTest, MatchArguments)
   EXPECT_FALSE(opi::match_arguments(prt, ert, opi::sym("a"), opi::sym("b")));
 
   // Test matching variables
-  EXPECT_TRUE(opi::match_arguments(prt, ert, opi::sym("X"), opi::sym("Y")));
+  EXPECT_TRUE(opi::match_arguments(prt, ert,
+                                   opi::insert_cells(prt, opi::sym("X")),
+                                   opi::insert_cells(ert, opi::sym("Y"))));
 
   // Test matching lists
   EXPECT_TRUE(opi::match_arguments(prt, ert,
@@ -229,13 +230,13 @@ TEST_F(PrologTest, MatchArguments)
                                     opi::list(opi::sym("a"), opi::sym("c"))));
 
   // Test matching with variables in lists
-  EXPECT_TRUE(opi::match_arguments(prt, ert,
-                                   opi::list(opi::sym("a"), opi::sym("X")),
+  const opi::value X = opi::insert_cells(prt, opi::sym("X"));
+  EXPECT_TRUE(opi::match_arguments(prt, ert, opi::list(opi::sym("a"), X),
                                    opi::list(opi::sym("a"), opi::sym("b"))));
 
   // After matching, X should be bound to b
   opi::value x_val = opi::nil;
-  EXPECT_TRUE(prt.get_value(opi::sym("X"), x_val));
+  EXPECT_TRUE(opi::get_value(prt[opi::sym("X")], x_val));
   EXPECT_TRUE(opi::equal(x_val, opi::sym("b")));
 }
 

@@ -1,33 +1,54 @@
 #include "opium/prolog.hpp"
+#include "opium/predicate_runtime.hpp"
+#include "opium/value.hpp"
+#include <regex.h>
 
 
-bool
-opi::match_arguments(opi::predicate_runtime &prt, opi::predicate_runtime &ert,
-                     opi::value pexpr, opi::value eexpr)
+// Check if expression represents a cell (i.e. `(__cell . <pointer>)`) and
+// return the cell pointer if it is.
+static inline bool
+_is_cell(opi::value expr, opi::cell *&result)
 {
-  // Expand variables whenever possible
-  if (is_variable(eexpr) and ert.get_value(eexpr, eexpr))
-    return match_arguments(prt, ert, pexpr, eexpr);
-  if (is_variable(pexpr) and prt.get_value(pexpr, pexpr))
-    return match_arguments(prt, ert, pexpr, eexpr);
-
-  if (is_variable(eexpr))
+  if (expr->t == opi::tag::pair and opi::issym(car(expr), "__cell"))
   {
-    if (is_variable(pexpr))
-      return prt.unify(prt[pexpr], ert[eexpr]);
-    else
-      return prt.assign(ert[eexpr], pexpr);
+    result = static_cast<opi::cell*>(expr->cdr->ptr);
+    return true;
   }
-  else if (is_variable(pexpr))
-    return prt.assign(prt[pexpr], eexpr);
+  return false;
+}
 
-  // Structural match
+static bool
+_match_arguments(opi::predicate_runtime &prt, const opi::predicate_runtime &ert,
+                 opi::value pexpr, opi::value eexpr, opi::value mem)
+{
+  opi::cell *c1, *c2;
+
+  // Expand variables whenever possible
+  if (_is_cell(eexpr, c1) and get_value(c1, eexpr))
+    return memq(eexpr, mem) or
+           _match_arguments(prt, ert, pexpr, eexpr, cons(eexpr, mem));
+  if (_is_cell(pexpr, c1) and get_value(c1, pexpr))
+    return memq(pexpr, mem) or
+           _match_arguments(prt, ert, pexpr, eexpr, cons(pexpr, mem));
+
+  // Unify or assign variables
+  if (_is_cell(eexpr, c1))
+  {
+    if (_is_cell(pexpr, c2))
+      return unify(c2, c1);
+    else
+      return unify(c1, prt.make_term(pexpr));
+  }
+  else if (_is_cell(pexpr, c1))
+    return unify(c1, prt.make_term(eexpr));
+
+  // Structural equality
   if (pexpr->t != eexpr->t)
     return false;
 
   switch (pexpr->t)
   {
-    case tag::pair:
+    case opi::tag::pair:
       return match_arguments(prt, ert, car(pexpr), car(eexpr)) and
              match_arguments(prt, ert, cdr(pexpr), cdr(eexpr));
 
@@ -36,11 +57,17 @@ opi::match_arguments(opi::predicate_runtime &prt, opi::predicate_runtime &ert,
   }
 }
 
+bool
+opi::match_arguments(opi::predicate_runtime &prt, const opi::predicate_runtime &ert,
+                 opi::value pexpr, opi::value eexpr)
+{ return _match_arguments(prt, ert, pexpr, eexpr, nil); }
 
-void
+const opi::predicate&
 opi::prolog::add_predicate(opi::value sig, opi::value body)
 {
-  m_db.emplace(std::piecewise_construct,
+  return m_db
+      .emplace(std::piecewise_construct,
                std::forward_as_tuple(car(sig)->sym.data),
-               std::forward_as_tuple(sig, body));
+               std::forward_as_tuple(sig, body))
+      ->second;
 }
