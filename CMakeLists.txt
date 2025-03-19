@@ -16,7 +16,12 @@ enable_testing ()
 include (FetchContent)
 
 # Find Boost
-find_package(Boost REQUIRED COMPONENTS program_options)
+cmake_policy (SET CMP0167 NEW)
+find_package (Boost REQUIRED COMPONENTS program_options)
+
+# Find Readline
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(READLINE REQUIRED readline)
 
 # Download and configure Google Test
 FetchContent_Declare(
@@ -32,7 +37,9 @@ FetchContent_MakeAvailable(googletest)
 file (GLOB src src/*.cpp)
 add_executable (opium main.cpp ${src})
 target_include_directories (opium PUBLIC ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries (opium PUBLIC -lgc ${Boost_LIBRARIES})
+target_link_libraries (opium PUBLIC -lgc ${Boost_LIBRARIES} ${READLINE_LIBRARIES})
+target_include_directories(opium PUBLIC ${READLINE_INCLUDE_DIRS})
+target_compile_options(opium PUBLIC ${READLINE_CFLAGS_OTHER})
 
 install (TARGETS opium DESTINATION bin)
 

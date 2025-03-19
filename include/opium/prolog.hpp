@@ -12,6 +12,7 @@
 #include <string>
 #include <cassert>
 #include <ranges>
+#include <set>
 
 
 namespace opi {
@@ -74,6 +75,10 @@ class prolog {
   auto
   predicate_branches(const std::string &name) const;
 
+  // Get all predicate names defined in the database
+  std::ranges::range auto
+  predicate_names() const;
+
   template <prolog_continuation Cont>
   void
   make_true(predicate_runtime &ert, value e, Cont cont) const;
@@ -101,6 +106,18 @@ class prolog {
 //
 //                     Template implementations
 //
+inline std::ranges::range auto
+opi::prolog::predicate_names() const
+{
+  std::set<std::string> unique_names; // Use set to avoid duplicates
+
+  // Iterate through all predicates in the database
+  for (const std::string &name : m_db | std::views::keys)
+    unique_names.emplace(name);
+
+  return unique_names;
+}
+
 inline auto
 prolog::predicate_branches(const std::string &name) const
 {
