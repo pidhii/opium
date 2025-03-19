@@ -16,18 +16,18 @@
 #include <string>
 #include <cstring>
 #include <set>
-#include <algorithm>
 
 // Readline headers
 #include <readline/readline.h>
 #include <readline/history.h>
 
 
-// Global set to store defined predicate names for autocompletion
-static std::set<std::string> defined_predicates;
+// Global set to store used symbols for autocompletion
+static std::set<std::string> used_symbols;
 
 // Keywords for autocompletion
 static const char *keywords[] = {"predicate", "query", "and", "or", nullptr};
+
 
 // Helper function to read a line with prompt using readline
 static bool
@@ -53,27 +53,28 @@ prompt_line(const std::string &prompt, std::string &line)
   return true;
 }
 
+
 // Readline completion function
 static char *
 command_generator(const char *text, int state)
 {
   static size_t keyword_index;
-  static std::vector<std::string> matching_predicates;
-  static size_t predicate_index;
+  static std::vector<std::string> matching_symbols;
+  static size_t symbol_index;
 
   // If this is a new word to complete, initialize the counters
   if (state == 0)
   {
     keyword_index = 0;
-    matching_predicates.clear();
-    predicate_index = 0;
+    matching_symbols.clear();
+    symbol_index = 0;
 
     // Find matching predicates
-    std::string prefix(text);
-    for (const auto &pred : defined_predicates)
+    const std::string prefix {text};
+    for (const auto &pred : used_symbols)
     {
       if (pred.compare(0, prefix.length(), prefix) == 0)
-        matching_predicates.push_back(pred);
+        matching_symbols.push_back(pred);
     }
   }
 
@@ -86,12 +87,13 @@ command_generator(const char *text, int state)
   }
 
   // Then return matching predicates
-  if (predicate_index < matching_predicates.size())
-    return strdup(matching_predicates[predicate_index++].c_str());
+  if (symbol_index < matching_symbols.size())
+    return strdup(matching_symbols[symbol_index++].c_str());
 
   // No more matches
   return nullptr;
 }
+
 
 // Readline completion function
 static char **
@@ -104,6 +106,7 @@ opium_completion(const char *text, [[maybe_unused]] int start,
   // Use our custom word generator function
   return rl_completion_matches(text, command_generator);
 }
+
 
 // Initialize readline with custom settings
 static void
@@ -130,6 +133,28 @@ cleanup_readline()
   // Save history to file (limit to 500 entries)
   write_history(".opium_history");
   history_truncate_file(".opium_history", 500);
+}
+
+
+// Extract all non-predicate symbols for auto-completion.
+static void
+extract_symbols(const opi::value expr)
+{
+  switch (expr->t)
+  {
+    case opi::tag::pair:
+      extract_symbols(car(expr));
+      extract_symbols(cdr(expr));
+      break;
+
+    case opi::tag::sym:
+      used_symbols.emplace(expr->sym.data);
+      break;
+
+    default:
+      // Ignore all other objects
+      ;
+  }
 }
 
 
@@ -175,16 +200,6 @@ main(int argc, char **argv)
   prolog_repl pl;
   lisp_parser parser;
   
-  // Add a function to extract predicate names for autocompletion
-  auto extract_predicate_name = [](value expr) {
-    if (issym(car(expr), "predicate") && length(cdr(expr)) > 0)
-    {
-      const value signature = car(cdr(expr));
-      if (signature->t == tag::pair && car(signature)->t == tag::sym)
-        defined_predicates.insert(car(signature)->sym.data);
-    }
-  };
-
   // Read input file if provided
   if (varmap.count("input-file"))
   {
@@ -194,11 +209,13 @@ main(int argc, char **argv)
       const auto tokens = parser.tokenize(infile);
       size_t cursor = 0;
       while (cursor < tokens.size())
-        pl << parser.parse_tokens(tokens, cursor);
-      
-      // Add all predicate names to autocompletion
-      for (const auto& name : pl.predicate_names())
-        defined_predicates.insert(name);
+      {
+        const value expr = parser.parse_tokens(tokens, cursor);
+        // Process the expression
+        pl << expr;
+        // Extract symbols for autocompletion
+        extract_symbols(expr);
+      }
     }
     else
     {
@@ -225,10 +242,8 @@ main(int argc, char **argv)
       {
         // Process the expression
         pl << expr;
-
-        // Extract predicate name for autocompletion if this is a predicate
-        // definition
-        extract_predicate_name(expr);
+        // Extract symbols for  autocompletion
+        extract_symbols(expr);
       }
       catch (const opi::prolog_repl::error &exn)
       { std::cout << exn.what() << std::endl; }
