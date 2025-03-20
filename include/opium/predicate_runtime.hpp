@@ -5,13 +5,21 @@
 #include "opium/stl/unordered_map.hpp"
 #include "opium/stl/vector.hpp"
 #include "opium/stl/deque.hpp"
+#include "opium/format.hpp"
 
+#include <concepts>
+#include <stdexcept>
 #include <stdexcept>
 
 
 namespace opi {
 
 
+// Cell representing a variable that can be identified with other variables or
+// bound to some value
+//
+// Note: cells implement a DFS-like (Disjoint Forest Set) logic to represent
+// identified variables
 struct cell {
   enum class kind : unsigned char {
     variable,  // Represents a variable without a value
@@ -32,6 +40,7 @@ struct cell {
 cell *
 find(cell *x);
 
+
 // Unify two variables or a variable with a value
 //
 // Note asymmetry in arguments: LHS (`x`) will never be made a representative of
@@ -42,17 +51,49 @@ find(cell *x);
 // (sorry, not the best explanation, im not good at formulating my thoughs;
 //  in short it is required to make `mark_dead()` work)
 //
-// TODO: doesn't have to be a class method
+// Throws std::runtime_error on attempt to unify to bound cells.
 bool
 unify(cell *x, cell *y);
 
-// Reconstruct value from a cell
-value
-reconstruct(cell *x);
 
-value
-reconstruct(value x);
+// Functoin accepting a cell pointer and returning a value
+template <typename T>
+concept unbound_variable_handler = requires(T & f)
+{
+  { f((cell *){}) } -> std::convertible_to<value>;
+};
 
+
+// Exceptioni type thrown upon encountering unbound variable by default
+// reconstructors
+struct reconstruction_error: public std::runtime_error {
+  using std::runtime_error::runtime_error;
+}; // strcut opi::reconstruction_error
+
+
+// Default handle of unbound variables during reconstruction
+//
+// Note: throws reconstruction_error upon unbound variable
+struct throw_on_unbound_variable {
+  value
+  operator () (cell *x) //const
+  { throw reconstruction_error {format("unbound variable @ ", x)}; }
+}; // struct opi::throw_on_unbound_variable
+
+
+// Reconstruct value produced during prolog query
+// 1) from an explicit cell
+template <unbound_variable_handler UVHandle = throw_on_unbound_variable>
+value
+reconstruct(cell *x, UVHandle uvhandler = UVHandle {});
+// 2) from expression containing nested cells
+template <unbound_variable_handler UVHandle = throw_on_unbound_variable>
+value
+reconstruct(value x, UVHandle uvhandler = UVHandle {});
+
+
+// Get value of a bound cell. Return true when the value was found; otherwize,
+// return false and `result` argument is left unmodified
 bool
 get_value(cell *x, value &result);
 
@@ -102,7 +143,6 @@ class predicate_runtime {
   // Get the cell corresponding to the given variable
   cell*
   operator [] (value var);
-
   cell*
   operator [] (value var) const;
 
@@ -132,3 +172,6 @@ insert_cells(predicate_runtime &prt, value expr);
 
 
 } // namespace opi
+
+
+#include "opium/predicate_runtime.inl"

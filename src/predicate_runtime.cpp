@@ -1,7 +1,6 @@
 #include "opium/predicate_runtime.hpp"
 #include "opium/hash.hpp"
 #include "opium/stl/unordered_map.hpp"
-#include "opium/format.hpp"
 #include "opium/prolog.hpp"
 
 #include <cstring>
@@ -89,73 +88,6 @@ opi::unify(cell *x, cell *y)
 }
 
 
-
-static opi::value
-_reconstruct(opi::value x, opi::unordered_map<opi::cell*, opi::value> &mem);
-
-static opi::value
-_reconstruct(opi::cell *x, opi::unordered_map<opi::cell*, opi::value> &mem);
-
-static opi::value
-_reconstruct(opi::value x, opi::unordered_map<opi::cell*, opi::value> &mem)
-{
-  if (x->t == opi::tag::pair)
-  {
-    if (opi::issym(car(x), "__cell"))
-      return _reconstruct(static_cast<opi::cell*>(x->cdr->ptr), mem);
-    else
-      return cons(_reconstruct(car(x), mem), _reconstruct(cdr(x), mem));
-  }
-  else
-    return x;
-}
-
-static opi::value
-_reconstruct(opi::cell *x, opi::unordered_map<opi::cell*, opi::value> &mem)
-{
-  x = find(x);
-
-  const auto it = mem.find(x);
-  if (it != mem.end())
-    return it->second;
-
-  switch (x->kind)
-  {
-    case opi::cell::kind::value:
-      if (x->val->t == opi::tag::pair)
-      {
-        const opi::value val = opi::cons(opi::nil, opi::nil);
-        mem.emplace(x, val);
-        val->car = &*_reconstruct(car(x->val), mem);
-        val->cdr = &*_reconstruct(cdr(x->val), mem);
-        return val;
-      }
-      else
-        return x->val;
-
-    case opi::cell::kind::variable:
-      return opi::sym(opi::format("<variable:", x, ">"));
-  }
-  std::terminate();
-}
-
-
-opi::value
-opi::reconstruct(cell *x)
-{
-  opi::unordered_map<cell*, value> mem;
-  return _reconstruct(x, mem);
-}
-
-
-opi::value
-opi::reconstruct(value x)
-{
-  opi::unordered_map<cell*, value> mem;
-  return _reconstruct(x, mem);
-}
-
-
 bool
 opi::get_value(cell *x, value &result)
 {
@@ -167,7 +99,6 @@ opi::get_value(cell *x, value &result)
   }
   return false;
 }
-
 
 
 opi::cell*
