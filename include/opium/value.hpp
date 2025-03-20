@@ -209,44 +209,9 @@ inline bool
 is(value a, value b)
 { return &*a == &*b; }
 
-inline bool
-equal(value a, value b)
-{
-  if (is(a, b))
-    return true;
+bool
+equal(value a, value b);
 
-  if (a->t != b->t)
-    return false;
-
-  switch (a->t)
-  {
-    case tag::sym:
-      return a->sym.len == b->sym.len and
-             std::strncmp(a->sym.data, b->sym.data, a->sym.len) == 0;
-
-    case tag::nil:
-      return true;
-
-    case tag::num:
-      return a->num == b->num;
-
-    case tag::ptr:
-      return a->ptr == b->ptr;
-
-    case tag::str:
-      return a->str.len == b->str.len and
-             std::strncmp(a->str.data, b->str.data, a->str.len) == 0;
-
-    case tag::pair:
-      return equal(value {a->car}, value {b->car}) and
-             equal(value {a->cdr}, value {b->cdr});
-
-    case tag::boolean:
-      return a->boolean == b->boolean;
-  }
-
-  abort();
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 //
