@@ -5,6 +5,7 @@
 #include <map>
 
 namespace opi {
+inline namespace stl {
 
 template <
   typename Key,
@@ -20,4 +21,5 @@ template <
 >
 using multimap = std::multimap<Key, T, Compare, gc_allocator<std::pair<const Key, T>>>;
 
+} // namespace opi::stl
 } // namespace opi

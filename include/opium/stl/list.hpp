@@ -2,13 +2,14 @@
 
 #include "opium/memory.hpp"
 
-#include <deque>
+#include <list>
+
 
 namespace opi {
 inline namespace stl {
 
 template <typename T>
-using deque = std::deque<T, gc_allocator<T>>;
+using list = std::list<T, gc_allocator<T>>;
 
 } // namespace opi::stl
 } // namespace opi

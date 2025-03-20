@@ -5,6 +5,7 @@
 #include <unordered_map>
 
 namespace opi {
+inline namespace stl {
 
 template <
   typename Key,
@@ -24,4 +25,5 @@ template <
 using unordered_multimap = std::unordered_multimap<Key, T, Hash, KeyEqual,
                                          gc_allocator<std::pair<const Key, T>>>;
 
+} // namespace opi::stl
 } // namespace opi
