@@ -187,21 +187,21 @@ main(int argc, char **argv)
   {
     error(e.what());
     std::cerr << desc << std::endl;
-    return 1;
+    return EXIT_FAILURE;
   }
 
-  if (varmap.count("help"))
+  if (varmap.contains("help"))
   {
     std::cout << "Usage: " << argv[0] << " [options] [input-file]" << std::endl;
     std::cout << desc << std::endl;
-    return 0;
+    return EXIT_SUCCESS;
   }
 
   prolog_repl pl;
   lisp_parser parser;
   
   // Read input file if provided
-  if (varmap.count("input-file"))
+  if (varmap.contains("input-file"))
   {
     const std::string input_file = varmap["input-file"].as<std::string>();
     if (std::ifstream infile {input_file, std::ios::binary})
