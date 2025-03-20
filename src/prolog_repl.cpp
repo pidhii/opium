@@ -1,8 +1,9 @@
+#include "opium/query.hpp"
 #include "opium/prolog_repl.hpp"
 #include "opium/predicate_runtime.hpp"
 #include "opium/value.hpp"
+
 #include <iostream>
-#include <sstream>
 
 
 // Helper function to pretty print predicate body with indentation
@@ -169,21 +170,16 @@ opi::prolog_repl::_query(opi::value expr)
   std::cout << std::endl;
 
   // Run query over `expr`
-  bool success = false;
   predicate_runtime prt;
-  make_true(prt, insert_cells(prt, expr), [&]() {
-    success = true;
-    std::vector<std::string> fragms;
-    for (const value var : prt.variables())
-      fragms.emplace_back(format(var, " = ", reconstruct(prt[var])));
+  unified_determined_summary summary {prt};
+  make_true(prt, insert_cells(prt, expr), std::ref(summary));
 
-    if (not fragms.empty())
-    {
-      for (std::string prefix = ""; const std::string &s : fragms)
-        std::cout << prefix << s, prefix = ", ";
-      std::cout << "." << std::endl;
-    }
-  });
-
-  std::cout << (success ? "=> yes" : "=> no") << std::endl;
+  for (const auto &[var, vals] : summary)
+  {
+    std::cout << var << " = ";
+    for (std::string prefix = ""; const value &val : vals)
+      std::cout << prefix << val, prefix = " | ";
+    std::cout << std::endl;
+  }
+  std::cout << (summary.empty() ? "=> no" : "=> yes") << std::endl;
 }
