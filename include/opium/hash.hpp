@@ -3,13 +3,14 @@
 #include "opium/value.hpp"
 
 #include <string_view>
+#include <unordered_set>
 
 
 namespace opi {
 
 template <class T>
 inline void
-hash_combine(size_t& seed, const T& v)
+hash_combine(size_t &seed, const T &v)
 {
   std::hash<T> hasher;
   seed ^= hasher(v) + 0x9e3779b9 + (seed<<6) + (seed>>2);
@@ -22,26 +23,38 @@ namespace std {
 
 template <>
 struct hash<opi::value> {
-  constexpr size_t operator () (const opi::value &x) const noexcept
+  size_t
+  operator () (const opi::value &x) const noexcept
   {
-    using cstrhash = std::hash<std::string_view>;
+    std::unordered_set<void*> mem;
+    return _hash(x, mem);
+  };
+
+  private:
+  // Hash function implementation with proper handling of recursive structures
+  size_t 
+  _hash(const opi::value &x, std::unordered_set<void*> &mem) const
+  {
+    std::hash<std::string_view> cstrhash;
     switch (x->t)
     {
       case opi::tag::nil: return 0;
-      case opi::tag::sym: return cstrhash{}({x->sym.data, x->sym.len});
-      case opi::tag::str: return cstrhash{}({x->str.data, x->str.len});
-      case opi::tag::num: return std::hash<long double>{}(x->num);
-      case opi::tag::ptr: return std::hash<void*>{}(x->ptr);
-      case opi::tag::boolean: return std::hash<bool>{}(x->boolean);
+      case opi::tag::sym: return cstrhash({x->sym.data, x->sym.len});
+      case opi::tag::str: return cstrhash({x->str.data, x->str.len});
+      case opi::tag::num: return std::hash<long double> {}(x->num);
+      case opi::tag::ptr: return std::hash<void *> {}(x->ptr);
+      case opi::tag::boolean: return std::hash<bool> {}(x->boolean);
       case opi::tag::pair: {
-        size_t hsh = (*this)(opi::value {x->car});
-        hash_combine(hsh, x->cdr);
-        return hsh;
+        if (not mem.emplace(&*x).second)
+          return 0;
+        size_t hash = _hash(opi::value {x->car}, mem);
+        opi::hash_combine(hash, _hash(opi::value {x->cdr}, mem));
+        return hash;
       }
+      default:
+       std::terminate();
     }
-
-    std::terminate();
-  };
+  }
 };
 
 } // namespace std
