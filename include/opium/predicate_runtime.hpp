@@ -77,7 +77,7 @@ struct reconstruction_error: public std::runtime_error {
 struct throw_on_unbound_variable {
   value
   operator () (cell *x) //const
-  { throw reconstruction_error {format("unbound variable @ ", x)}; }
+  { throw reconstruction_error {std::format("unbound variable @ {}", (void*)x)}; }
 }; // struct opi::throw_on_unbound_variable
 
 

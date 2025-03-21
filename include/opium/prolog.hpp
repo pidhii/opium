@@ -12,7 +12,6 @@
 #include <string>
 #include <cassert>
 #include <ranges>
-#include <set>
 
 
 namespace opi {
@@ -32,7 +31,7 @@ class predicate {
   {
     for (opi::value x : opi::range(opi::cdr(sig)))
       m_args.emplace_back(x);
-    debug("new predicate: ", m_name, opi::list(m_args), " :- ", m_body);
+    debug("new predicate: {}{} :- {}", m_name, opi::list(m_args), m_body);
   }
 
   // Get name of the predicate
@@ -107,7 +106,7 @@ prolog::predicate_branches(const std::string &name) const
 {
   const auto it = m_db.find(name);
   if (it == m_db.end())
-    throw error {opi::format("No such predicate: ", name)};
+    throw error {std::format("No such predicate: {}", name)};
 
   return std::ranges::subrange(it, m_db.end()) |
          std::views::take(m_db.count(name));
@@ -118,7 +117,7 @@ template <prolog_continuation Cont>
 void
 prolog::make_true(predicate_runtime &ert, value e, Cont cont) const
 {
-  debug("make_true ", reconstruct(e));
+  debug("make_true {}", e);
 
   indent _ {};
   switch (e->t)
@@ -154,7 +153,7 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont) const
     default:;
   }
 
-  throw error {format("Invalid expression: ", e)};
+  throw error {std::format("Invalid expression: {}", e)};
 }
 
 
@@ -191,10 +190,10 @@ prolog::_make_or_true(predicate_runtime &ert, value clauses, Cont cont) const
     for (const value var : ert.variables())
     {
       const bool ok = unify(ert[var], crt[var]);
-      assert(ok && "Failed to create variable in or-clause");
+      assert(ok and "Failed to create variable in or-clause");
     }
     
-    debug("[or] make_true(", clause, ") and <cont>");
+    debug("[or] make_true({}) and <cont>", clause);
     make_true(crt, clause, cont);
     crt.mark_dead();
   }
@@ -209,13 +208,12 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
   predicate_runtime prt;
 
   const value pargs = insert_cells(prt, list(pred.arguments()));
-  debug("match ", reconstruct(eargs), " on ", pred.name(), reconstruct(pargs),
-        " :- ", pred.body());
+  debug("match {} on {}{} :- {}", eargs, pred.name(), pargs, pred.body());
 
   if (match_arguments(prt, ert, pargs, eargs))
   {
     const value signature = eargs;
-    debug("\e[38;5;2maccept\e[0m [signature=", pred.name(), signature, "]");
+    debug("\e[38;5;2maccept\e[0m [signature={}{}]", pred.name(), signature);
     indent _ {};
     if (prt.try_sign(&pred, signature, ert))
     {

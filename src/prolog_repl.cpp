@@ -157,7 +157,7 @@ opi::prolog_repl::operator << (opi::value expr)
     return;
   }
 
-  throw error {format("Don't understand expression: ", expr)};
+  throw error {std::format("Don't understand expression: {}", expr)};
 }
 
 

@@ -1,10 +1,13 @@
 #pragma once
 
+#include "opium/value.hpp"
+
 #include <string>
 #include <sstream>
+#include <format>
+
 
 namespace opi {
-
 
 namespace detail {
 
@@ -23,16 +26,51 @@ format(Os &os, Head&& head, Tail ...tail)
 
 } // namespace opi::detail
 
-
-template <typename ...Tail>
-std::string
-format(Tail&& ...tail)
-{
-  std::ostringstream buf;
-  detail::format(buf, std::forward<Tail>(tail)...);
-  return std::move(buf).str();
-}
-
-
-
 } // namespace opi
+
+
+namespace std {
+
+template <>
+struct formatter<opi::value, char> {
+  // Unused for now
+  enum class style { write, display } style = style::write;
+
+  template <class ParseContext>
+  constexpr ParseContext::iterator
+  parse(ParseContext &ctx)
+  {
+    auto it = ctx.begin();
+    if (it == ctx.end())
+      return it;
+
+    if (*it == 'w')
+    {
+      style = style::write;
+      it++;
+    }
+
+
+    if (*it == 'd')
+    {
+      style = style::display;
+      it++;
+    }
+
+    if (it != ctx.end() and *it != '}')
+      throw std::format_error {"Invalid format arguments for opi::value"};
+
+    return it;
+  }
+
+  template <class FmtContext>
+  FmtContext::iterator
+  format(opi::value x, FmtContext &ctx) const
+  {
+    std::ostringstream buffer;
+    opi::detail::format(buffer, x);
+    return std::ranges::copy(std::move(buffer).str(), ctx.out()).out;
+  }
+};
+
+} // namespace std

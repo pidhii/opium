@@ -152,7 +152,7 @@ opi::predicate_runtime::try_sign(const void *preduid, value signature,
       assert(prt->m_preduid != nullptr);
       const bool issimilar =
           match_arguments(*this, *prt, signature, prt->m_signature);
-      debug("compare ", signature, " vs ", prt->m_signature, " -> ", issimilar);
+      debug("compare {} vs {} -> {}", signature, prt->m_signature, issimilar);
       if (issimilar)
         return false;
       mark_dead();

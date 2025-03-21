@@ -2,6 +2,7 @@
 
 #include "opium/format.hpp"
 
+#include <format>
 #include <iostream>
 
 
@@ -28,32 +29,36 @@ struct add_indent {
 
 
 template <typename... Args> void
-debug([[maybe_unused]] Args &&...args)
+debug(std::format_string<Args...> fmt, Args &&...args)
 {
-  // std::cerr << "[\e[7;1m debg \e[0m] " << add_indent(logging_indent)
-  //           << format(std::forward<Args>(args)...) << std::endl;
+  std::cerr << "[\e[7;1m debg \e[0m] " << add_indent(logging_indent);
+  std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
 }
 
-template <typename... Args> void
-info(Args &&...args)
-{
-  std::cerr << "[ info ] " << add_indent(logging_indent)
-            << format(std::forward<Args>(args)...) << std::endl;
-}
 
 template <typename... Args> void
-error(Args &&...args)
+info(std::format_string<Args...> fmt, Args &&...args)
 {
-  std::cerr << "[\e[38;5;1;1m fail \e[0m] " << add_indent(logging_indent)
-            << format(std::forward<Args>(args)...) << std::endl;
+  std::cerr << "[ info ] " << add_indent(logging_indent);
+  std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
 }
 
+
 template <typename... Args> void
-warning(Args &&...args)
+warning(std::format_string<Args...> fmt, Args &&...args)
 {
-  std::cerr << "[\e[38;5;3;1m warn \e[0m] " << add_indent(logging_indent)
-            << format(std::forward<Args>(args)...) << std::endl;
+  std::cerr << "[\e[38;5;3;1m warn \e[0m] " << add_indent(logging_indent);
+  std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
 }
+
+
+template <typename... Args> void
+error(std::format_string<Args...> fmt, Args &&...args)
+{
+  std::cerr << "[\e[38;5;1;1m fail \e[0m] " << add_indent(logging_indent);
+  std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+}
+
 
 struct indent {
   indent(size_t inc = 1)

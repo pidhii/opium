@@ -238,7 +238,7 @@ opi::lisp_parser::parse_atom(const token &tok)
       char *end;
       long double value = std::strtold(tok.value.c_str(), &end);
       if (*end != '\0')
-        throw parse_error {format("Invalid number: ", tok.value)};
+        throw parse_error {std::format("Invalid number: {}", tok.value)};
       return num(value);
     }
 
@@ -250,7 +250,7 @@ opi::lisp_parser::parse_atom(const token &tok)
 
     default:
       throw parse_error { 
-          format("Unexpected token type: ", static_cast<int>(tok.type)) };
+          std::format("Unexpected token type: {}", static_cast<int>(tok.type)) };
   }
 }
 

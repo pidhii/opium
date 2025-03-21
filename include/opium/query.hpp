@@ -21,7 +21,7 @@ struct _compare_symbols {
   {
     if (a->t != opi::tag::sym or b->t != opi::tag::sym)
       throw std::runtime_error {
-          opi::format("expected symbols, got ", a, " < ", b)};
+          std::format("expected symbols, got {} < {}", a, b)};
     return std::strcmp(a->sym.data, b->sym.data) < 0;
   }
 }; // class opi::detail::_compare

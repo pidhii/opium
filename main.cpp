@@ -185,7 +185,7 @@ main(int argc, char **argv)
   }
   catch (const po::error &e)
   {
-    error(e.what());
+    error("{}", e.what());
     std::cerr << desc << std::endl;
     return EXIT_FAILURE;
   }
@@ -219,7 +219,7 @@ main(int argc, char **argv)
     }
     else
     {
-      error("Could not open input file '", input_file, "'");
+      error("Could not open input file '{}'", input_file);
       return EXIT_FAILURE;
     }
   }
