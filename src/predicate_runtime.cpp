@@ -7,12 +7,24 @@
 #include <ranges>
 
 
-// Helper function to check if a value is a variable
+/**
+ * Helper function to check if a string starts with a capital letter
+ * 
+ * \param str String to check
+ * \param len Length of the string (unused)
+ * \return True if the string starts with a capital letter
+ */
 static inline bool
 _starts_with_capital(const char *str, [[maybe_unused]] size_t len)
 { return isupper(static_cast<unsigned char>(str[0])); }
 
 
+/**
+ * Check if a value is a variable (symbol starting with a capital letter)
+ * 
+ * \param x Value to check
+ * \return True if the value is a variable
+ */
 [[gnu::pure]] static inline bool
 _is_variable(opi::value x)
 { return opi::issym(x) and _starts_with_capital(x->sym.data, x->sym.len); }
@@ -141,8 +153,14 @@ opi::predicate_runtime::mark_dead()
 }
 
 
-// Check if expression represents a cell (i.e. `(__cell . <pointer>)`) and
-// return the cell pointer if it is.
+/**
+ * Check if expression represents a cell (i.e. `(__cell . <pointer>)`) and
+ * return the cell pointer if it is
+ * 
+ * \param expr Expression to check
+ * \param result Output parameter to store the cell pointer
+ * \return True if the expression represents a cell, false otherwise
+ */
 static inline bool
 _is_cell(opi::value expr, opi::cell *&result)
 {
@@ -200,8 +218,7 @@ bool
 opi::match_arguments(opi::predicate_runtime &prt,
                      const opi::predicate_runtime &ert, opi::value pexpr,
                      opi::value eexpr)
-{ return _match_arguments(prt, ert, pexpr, eexpr, opi::nil);
-}
+{ return _match_arguments(prt, ert, pexpr, eexpr, opi::nil); }
 
 
 opi::assign_nonterminal_to::assign_nonterminal_to(value val): m_val {val} {}

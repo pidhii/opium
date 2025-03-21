@@ -14,7 +14,18 @@ namespace opi {
 
 namespace detail {
 
+/**
+ * Comparison functor for symbols
+ */
 struct _compare_symbols {
+  /**
+   * Compare two symbols lexicographically
+   * 
+   * \param a First symbol
+   * \param b Second symbol
+   * \return True if a is lexicographically less than b
+   * \throws std::runtime_error If either a or b is not a symbol
+   */
   bool
   operator () (const value &a, const value &b) const
   {
@@ -28,13 +39,27 @@ struct _compare_symbols {
 } // namespace opi::detail
 
 
+/**
+ * A map that summarizes determined values for variables in a predicate runtime
+ */
 class unified_determined_summary
     : public opi::map<value, opi::unordered_set<value>,
                       detail::_compare_symbols> {
   public:
+  /**
+   * Constructor
+   * 
+   * \param prt Predicate runtime to summarize
+   */
   unified_determined_summary(const predicate_runtime &prt): m_prt {prt} { }
 
   public:
+  /**
+   * Collect determined values for all variables in the predicate runtime
+   * 
+   * For each variable, attempts to reconstruct its value. If successful,
+   * adds the value to the set of determined values for that variable.
+   */
   void
   operator () () 
   {
@@ -51,7 +76,7 @@ class unified_determined_summary
   }
 
   private:
-  const predicate_runtime &m_prt;
+  const predicate_runtime &m_prt; /**< Reference to the predicate runtime */
 }; // class opi::unified_determined_summary
 
 } // namespace opi

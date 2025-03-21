@@ -1,4 +1,6 @@
-// Template implementation of opium/predicate_runtime.hpp members 
+/**
+ * Template implementation of opium/predicate_runtime.hpp members 
+ */
 #pragma once
 
 #include "opium/predicate_runtime.hpp"
@@ -10,14 +12,31 @@
 
 namespace opi::detail {
 
+/**
+ * Helper struct for reconstructing values from cells
+ * 
+ * \tparam UVHandler Type of unbound variable handler
+ */
 template <unbound_variable_handler UVHandler>
 struct _reconstructor {
-  UVHandler uvhandler;
-  opi::unordered_map<cell *, value> mem;
+  UVHandler uvhandler; /**< Handler for unbound variables */
+  opi::unordered_map<cell *, value> mem; /**< Memoization map to avoid infinite recursion */
 
+  /**
+   * Constructor
+   * 
+   * \tparam T Type of unbound variable handler
+   * \param uvhandler Handler for unbound variables
+   */
   template <typename T>
   _reconstructor(T &&uvhandler): uvhandler {std::forward<T>(uvhandler)} { }
 
+  /**
+   * Reconstruct a value
+   * 
+   * \param x Value to reconstruct
+   * \return Reconstructed value
+   */
   opi::value
   _reconstruct(opi::value x)
   {
@@ -32,6 +51,12 @@ struct _reconstructor {
       return x;
   }
 
+  /**
+   * Reconstruct a value from a cell
+   * 
+   * \param x Cell to reconstruct from
+   * \return Reconstructed value
+   */
   opi::value
   _reconstruct(opi::cell *x)
   {
@@ -130,4 +155,3 @@ opi::predicate_runtime::try_sign(const void *preduid, value signature,
   m_prev_frame = &prev;
   return true;
 }
-

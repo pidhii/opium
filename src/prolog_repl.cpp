@@ -6,13 +6,21 @@
 #include <iostream>
 
 
-// Helper function to pretty print predicate body with indentation
+/**
+ * Helper function to pretty print predicate body with indentation
+ * 
+ * \param os Output stream to write to
+ * \param body Predicate body to print
+ * \param indent_level Current indentation level
+ */
 static void
 _pretty_print_body(std::ostream &os, opi::value body, int indent_level = 0)
 {
   using namespace opi;
 
-  // Helper for indentation
+  /**
+   * Helper lambda for indentation
+   */
   auto print_indent = [&os](int level) {
     for (int i = 0; i < level; ++i)
       os << " "; // Two spaces per indent level
@@ -119,7 +127,7 @@ _pretty_print_body(std::ostream &os, opi::value body, int indent_level = 0)
 void
 opi::prolog_repl::operator << (opi::value expr)
 {
-  // New predicate
+  // Handle a new predicate definition
   if (issym(car(expr), "predicate"))
   {
     const value signature = car(cdr(expr));
@@ -149,7 +157,7 @@ opi::prolog_repl::operator << (opi::value expr)
     return;
   }
 
-  // Query
+  // Handle a query expression
   if (issym(car(expr), "query"))
   {
     _query(car(cdr(expr)));
@@ -169,7 +177,9 @@ opi::prolog_repl::_query(opi::value expr)
   _pretty_print_body(std::cout, expr, 3);
   std::cout << std::endl;
 
-  // Run query over `expr`
+  /**
+   * Run query over `expr`
+   */
   predicate_runtime prt;
   unified_determined_summary summary {prt};
   make_true(prt, insert_cells(prt, expr), std::ref(summary),

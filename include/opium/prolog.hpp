@@ -18,10 +18,19 @@
 namespace opi {
 
 
-// Predicate representation
+/**
+ * Predicate representation
+ */
 class predicate {
   public:
-  // TODO: validate types
+  /**
+   * Constructor
+   * 
+   * \param sig Signature of the predicate
+   * \param body Body/rule of the predicate
+   * 
+   * \todo validate types
+   */
   predicate(value sig, value body)
   : m_name {opi::car(sig)->sym.data},
     m_body {body}
@@ -31,25 +40,37 @@ class predicate {
     debug("new predicate: {}{} :- {}", m_name, opi::list(m_args), m_body);
   }
 
-  // Get name of the predicate
+  /**
+   * Get name of the predicate
+   * 
+   * \return Name of the predicate
+   */
   const std::string&
   name() const noexcept
   { return m_name; }
 
-  // Get predicate arguments (as std::range)
-  auto
+  /**
+   * Get predicate arguments (as std::range)
+   * 
+   * \return Range of predicate arguments
+   */
+  std::ranges::range auto
   arguments() const noexcept
   { return m_args; }
 
-  // Get predicate body/rule
+  /**
+   * Get predicate body/rule
+   * 
+   * \return Predicate body/rule
+   */
   value
   body() const noexcept
   { return m_body; }
 
   private:
-  std::string m_name;
-  opi::vector<value> m_args;
-  value m_body;
+  std::string m_name; /**< Name of the predicate */
+  opi::vector<value> m_args; /**< Arguments of the predicate */
+  value m_body; /**< Body/rule of the predicate */
 }; // class opi::predicate
 
 
@@ -57,14 +78,24 @@ template <typename Cont>
 concept prolog_continuation = std::regular_invocable<Cont>;
 
 
-// Prolog evaluator
+/**
+ * Prolog evaluator
+ */
 class prolog {
   public:
   struct error: public std::runtime_error {
     using std::runtime_error::runtime_error;
   };
 
-  // TODO: validate types
+  /**
+   * Add a predicate to the evaluator
+   * 
+   * \param sig Signature of the predicate
+   * \param body Body/rule of the predicate
+   * \return Reference to the added predicate
+   * 
+   * \todo validate types
+   */
   const predicate&
   add_predicate(value sig, value body);
 
@@ -95,14 +126,14 @@ class prolog {
                        value eargs, Cont cont, NTVHandler ntvhandler) const;
 
   private:
-  opi::unordered_multimap<std::string, predicate> m_db;
+  opi::unordered_multimap<std::string, predicate> m_db; /**< Database of predicates */
 }; // class opi::prolog
 
 
 ////////////////////////////////////////////////////////////////////////////////
-//
-//                     Template implementations
-//
+/**
+ * Template implementations
+ */
 inline auto
 prolog::predicate_branches(const std::string &name) const
 {
