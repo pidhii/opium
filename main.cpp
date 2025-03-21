@@ -164,11 +164,14 @@ main(int argc, char **argv)
   namespace po = boost::program_options;
   using namespace opi;
 
+  std::string verbosity {loglevel_name(loglevel::warning)};
+
   // Define command line options
   po::options_description desc {"Allowed options"};
   desc.add_options()
     ("help", "produce help message")
-    ("input-file", po::value<std::string>(), "input file to process");
+    ("input-file", po::value<std::string>(), "input file to process")
+    ("verbosity,v", po::value<std::string>(&verbosity)->implicit_value("debug"), "verbosity");
 
   po::positional_options_description posdesc;
   posdesc.add("input-file", 1);
@@ -190,12 +193,17 @@ main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
+  // Print help
   if (varmap.contains("help"))
   {
     std::cout << "Usage: " << argv[0] << " [options] [input-file]" << std::endl;
     std::cout << desc << std::endl;
     return EXIT_SUCCESS;
   }
+
+  // Set global log-level
+  loglevel = parse_loglevel(verbosity);
+
 
   prolog_repl pl;
   lisp_parser parser;

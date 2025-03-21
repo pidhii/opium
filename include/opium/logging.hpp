@@ -4,12 +4,59 @@
 
 #include <format>
 #include <iostream>
+#include <stdexcept>
 
 
 namespace opi {
 
 
+enum class loglevel: int {
+  silent,
+  error,
+  warning,
+  info,
+  debug,
+};
+
+inline std::string_view
+loglevel_name(loglevel lvl)
+{
+  switch (lvl)
+  {
+    case loglevel::silent: return "silent";
+    case loglevel::error: return "error";
+    case loglevel::warning: return "warning";
+    case loglevel::info: return "info";
+    case loglevel::debug: return "debug";
+  }
+  std::terminate();
+}
+
+inline loglevel
+parse_loglevel(std::string_view name)
+{
+  if (name == "silent")
+    return loglevel::silent;
+  if (name == "error")
+    return loglevel::error;
+  if (name == "warning")
+    return loglevel::warning;
+  if (name == "info")
+    return loglevel::info;
+  if (name == "debug")
+    return loglevel::debug;
+  throw std::runtime_error {std::format("Invalid loglevel name ({})", name)};
+}
+
+
+inline bool
+operator >= (loglevel a, loglevel b)
+{ return static_cast<int>(a) >= static_cast<int>(b); }
+
+
 extern size_t logging_indent;
+
+extern loglevel loglevel;
 
 
 struct add_indent {
@@ -31,32 +78,44 @@ struct add_indent {
 template <typename... Args> void
 debug(std::format_string<Args...> fmt, Args &&...args)
 {
-  std::cerr << "[\e[7;1m debg \e[0m] " << add_indent(logging_indent);
-  std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+  if (loglevel >= loglevel::debug)
+  {
+    std::cerr << "[\e[7;1m debg \e[0m] " << add_indent(logging_indent);
+    std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+  }
 }
 
 
 template <typename... Args> void
 info(std::format_string<Args...> fmt, Args &&...args)
 {
-  std::cerr << "[ info ] " << add_indent(logging_indent);
-  std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+  if (loglevel >= loglevel::info)
+  {
+    std::cerr << "[ info ] " << add_indent(logging_indent);
+    std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+  }
 }
 
 
 template <typename... Args> void
 warning(std::format_string<Args...> fmt, Args &&...args)
 {
-  std::cerr << "[\e[38;5;3;1m warn \e[0m] " << add_indent(logging_indent);
-  std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+  if (loglevel >= loglevel::warning)
+  {
+    std::cerr << "[\e[38;5;3;1m warn \e[0m] " << add_indent(logging_indent);
+    std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+  }
 }
 
 
 template <typename... Args> void
 error(std::format_string<Args...> fmt, Args &&...args)
 {
-  std::cerr << "[\e[38;5;1;1m fail \e[0m] " << add_indent(logging_indent);
-  std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+  if (loglevel >= loglevel::error)
+  {
+    std::cerr << "[\e[38;5;1;1m fail \e[0m] " << add_indent(logging_indent);
+    std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+  }
 }
 
 
