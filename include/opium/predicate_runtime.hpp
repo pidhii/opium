@@ -79,6 +79,7 @@ struct throw_on_unbound_variable {
   operator () (cell *x) //const
   { throw reconstruction_error {std::format("unbound variable @ {}", (void*)x)}; }
 }; // struct opi::throw_on_unbound_variable
+static_assert(unbound_variable_handler<throw_on_unbound_variable>);
 
 
 // Reconstruct value produced during prolog query
@@ -96,6 +97,32 @@ reconstruct(value x, UVHandle uvhandler = UVHandle {});
 // return false and `result` argument is left unmodified
 bool
 get_value(cell *x, value &result);
+
+
+class predicate_runtime;
+template <typename T>
+concept nonterminal_variable_handler =
+    std::regular_invocable<T, predicate_runtime & /* roll-back PRT */,
+                           cell * /* nonterminal cell */>;
+
+
+struct ignore_nonterminal_variables {
+  void
+  operator () (predicate_runtime &, cell *) const noexcept { /* do nothing */ }
+}; // struct opi::ignore_nonterminal_variables
+static_assert(nonterminal_variable_handler<ignore_nonterminal_variables>);
+
+
+struct assign_nonterminal_to {
+  assign_nonterminal_to(value val);
+
+  void
+  operator () (predicate_runtime &rollbackprt, cell *x) const noexcept;
+
+  private:
+  value m_val;
+}; // class opi::assign_nonterminal_to
+static_assert(nonterminal_variable_handler<assign_nonterminal_to>);
 
 
 class predicate_runtime {
@@ -123,9 +150,10 @@ class predicate_runtime {
 
   // Will mark this frame wtth `name` and `signature` if unique and return true;
   // otherwize -- when non-unique -- do nothing and return false.
+  template <nonterminal_variable_handler NTVHandler = ignore_nonterminal_variables>
   bool
-  try_sign(const void *preduid, value signature,
-           const predicate_runtime &prev) noexcept;
+  try_sign(const void *preduid, value signature, const predicate_runtime &prev,
+           NTVHandler ntvhandler = NTVHandler {}) noexcept;
 
   // List visible variables
   std::ranges::range auto
@@ -165,6 +193,20 @@ class predicate_runtime {
                      // identify recursion
   const predicate_runtime *m_prev_frame;
 }; // class opi::predicate_runtime
+
+
+/**
+ * Match arguments between predicate runtime environments
+ * 
+ * @param prt Predicate runtime environment
+ * @param ert External runtime environment
+ * @param pexpr Predicate expression
+ * @param eexpr External expression
+ * @return true if arguments match, false otherwise
+ */
+bool
+match_arguments(predicate_runtime &prt, const predicate_runtime &ert,
+                value pexpr, value eexpr);
 
 
 value

@@ -4,7 +4,6 @@
 #include "opium/stl/map.hpp"
 #include "opium/hash.hpp"
 #include "opium/stl/unordered_set.hpp"
-#include "opium/format.hpp"
 #include "opium/value.hpp"
 
 #include <stdexcept>
@@ -42,7 +41,8 @@ class unified_determined_summary
     for (const value var : m_prt.variables())
     {
       try {
-        const value varval = reconstruct(m_prt[var]);
+        const value varval =
+            reconstruct(m_prt[var], [&](cell *) { return sym("<any>"); });
         this->operator[](var).emplace(varval);
       }
       catch (const reconstruction_error&)

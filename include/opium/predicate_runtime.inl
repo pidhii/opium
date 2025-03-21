@@ -2,9 +2,13 @@
 #pragma once
 
 #include "opium/predicate_runtime.hpp"
+#include "opium/logging.hpp"
 
-namespace opi {
-namespace detail {
+#include <cassert>
+#include <functional>
+
+
+namespace opi::detail {
 
 template <unbound_variable_handler UVHandler>
 struct _reconstructor {
@@ -62,21 +66,68 @@ struct _reconstructor {
 } // namespace opi::detail
 
 
-template <unbound_variable_handler UVHandle>
-value
-reconstruct(cell *x, UVHandle uvhandler)
+template <opi::unbound_variable_handler UVHandle>
+opi::value
+opi::reconstruct(cell *x, UVHandle uvhandler)
+{
+  return opi::detail::_reconstructor<std::remove_cvref_t<UVHandle>> {uvhandler}
+      ._reconstruct(x);
+}
+
+
+template <opi::unbound_variable_handler UVHandle>
+opi::value
+opi::reconstruct(value x, UVHandle uvhandler)
 {
   return detail::_reconstructor<std::remove_cvref_t<UVHandle>> {uvhandler}
       ._reconstruct(x);
 }
 
-
-template <unbound_variable_handler UVHandle>
-value
-reconstruct(value x, UVHandle uvhandler)
+template <opi::nonterminal_variable_handler NTVHandler>
+bool
+opi::predicate_runtime::try_sign(const void *preduid, value signature,
+                                 const predicate_runtime &prev,
+                                 NTVHandler ntvhandler) noexcept
 {
-  return detail::_reconstructor<std::remove_cvref_t<UVHandle>> {uvhandler}
-      ._reconstruct(x);
+  for (const predicate_runtime *prt = &prev; prt; prt = prt->m_prev_frame)
+  {
+    if (preduid == prt->m_preduid)
+    {
+      assert(prt->m_preduid != nullptr);
+      const bool issimilar =
+          match_arguments(*this, *prt, signature, prt->m_signature);
+      debug("compare {} vs {} -> {}", signature, prt->m_signature, issimilar);
+      if (issimilar)
+      {
+        // Process non-terminal variables
+        if constexpr (not std::is_same_v<NTVHandler, ignore_nonterminal_variables>)
+        {
+          for (const value var : variables())
+          {
+            // Variables present in signature but not bound by `match_arguments`
+            // are regarded as non-terminal (computation of their type will not
+            // terminate).
+            // Use `reconstruct` to scan for (possibly) nested unbound variables
+            // variables and trigger user-handler (`ntvhandler`) on each of them.
+            reconstruct((*this)[var], [&](cell *x) {
+              ntvhandler(*this, x);
+              return nil;
+            });
+          }
+        }
+        return false; // Notify about signature clash
+      }
+
+      // Clean up this runtime and proceed with clash-scann
+      mark_dead();
+      m_varmap.clear();
+    }
+  }
+
+  // No chash encountered. Add this runtime into the chain and report success
+  m_preduid = preduid;
+  m_signature = signature;
+  m_prev_frame = &prev;
+  return true;
 }
 
-} // namespace opi

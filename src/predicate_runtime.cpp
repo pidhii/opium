@@ -141,27 +141,72 @@ opi::predicate_runtime::mark_dead()
 }
 
 
-bool
-opi::predicate_runtime::try_sign(const void *preduid, value signature,
-                                 const predicate_runtime &prev) noexcept
+// Check if expression represents a cell (i.e. `(__cell . <pointer>)`) and
+// return the cell pointer if it is.
+static inline bool
+_is_cell(opi::value expr, opi::cell *&result)
 {
-  for (const predicate_runtime *prt = &prev; prt; prt = prt->m_prev_frame)
+  if (expr->t == opi::tag::pair and opi::issym(opi::car(expr), "__cell"))
   {
-    if (preduid == prt->m_preduid)
-    {
-      assert(prt->m_preduid != nullptr);
-      const bool issimilar =
-          match_arguments(*this, *prt, signature, prt->m_signature);
-      debug("compare {} vs {} -> {}", signature, prt->m_signature, issimilar);
-      if (issimilar)
-        return false;
-      mark_dead();
-      m_varmap.clear();
-    }
+    result = static_cast<opi::cell*>(opi::cdr(expr)->ptr);
+    return true;
   }
-
-  m_preduid = preduid;
-  m_signature = signature;
-  m_prev_frame = &prev;
-  return true;
+  return false;
 }
+
+
+static bool
+_match_arguments(opi::predicate_runtime &prt, const opi::predicate_runtime &ert,
+                 opi::value pexpr, opi::value eexpr, opi::value mem)
+{
+  opi::cell *c1, *c2;
+
+  // Expand variables whenever possible
+  if (_is_cell(eexpr, c1) and opi::get_value(c1, eexpr))
+    return opi::memq(eexpr, mem) or
+           _match_arguments(prt, ert, pexpr, eexpr, opi::cons(eexpr, mem));
+  if (_is_cell(pexpr, c1) and opi::get_value(c1, pexpr))
+    return opi::memq(pexpr, mem) or
+           _match_arguments(prt, ert, pexpr, eexpr, opi::cons(pexpr, mem));
+
+  // Unify or assign variables
+  if (_is_cell(eexpr, c1))
+  {
+    if (_is_cell(pexpr, c2))
+      return opi::unify(c2, c1);
+    else
+      return opi::unify(c1, prt.make_term(pexpr));
+  }
+  else if (_is_cell(pexpr, c1))
+    return opi::unify(c1, prt.make_term(eexpr));
+
+  // Structural equality
+  if (pexpr->t != eexpr->t)
+    return false;
+
+  switch (pexpr->t)
+  {
+    case opi::tag::pair:
+      return opi::match_arguments(prt, ert, opi::car(pexpr), opi::car(eexpr)) and
+             opi::match_arguments(prt, ert, opi::cdr(pexpr), opi::cdr(eexpr));
+
+    default:
+      return opi::equal(pexpr, eexpr);
+  }
+}
+
+
+bool
+opi::match_arguments(opi::predicate_runtime &prt,
+                     const opi::predicate_runtime &ert, opi::value pexpr,
+                     opi::value eexpr)
+{ return _match_arguments(prt, ert, pexpr, eexpr, opi::nil);
+}
+
+
+opi::assign_nonterminal_to::assign_nonterminal_to(value val): m_val {val} {}
+
+void
+opi::assign_nonterminal_to::operator () (predicate_runtime &rollbackprt,
+                                         cell *x) const noexcept
+{ unify(x, rollbackprt.make_term(m_val)); }

@@ -12,13 +12,10 @@
 #include <string>
 #include <cassert>
 #include <ranges>
+#
 
 
 namespace opi {
-
-bool
-match_arguments(predicate_runtime &prt, const predicate_runtime &ert,
-                value pexpr, value eexpr);
 
 
 // Predicate representation
@@ -74,23 +71,28 @@ class prolog {
   auto
   predicate_branches(const std::string &name) const;
 
-  template <prolog_continuation Cont>
+  template <
+    prolog_continuation Cont,
+    nonterminal_variable_handler NTVHandler = ignore_nonterminal_variables>
   void
-  make_true(predicate_runtime &ert, value e, Cont cont) const;
+  make_true(predicate_runtime &ert, value e, Cont cont,
+            NTVHandler ntvhandler = NTVHandler {}) const;
 
   private:
-  template <prolog_continuation Cont>
+  template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
   void
-  _make_and_true(predicate_runtime &ert, value clauses, Cont cont) const;
+  _make_and_true(predicate_runtime &ert, value clauses, Cont cont,
+                 NTVHandler ntvhandler) const;
 
-  template <prolog_continuation Cont>
+  template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
   void
-  _make_or_true(predicate_runtime &ert, value clauses, Cont cont) const;
+  _make_or_true(predicate_runtime &ert, value clauses, Cont cont,
+                NTVHandler ntvhandler) const;
 
-  template <prolog_continuation Cont>
+  template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
   void
   _make_predicate_true(predicate_runtime &ert, const predicate &pred,
-                       value eargs, Cont cont) const;
+                       value eargs, Cont cont, NTVHandler ntvhandler) const;
 
   private:
   opi::unordered_multimap<std::string, predicate> m_db;
@@ -112,10 +114,10 @@ prolog::predicate_branches(const std::string &name) const
          std::views::take(m_db.count(name));
 }
 
-
-template <prolog_continuation Cont>
+template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
 void
-prolog::make_true(predicate_runtime &ert, value e, Cont cont) const
+prolog::make_true(predicate_runtime &ert, value e, Cont cont,
+                  NTVHandler ntvhandler) const
 {
   debug("make_true {}", e);
 
@@ -126,19 +128,19 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont) const
       if (issym(car(e), "and"))
       {
         const value clauses = cdr(e);
-        return _make_and_true(ert, clauses, cont);
+        return _make_and_true(ert, clauses, cont, ntvhandler);
       }
       else if (issym(car(e), "or"))
       {
         const value clauses = cdr(e);
-        return _make_or_true(ert, clauses, cont);
+        return _make_or_true(ert, clauses, cont, ntvhandler);
       }
       else if (issym(car(e)))
       {
         const std::string predname = car(e)->sym.data;
         const value eargs = cdr(e);
         for (const auto &[_, p] : predicate_branches(predname))
-          _make_predicate_true(ert, p, eargs, cont);
+          _make_predicate_true(ert, p, eargs, cont, ntvhandler);
         return;
       }
       break;
@@ -156,10 +158,10 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont) const
   throw error {std::format("Invalid expression: {}", e)};
 }
 
-
-template <prolog_continuation Cont>
+template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
 void
-prolog::_make_and_true(predicate_runtime &ert, value clauses, Cont cont) const
+prolog::_make_and_true(predicate_runtime &ert, value clauses, Cont cont,
+                       NTVHandler ntvhandler) const
 {
     // Case 1: sequentially process and-clauses
   if (clauses->t == tag::pair)
@@ -167,19 +169,21 @@ prolog::_make_and_true(predicate_runtime &ert, value clauses, Cont cont) const
     // Separate head clause
     const value head = car(clauses);
     const value tail = cdr(clauses);
-    std::function<void()> andcont = [&]() { _make_and_true(ert, tail, cont); };
+    std::function<void()> andcont = [&]() {
+      _make_and_true(ert, tail, cont, ntvhandler);
+    };
     // Make head true and then proceed with other clauses
-    make_true(ert, head, andcont);
+    make_true(ert, head, andcont, ntvhandler);
   }
   // Case 2: no clauses left <=> true
   else
     cont();
 }
 
-
-template <prolog_continuation Cont>
+template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
 void
-prolog::_make_or_true(predicate_runtime &ert, value clauses, Cont cont) const
+prolog::_make_or_true(predicate_runtime &ert, value clauses, Cont cont,
+                      NTVHandler ntvhandler) const
 {
   for (const value clause : range(clauses))
   {
@@ -194,16 +198,16 @@ prolog::_make_or_true(predicate_runtime &ert, value clauses, Cont cont) const
     }
     
     debug("[or] make_true({}) and <cont>", clause);
-    make_true(crt, clause, cont);
+    make_true(crt, clause, cont, ntvhandler);
     crt.mark_dead();
   }
 }
 
-
-template <prolog_continuation Cont>
+template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
 void
 prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
-                             value eargs, Cont cont) const
+                             value eargs, Cont cont,
+                             NTVHandler ntvhandler) const
 {
   predicate_runtime prt;
 
@@ -215,12 +219,10 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
     const value signature = eargs;
     debug("\e[38;5;2maccept\e[0m [signature={}{}]", pred.name(), signature);
     indent _ {};
-    if (prt.try_sign(&pred, signature, ert))
+    if (prt.try_sign(&pred, signature, ert, ntvhandler))
     {
       debug("signed PRT");
-      std::function<void()> newcont =
-          [&]() { cont(); };
-      make_true(prt, insert_cells(prt, pred.body()), newcont);
+      make_true(prt, insert_cells(prt, pred.body()), cont, ntvhandler);
     }
     else
     {

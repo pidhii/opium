@@ -11,7 +11,7 @@ template <typename T, typename ...Args>
 T*
 make(Args&& ...args)
 {
-  T* obj = static_cast<T*>(GC_MALLOC(sizeof(T)));
+  T* obj = static_cast<T*>(GC_malloc(sizeof(T)));
   new (obj) T {std::forward<Args>(args)...};
   return obj;
 }
@@ -20,18 +20,18 @@ template <typename T, typename ...Args>
 T*
 make_atomic(Args&& ...args)
 {
-  T* obj = static_cast<T*>(GC_MALLOC_ATOMIC(sizeof(T)));
+  T* obj = static_cast<T*>(GC_malloc_atomic(sizeof(T)));
   new (obj) T {std::forward<Args>(args)...};
   return obj;
 }
 
 inline void*
 allocate(size_t size)
-{ return GC_MALLOC(size); }
+{ return GC_malloc(size); }
 
 inline void*
 allocate_atomic(size_t size)
-{ return GC_MALLOC_ATOMIC(size); }
+{ return GC_malloc_atomic(size); }
 
 
 template <typename T>

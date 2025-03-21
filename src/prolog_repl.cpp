@@ -172,7 +172,8 @@ opi::prolog_repl::_query(opi::value expr)
   // Run query over `expr`
   predicate_runtime prt;
   unified_determined_summary summary {prt};
-  make_true(prt, insert_cells(prt, expr), std::ref(summary));
+  make_true(prt, insert_cells(prt, expr), std::ref(summary),
+            assign_nonterminal_to(sym("<nonterminal>")));
 
   for (const auto &[var, vals] : summary)
   {
