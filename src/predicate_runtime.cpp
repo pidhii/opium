@@ -1,7 +1,8 @@
 #include "opium/predicate_runtime.hpp"
 #include "opium/hash.hpp"
 #include "opium/stl/unordered_map.hpp"
-#include "opium/prolog.hpp"
+#include "opium/stl/unordered_set.hpp"
+#include "opium/value.hpp"
 
 #include <cstring>
 #include <ranges>
@@ -219,6 +220,69 @@ opi::match_arguments(opi::predicate_runtime &prt,
                      const opi::predicate_runtime &ert, opi::value pexpr,
                      opi::value eexpr)
 { return _match_arguments(prt, ert, pexpr, eexpr, opi::nil); }
+
+
+static bool
+_equivalent(opi::value x, opi::value y, opi::value expandmem, opi::value &equivmem)
+{
+  opi::value tmp = opi::nil;
+  opi::cell *c1, *c2;
+
+  // If asked for equivalence of (X, Y) to prove the same equivalence of (X, Y)
+  // the answer is "yes"
+  const opi::value theseargs = opi::cons(x, y);
+  if (member(theseargs, expandmem))
+    return true;
+
+  // Expand variables
+  if (_is_cell(x, c1) and opi::get_value(c1, tmp))
+    return _equivalent(tmp, y, opi::cons(theseargs, expandmem), equivmem);
+  if (_is_cell(y, c1) and opi::get_value(c1, tmp))
+    return _equivalent(x, tmp, opi::cons(theseargs, expandmem), equivmem);
+
+  // Unbound variables:
+  // 1) Assert that unbound variable is not equivalent to any (particular) value
+  // 2) Identify not-yet-identified variables or confirm identity for identified
+  if (_is_cell(x, c1))
+  {
+    if (_is_cell(y, c2))
+    {
+      c1 = opi::find(c1);
+      c2 = opi::find(c2);
+      // Variable is always identified to it-self
+      if (c1 == c2)
+        return true;
+      // Assert identification if already present
+      if (assoc(ptr(c1), equivmem, tmp))
+        return tmp->ptr == c2;
+      if (assoc(ptr(c2), equivmem, tmp))
+        return tmp->ptr == c1;
+      // Identify new pair of variables with each-other
+      equivmem = cons(cons(ptr(c1), ptr(c2)), equivmem);
+      equivmem = cons(cons(ptr(c2), ptr(c1)), equivmem);
+      return true;
+    }
+    else
+      return false;
+  }
+  else if (_is_cell(y, c1))
+    return false;
+
+  // Structural equality
+  if (x->t != y->t)
+    return false;
+  if (x->t == opi::tag::pair)
+  {
+    return _equivalent(car(x), car(y), opi::cons(theseargs, expandmem), equivmem)
+       and _equivalent(cdr(x), cdr(y), opi::cons(theseargs, expandmem), equivmem);
+  }
+  else
+    return opi::equal(x, y);
+}
+  
+bool
+opi::equivalent(value x, value y)
+{ return _equivalent(x, y, nil, nil); }
 
 
 opi::assign_nonterminal_to::assign_nonterminal_to(value val): m_val {val} {}

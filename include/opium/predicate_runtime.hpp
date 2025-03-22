@@ -135,6 +135,13 @@ bool
 get_value(cell *x, value &result);
 
 
+/**
+ * Test two patterns with variables (cells) for equivalence
+ */
+bool
+equivalent(value x, value y);
+
+
 class predicate_runtime;
 template <typename T>
 concept nonterminal_variable_handler =

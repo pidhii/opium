@@ -119,10 +119,7 @@ opi::predicate_runtime::try_sign(const void *preduid, value signature,
     if (preduid == prt->m_preduid)
     {
       assert(prt->m_preduid != nullptr);
-      const bool issimilar =
-          match_arguments(*this, *prt, signature, prt->m_signature);
-      debug("compare {} vs {} -> {}", signature, prt->m_signature, issimilar);
-      if (issimilar)
+      if (equivalent(signature, prt->m_signature))
       {
         // Process non-terminal variables
         if constexpr (not std::is_same_v<NTVHandler, ignore_nonterminal_variables>)
@@ -142,10 +139,6 @@ opi::predicate_runtime::try_sign(const void *preduid, value signature,
         }
         return false; // Notify about signature clash
       }
-
-      // Clean up this runtime and proceed with clash-scann
-      mark_dead();
-      m_varmap.clear();
     }
   }
 

@@ -63,9 +63,15 @@ add_executable (test_lisp_reader tests/test_lisp_reader.cpp ${src})
 target_include_directories (test_lisp_reader PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries (test_lisp_reader PUBLIC -lgc GTest::gtest_main)
 
+# Equality Tests
+add_executable (test_equality tests/test_equality.cpp ${src})
+target_include_directories (test_equality PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries (test_equality PUBLIC -lgc GTest::gtest_main)
+
 # Register tests with CTest
 include (GoogleTest)
 gtest_discover_tests (test_predicate_runtime)
 gtest_discover_tests (test_lisp_parser)
 gtest_discover_tests (test_prolog)
 gtest_discover_tests (test_lisp_reader)
+gtest_discover_tests (test_equality)
