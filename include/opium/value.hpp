@@ -484,6 +484,48 @@ memq(value x, value l)
   return false;
 }
 
+// TODO: add docs
+inline bool
+member(value x, value l)
+{
+  for (; l->t == tag::pair; l = cdr(l))
+  {
+    if (equal(x, car(l)))
+      return true;
+  }
+  return false;
+}
+
+// TODO: add docs
+inline bool
+assq(value k, value l, value &result)
+{
+  for (; l->t == tag::pair; l = cdr(l))
+  {
+    if (is(k, car(car(l))))
+    {
+      result = cdr(car(l));
+      return true;
+    }
+  }
+  return false;
+}
+
+// TODO: add docs
+inline bool
+assoc(value k, value l, value &result)
+{
+  for (; l->t == tag::pair; l = cdr(l))
+  {
+    if (equal(k, car(car(l))))
+    {
+      result = cdr(car(l));
+      return true;
+    }
+  }
+  return false;
+}
+
 /** @} */
 
 /**
