@@ -134,4 +134,3 @@ class prolog {
 
 
 #include "opium/prolog.inl"
-
