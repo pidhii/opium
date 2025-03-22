@@ -45,6 +45,7 @@ requires std::predicate<IsVariable, const char*, size_t> and
 
     case tag::nil:
     case tag::num:
+    case tag::ptr:
     case tag::str:
     case tag::boolean:
       if (equal(expr, pat))
