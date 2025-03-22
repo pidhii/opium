@@ -34,7 +34,7 @@ namespace std {
 template <>
 struct formatter<opi::value, char> {
   // Unused for now
-  enum class style { write, display } style = style::write;
+  enum class style { write, display, print } style = style::print;
 
   template <class ParseContext>
   constexpr ParseContext::iterator
@@ -49,7 +49,6 @@ struct formatter<opi::value, char> {
       style = style::write;
       it++;
     }
-
 
     if (*it == 'd')
     {
@@ -68,7 +67,12 @@ struct formatter<opi::value, char> {
   format(opi::value x, FmtContext &ctx) const
   {
     std::ostringstream buffer;
-    opi::detail::format(buffer, x);
+    switch (style)
+    {
+      case style::write: opi::write(buffer, x); break;
+      case style::display: opi::display(buffer, x); break;
+      case style::print: opi::print(buffer, x); break;
+    }
     return std::ranges::copy(std::move(buffer).str(), ctx.out()).out;
   }
 };

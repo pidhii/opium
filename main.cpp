@@ -260,6 +260,6 @@ main(int argc, char **argv)
 
   // Clean up readline before exiting
   cleanup_readline();
-  
+
   return EXIT_SUCCESS;
 }

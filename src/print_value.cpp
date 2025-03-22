@@ -1,15 +1,17 @@
 #include "opium/value.hpp"
 
 
-static void
-_print(std::ostream &os, opi::value val, opi::value mem)
+enum class mode { write, display, print };
+
+void
+_print(mode mode, std::ostream &os, opi::value val, opi::value mem)
 {
   using namespace opi;
 
   switch (val->t)
   {
     case tag::nil:
-      os << "nil";
+      os << (mode == mode::write ? "'()" : "nil");
       break;
 
     case tag::boolean:
@@ -17,11 +19,14 @@ _print(std::ostream &os, opi::value val, opi::value mem)
       break;
 
     case tag::sym:
+      if (mode == mode::write)
+        os << '\'';
       os.write(val->sym.data, val->sym.len);
       break;
 
     case tag::str:
-      os << '"';
+      if (mode != mode::display)
+        os << '"';
       for (size_t i = 0; i < val->sym.len; ++i)
       {
         const char c = val->str.data[i];
@@ -29,7 +34,8 @@ _print(std::ostream &os, opi::value val, opi::value mem)
           os.put('\\');
         os.put(c);
       }
-      os << '"';
+      if (mode != mode::display)
+        os << '"';
       break;
 
     case tag::num:
@@ -51,7 +57,7 @@ _print(std::ostream &os, opi::value val, opi::value mem)
       mem = cons(val, mem);
 
       os << '(';
-      _print(os, car(val), mem);
+      _print(mode, os, car(val), mem);
       value elt = nil;
       for (elt = cdr(val); elt->t == tag::pair; elt = cdr(elt))
       { // Similar trick about self-referencing
@@ -63,7 +69,7 @@ _print(std::ostream &os, opi::value val, opi::value mem)
         mem = cons(elt, mem);
         // Normal printing
         os << ' ';
-        _print(os, car(elt), mem);
+        _print(mode, os, car(elt), mem);
       }
       if (is(elt, nil))
         os << ')';
@@ -75,9 +81,14 @@ _print(std::ostream &os, opi::value val, opi::value mem)
 }
 
 
-std::ostream&
-operator << (std::ostream &os, const opi::value &val)
-{
-  _print(os, val, opi::nil);
-  return os;
-}
+void
+opi::write(std::ostream &os, const opi::value &val)
+{ _print(mode::write, os, val, opi::nil); }
+
+void
+opi::display(std::ostream &os, const opi::value &val)
+{ _print(mode::display, os, val, opi::nil); }
+
+void
+opi::print(std::ostream &os, const opi::value &val)
+{ _print(mode::print, os, val, opi::nil); }

@@ -565,6 +565,23 @@ range(value l)
 
 /** @} */
 
+/**
+ * \name Printing
+ * @{
+ */
+
+
+void
+write(std::ostream &os, const opi::value &val);
+
+void
+display(std::ostream &os, const opi::value &val);
+
+void
+print(std::ostream &os, const opi::value &val);
+
+/** @} */
+
 } // namespace opi
 
 
@@ -575,8 +592,9 @@ range(value l)
  * \param val Value to output
  * \return Reference to the output stream
  */
-std::ostream&
-operator << (std::ostream &os, const opi::value &val);
+inline std::ostream&
+operator << (std::ostream &os, const opi::value &val)
+{ opi::print(os, val); return os; }
 
 inline bool
 opi::value::operator == (opi::value other) const noexcept
