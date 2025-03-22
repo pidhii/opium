@@ -33,7 +33,6 @@ namespace std {
 
 template <>
 struct formatter<opi::value, char> {
-  // Unused for now
   enum class style { write, display, print } style = style::print;
 
   template <class ParseContext>
