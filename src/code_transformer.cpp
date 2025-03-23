@@ -92,7 +92,7 @@ opi::scheme_code_transformer::scheme_code_transformer()
   auto let_rule = [this](const std::string &let, const auto &ms) {
     value idents = ms.contains("ident") ? ms.at("ident") : nil;
     value exprs = ms.contains("expr") ? ms.at("expr") : nil;
-    const value body = ms.at("body");
+    const value body = ms.contains("body") ? ms.at("body") : nil;
     value newbinds = nil;
     for (; exprs->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
       newbinds = append(newbinds, list(list(car(idents), (*this)(car(exprs)))));
