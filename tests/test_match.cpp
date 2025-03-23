@@ -218,3 +218,51 @@ TEST_F(MatchTest, OperatorWithoutMapping)
   EXPECT_TRUE(matcher(opi::list(opi::sym("a"), opi::sym("c"))));
   EXPECT_FALSE(matcher(opi::list(opi::sym("b"), opi::sym("c"))));
 }
+
+// Test pattern matching with ellipsis
+TEST_F(MatchTest, EllipsisMatching)
+{
+  // Create a list of literals
+  opi::value literals = opi::list(opi::sym("a"), opi::sym("b"));
+
+  // Create a pattern with an ellipsis - 'X ...' matches zero or more occurrences of any value
+  // The pattern is equivalent to (a X ... c) in Scheme syntax
+  opi::value pattern = opi::list(opi::sym("a"), opi::sym("X"), opi::sym("..."));
+
+  // Create a matcher
+  opi::match matcher(literals, pattern);
+
+  // Create a mapping to store variable bindings
+  opi::unordered_map<opi::value, opi::value> bindings;
+
+  // Test matching with multiple elements - 'X ...' should match 'd', 'e', 'f'
+  EXPECT_TRUE(matcher(
+      opi::list(opi::sym("a"), opi::sym("d"), opi::sym("e"), opi::sym("f")),
+      bindings));
+
+  // Check that the variable was bound correctly to a list of matched values
+  EXPECT_TRUE(bindings.contains(opi::sym("X")));
+  opi::value expected_list = opi::list(opi::sym("d"), opi::sym("e"), opi::sym("f"));
+  EXPECT_TRUE(opi::equal(bindings.at(opi::sym("X")), expected_list));
+
+  // Test matching with zero elements - 'X ...' can match zero occurrences
+  opi::unordered_map<opi::value, opi::value> bindings2;
+  EXPECT_TRUE(matcher(opi::list(opi::sym("a")), bindings2));
+  
+  // For empty matches, no binding is created in the map
+  EXPECT_FALSE(bindings2.contains(opi::sym("X")));
+
+  // Test matching with a single element - 'X ...' should match 'd'
+  opi::unordered_map<opi::value, opi::value> bindings3;
+  EXPECT_TRUE(matcher(opi::list(opi::sym("a"), opi::sym("d")), bindings3));
+  
+  // X should be bound to a list containing just 'd'
+  EXPECT_TRUE(bindings3.contains(opi::sym("X")));
+  EXPECT_TRUE(opi::equal(bindings3.at(opi::sym("X")), opi::list(opi::sym("d"))));
+
+  // Test non-matching pattern - 'b' doesn't match 'a' in the first position
+  opi::unordered_map<opi::value, opi::value> bindings4;
+  EXPECT_FALSE(matcher(
+      opi::list(opi::sym("b"), opi::sym("d"), opi::sym("e")),
+      bindings4));
+}

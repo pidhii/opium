@@ -195,7 +195,7 @@ extern value nil; /**< Nil constant */
  */
 inline value
 from(const std::string &s)
-{ return str(s); }
+{ return sym(s); }
 
 /**
  * Convert a number to a value
@@ -524,6 +524,15 @@ assoc(value k, value l, value &result)
     }
   }
   return false;
+}
+
+inline value
+append(value l, value x)
+{
+  if (l->t == tag::pair)
+    return cons(car(l), append(cdr(l), x));
+  else
+    return x;
 }
 
 /** @} */
