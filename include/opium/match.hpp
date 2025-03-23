@@ -91,8 +91,8 @@ class match {
           // Otherwize, match pattern-list element to expression-list element
           {
             if (eit->t != tag::pair)
-              return false; // Not enough elements in the expression
-
+              // Not enough elements in the expression
+              return false;
             // Match elementas
             if (not _match(car(pit), car(eit), result))
               return false;

@@ -40,6 +40,8 @@ class value {
   explicit
   value(object *ptr): m_ptr {ptr} { }
 
+  value(const char *sym);
+
   /**
    * Access the object via pointer syntax
    * 
@@ -108,11 +110,11 @@ struct object {
  * \return Symbol value
  */
 inline value
-sym(const std::string &str)
+sym(std::string_view str)
 {
   value ret {make<object>(tag::sym)};
   ret->sym.data = static_cast<char*>(allocate_atomic(str.length() + 1));
-  std::memcpy(ret->sym.data, str.c_str(), str.length() + 1);
+  std::memcpy(ret->sym.data, str.data(), str.length() + 1);
   ret->sym.len = str.length();
   return ret;
 }
@@ -186,16 +188,6 @@ extern value nil; /**< Nil constant */
  * \name Overloaded constructors from C++ types (casts)
  * @{
  */
-
-/**
- * Convert a string to a value
- * 
- * \param s String to convert
- * \return String value
- */
-inline value
-from(const std::string &s)
-{ return sym(s); }
 
 /**
  * Convert a number to a value
@@ -321,8 +313,8 @@ issym(value x)
  * \return True if the value is a symbol with the given name
  */
 inline bool
-issym(value x, const char *str)
-{ return issym(x) and strncmp(x->sym.data, str, x->sym.len) == 0; }
+issym(value x, std::string_view str)
+{ return issym(x) and (str == std::string_view {x->sym.data, x->sym.len}); }
 
 /**
  * Check if a value is a string
@@ -646,6 +638,11 @@ print(std::ostream &os, const opi::value &val);
 inline std::ostream&
 operator << (std::ostream &os, const opi::value &val)
 { opi::print(os, val); return os; }
+
+inline
+opi::value::value(const char *sym)
+: m_ptr {&*opi::sym(sym)}
+{ }
 
 inline bool
 opi::value::operator == (opi::value other) const noexcept

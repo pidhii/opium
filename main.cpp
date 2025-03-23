@@ -3,7 +3,9 @@
 #include "opium/prolog_repl.hpp"
 #include "opium/value.hpp"
 #include "opium/logging.hpp"
+#include "opium/code_transformer.hpp"
 
+#include <asm-generic/errno.h>
 #include <boost/program_options.hpp>
 
 #include <cassert>
@@ -257,6 +259,64 @@ main(int argc, char **argv)
       { std::cout << exn.what() << std::endl; }
     }
   }
+
+
+  size_t gensymcounter = 0;
+  auto gensym = [&gensymcounter]() -> value {
+    return sym(std::format("_T{}", gensymcounter++));
+  };
+
+  scheme_code_transformer ct;
+
+  // function invocation
+  // -------------------
+  // Pull output nested comound expressions from inside the invocation by
+  // separating them into bindings to temporary variables to replace
+  // corresponding expressions in the invocation form:
+  //
+  // (<expr1> <expr2> ...) ->
+  // (let ((<tmp1> T[<expr1>])
+  //       (<tmp2> T[<expr2>])
+  //             ...          )
+  //   (<tmp1> <tmp2> ...))
+  //
+  ct.append_rule(
+    match {nil, list("form", "...")},
+    [&ct, &gensym](const auto &ms) {
+      value binds = nil;
+      value result = nil;
+      for (const value x : range(ms.at("form")))
+      {
+        if (x->t == tag::pair)
+        {
+          const value uid = gensym();
+          binds = append(binds, list(list(uid, ct(x))));
+          result = append(result, list(uid));
+        }
+        else
+          result = append(result, list(x));
+      }
+      // Don't bloat output with empty let-statements
+      if (binds == nil)
+        return result;
+      else
+        return list("let", binds, result);
+    }
+  );
+
+  // atoms
+  ct.append_rule(
+    match {nil, "x"},
+    [](const auto &ms) { return ms.at("x"); }
+  );
+
+  const value in = parser.parse("(if (input prompt)            "
+                                "    (print (foo bar))         "
+                                "    (let ((z (foo (bar baz))))"
+                                "      (print z)))             ");
+  const value out = ct(in);
+  std::cout << std::format("[test code_transformer]\nin: {}\nout: {}", in, out)
+            << std::endl;
 
   // Clean up readline before exiting
   cleanup_readline();

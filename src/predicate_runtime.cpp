@@ -1,23 +1,10 @@
 #include "opium/predicate_runtime.hpp"
 #include "opium/hash.hpp"
 #include "opium/stl/unordered_map.hpp"
-#include "opium/stl/unordered_set.hpp"
 #include "opium/value.hpp"
 
 #include <cstring>
 #include <ranges>
-
-
-/**
- * Helper function to check if a string starts with a capital letter
- * 
- * \param str String to check
- * \param len Length of the string (unused)
- * \return True if the string starts with a capital letter
- */
-static inline bool
-_starts_with_capital(const char *str, [[maybe_unused]] size_t len)
-{ return isupper(static_cast<unsigned char>(str[0])); }
 
 
 /**
@@ -28,9 +15,10 @@ _starts_with_capital(const char *str, [[maybe_unused]] size_t len)
  */
 [[gnu::pure]] static inline bool
 _is_variable(opi::value x)
-{ return opi::issym(x) and _starts_with_capital(x->sym.data, x->sym.len); }
-
-
+{
+  return opi::issym(x) and
+         (isupper((unsigned char)x->sym.data[0]) or x->sym.data[0] == '_');
+}
 
 opi::value
 opi::insert_cells(predicate_runtime &prt, value expr)
