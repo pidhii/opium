@@ -35,6 +35,17 @@ class code_transformer {
 }; // class opi::code_transformer
 
 
+/**
+ *
+ * Scheme syntax support:
+ * - (if <cond> <then> <else>)
+ * - (let ((<ident> <expr>) ...) body ...)
+ * - (let* ((<ident> <expr>) ...) body ...)
+ * - (letrec ((<ident> <expr>) ...) body ...)
+ * - (letrec* ((<ident> <expr>) ...) body ...)
+ * - (let-values (((<ident> ...) <expr>) ...) body ...)
+ * - (let*-values (((<ident> ...) <expr>) ...) body ...)
+ */
 struct scheme_code_transformer: public code_transformer {
   scheme_code_transformer();
 }; // struct opi::scheme_code_transformer

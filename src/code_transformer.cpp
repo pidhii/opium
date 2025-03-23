@@ -1,6 +1,7 @@
 #include "opium/code_transformer.hpp"
 
 #include <format>
+#include <functional>
 
 
 void
@@ -55,36 +56,48 @@ opi::scheme_code_transformer::scheme_code_transformer()
     }
   );
 
-  // let-bindings (T-agnostic scheme syntax)
+  // let[rec][*][-values]-bindings (T-agnostic scheme syntax)
   // ---------------------------------------
   // Propagate transformation all contained expressions:
   //
   // (let ((<bind-id> <bind-expr>)
-  //              ...             )
+  //            ...               )
   //   <body-expr>
   //       ...    ) ->
   // (let ((<bind-id> T[<bind-expr>])
   //              ...                )
   //   T[<body-expr>]
   //       ...       )
-  append_rule(
-    match {
-      // literals:
-      list("let"),
-      // pattern:
-      list("let", list(list("identifier", "expr"), "..."), "body", "...")
-    },
-    [this](const auto &ms) {
-      value idents = ms.contains("identifier") ? ms.at("identifier") : nil;
-      value exprs = ms.contains("expr") ? ms.at("expr") : nil;
-      const value body = ms.at("body");
-      value newbinds = nil;
-      for (; exprs->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
-        newbinds = append(newbinds, list(list(car(idents), (*this)(car(exprs)))));
-      value newbody = nil;
-      for (const value x : range(body))
-        newbody = append(newbody, list((*this)(x)));
-      return list("let", newbinds, dot, newbody);
-    }
-  );
+  const value let_pattern =
+      list(list(list("ident", "expr"), "..."), "body", "...");
+  auto let_rule = [this](const std::string &let, const auto &ms) {
+    value idents = ms.contains("ident") ? ms.at("ident") : nil;
+    value exprs = ms.contains("expr") ? ms.at("expr") : nil;
+    const value body = ms.at("body");
+    value newbinds = nil;
+    for (; exprs->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
+      newbinds = append(newbinds, list(list(car(idents), (*this)(car(exprs)))));
+    value newbody = nil;
+    for (const value x : range(body))
+      newbody = append(newbody, list((*this)(x)));
+    return list(sym(let), newbinds, dot, newbody);
+  };
+  // let
+  append_rule(match {list("let"), cons("let", let_pattern)},
+              std::bind(let_rule, "let", std::placeholders::_1));
+  // let*
+  append_rule(match {list("let*"), cons("let*", let_pattern)},
+              std::bind(let_rule, "let*", std::placeholders::_1));
+  // letrec
+  append_rule(match {list("letrec"), cons("letrec", let_pattern)},
+              std::bind(let_rule, "letrec", std::placeholders::_1));
+  // letrec*
+  append_rule(match {list("letrec*"), cons("letrec*", let_pattern)},
+              std::bind(let_rule, "letrec*", std::placeholders::_1));
+  // let-values
+  append_rule(match {list("let-values"), cons("let-values", let_pattern)},
+              std::bind(let_rule, "let-values", std::placeholders::_1));
+  // let*-values
+  append_rule(match {list("let*-values"), cons("let*-values", let_pattern)},
+              std::bind(let_rule, "let*-values", std::placeholders::_1));
 }
