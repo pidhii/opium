@@ -153,7 +153,8 @@ opi::predicate_runtime::mark_dead()
 static inline bool
 _is_cell(opi::value expr, opi::cell *&result)
 {
-  if (expr->t == opi::tag::pair and opi::issym(opi::car(expr), "__cell"))
+  if (expr->t == opi::tag::pair and opi::issym(opi::car(expr), "__cell") and
+      opi::cdr(expr)->t == opi::tag::ptr)
   {
     result = static_cast<opi::cell*>(opi::cdr(expr)->ptr);
     return true;
@@ -219,7 +220,7 @@ _equivalent(opi::value x, opi::value y, opi::value expandmem, opi::value &equivm
   // If asked for equivalence of (X, Y) to prove the same equivalence of (X, Y)
   // the answer is "yes"
   const opi::value theseargs = opi::cons(x, y);
-  if (member(theseargs, expandmem))
+  if (opi::member(theseargs, expandmem))
     return true;
 
   // Expand variables
@@ -270,7 +271,11 @@ _equivalent(opi::value x, opi::value y, opi::value expandmem, opi::value &equivm
   
 bool
 opi::equivalent(value x, value y)
-{ return _equivalent(x, y, nil, nil); }
+{
+  value expandmem = nil;
+  value equivmem = nil;
+  return _equivalent(x, y, expandmem, equivmem);
+}
 
 
 opi::assign_nonterminal_to::assign_nonterminal_to(value val): m_val {val} {}
