@@ -12,7 +12,16 @@
 #include <string>
 #include <cassert>
 #include <ranges>
-#
+
+/**
+ * \file prolog.hpp
+ * Prolog language implementation
+ * 
+ * This file defines the core classes for the Prolog language implementation,
+ * including predicate representation and evaluation.
+ * 
+ * \ingroup prolog
+ */
 
 
 namespace opi {
@@ -20,6 +29,8 @@ namespace opi {
 
 /**
  * Predicate representation
+ * 
+ * \ingroup prolog
  */
 class predicate {
   public:
@@ -74,12 +85,19 @@ class predicate {
 }; // class opi::predicate
 
 
+/**
+ * Concept for continuations in Prolog evaluation
+ * 
+ * \ingroup prolog
+ */
 template <typename Cont>
 concept prolog_continuation = std::regular_invocable<Cont>;
 
 
 /**
  * Prolog evaluator
+ * 
+ * \ingroup prolog
  */
 class prolog {
   public:

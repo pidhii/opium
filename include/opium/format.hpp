@@ -2,20 +2,54 @@
 
 #include "opium/value.hpp"
 
-#include <string>
 #include <sstream>
 #include <format>
+
+/**
+ * \file format.hpp
+ * Formatting utilities
+ * 
+ * This file defines utilities for formatting values as strings.
+ * 
+ * \ingroup utils
+ */
 
 
 namespace opi {
 
+/**
+ * \namespace opi::detail
+ * Implementation details
+ */
 namespace detail {
 
+/**
+ * Format a single value to an output stream
+ * 
+ * \tparam Os Output stream type
+ * \tparam Head Value type
+ * \param os Output stream
+ * \param head Value to format
+ * 
+ * \ingroup utils
+ */
 template <typename Os, typename Head>
 void
 format(Os &os, Head&& head)
 { os << std::forward<Head>(head); }
 
+/**
+ * Format multiple values to an output stream
+ * 
+ * \tparam Os Output stream type
+ * \tparam Head First value type
+ * \tparam Tail Rest of value types
+ * \param os Output stream
+ * \param head First value to format
+ * \param tail Rest of values to format
+ * 
+ * \ingroup utils
+ */
 template <typename Os, typename Head, typename ...Tail>
 void
 format(Os &os, Head&& head, Tail ...tail)
@@ -31,6 +65,11 @@ format(Os &os, Head&& head, Tail ...tail)
 
 namespace std {
 
+/**
+ * Formatter for opi::value
+ * 
+ * \ingroup utils
+ */
 template <>
 struct formatter<opi::value, char> {
   enum class style { write, display, print } style = style::print;

@@ -11,6 +11,16 @@
 #include <stdexcept>
 #include <stdexcept>
 
+/**
+ * \file predicate_runtime.hpp
+ * Runtime environment for Prolog predicates
+ * 
+ * This file defines the runtime environment for Prolog predicates,
+ * including variable binding and unification.
+ * 
+ * \ingroup prolog
+ */
+
 
 namespace opi {
 
@@ -21,6 +31,8 @@ namespace opi {
  * 
  * \note Cells implement a DFS-like (Disjoint Forest Set) logic to represent
  * identified variables
+ * 
+ * \ingroup prolog
  */
 struct cell {
   enum class kind : unsigned char {
@@ -43,6 +55,8 @@ struct cell {
  * 
  * \param x The cell to find the representative for
  * \return Pointer to the representative cell
+ * 
+ * \ingroup prolog
  */
 cell *
 find(cell *x);
@@ -62,6 +76,8 @@ find(cell *x);
  * \param y Right-hand side cell
  * \return True if unification succeeded, false otherwise
  * \throws std::runtime_error On attempt to unify two bound cells
+ * 
+ * \ingroup prolog
  */
 bool
 unify(cell *x, cell *y);
@@ -69,6 +85,8 @@ unify(cell *x, cell *y);
 
 /**
  * Concept for a function accepting a cell pointer and returning a value
+ * 
+ * \ingroup prolog
  */
 template <typename T>
 concept unbound_variable_handler = requires(T & f)
@@ -80,6 +98,8 @@ concept unbound_variable_handler = requires(T & f)
 /**
  * Exception type thrown upon encountering unbound variable by default
  * reconstructors
+ * 
+ * \ingroup prolog
  */
 struct reconstruction_error: public std::runtime_error {
   using std::runtime_error::runtime_error;
@@ -90,6 +110,8 @@ struct reconstruction_error: public std::runtime_error {
  * Default handler of unbound variables during reconstruction
  * 
  * \note Throws reconstruction_error upon encountering an unbound variable
+ * 
+ * \ingroup prolog
  */
 struct throw_on_unbound_variable {
   value
@@ -106,6 +128,8 @@ static_assert(unbound_variable_handler<throw_on_unbound_variable>);
  * \param x Cell to reconstruct from
  * \param uvhandler Handler for unbound variables
  * \return Reconstructed value
+ * 
+ * \ingroup prolog
  */
 template <unbound_variable_handler UVHandle = throw_on_unbound_variable>
 value
@@ -130,6 +154,8 @@ reconstruct(value x, UVHandle uvhandler = UVHandle {});
  * \param result Output parameter to store the value
  * \return True when the value was found; otherwise,
  * return false and `result` argument is left unmodified
+ * 
+ * \ingroup prolog
  */
 bool
 get_value(cell *x, value &result);
@@ -137,6 +163,8 @@ get_value(cell *x, value &result);
 
 /**
  * Test two patterns with variables (cells) for equivalence
+ * 
+ * \ingroup prolog
  */
 bool
 equivalent(value x, value y);
@@ -151,6 +179,8 @@ concept nonterminal_variable_handler =
 
 /**
  * Handler that ignores nonterminal variables
+ * 
+ * \ingroup prolog
  */
 struct ignore_nonterminal_variables {
   /**
@@ -164,6 +194,8 @@ static_assert(nonterminal_variable_handler<ignore_nonterminal_variables>);
 
 /**
  * Handler that assigns a value to nonterminal variables
+ * 
+ * \ingroup prolog
  */
 struct assign_nonterminal_to {
   /**
@@ -188,6 +220,11 @@ struct assign_nonterminal_to {
 static_assert(nonterminal_variable_handler<assign_nonterminal_to>);
 
 
+/**
+ * Runtime environment for Prolog predicates
+ * 
+ * \ingroup prolog
+ */
 class predicate_runtime {
   public:
   struct error: public std::runtime_error {
@@ -297,6 +334,8 @@ class predicate_runtime {
  * \param pexpr Predicate expression
  * \param eexpr External expression
  * \return true if arguments match, false otherwise
+ * 
+ * \ingroup prolog
  */
 bool
 match_arguments(predicate_runtime &prt, const predicate_runtime &ert,
@@ -309,6 +348,8 @@ match_arguments(predicate_runtime &prt, const predicate_runtime &ert,
  * \param prt Predicate runtime environment
  * \param expr Expression to insert cells into
  * \return Modified expression with cells inserted
+ * 
+ * \ingroup prolog
  */
 value
 insert_cells(predicate_runtime &prt, value expr);

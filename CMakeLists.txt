@@ -20,8 +20,18 @@ cmake_policy (SET CMP0167 NEW)
 find_package (Boost REQUIRED COMPONENTS program_options)
 
 # Find Readline
-find_package(PkgConfig REQUIRED)
-pkg_check_modules(READLINE REQUIRED readline)
+find_package (PkgConfig REQUIRED)
+pkg_check_modules (READLINE REQUIRED readline)
+
+# Find Doxygen
+find_package(Doxygen)
+if (DOXYGEN_FOUND)
+  add_custom_target (docs
+    COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/Doxyfile
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Generating API documentation with Doxygen"
+    VERBATIM)
+endif ()
 
 # Download and configure Google Test
 FetchContent_Declare(

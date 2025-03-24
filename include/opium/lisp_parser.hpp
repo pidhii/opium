@@ -6,9 +6,23 @@
 #include <stdexcept>
 #include <istream>
 
+/**
+ * \file lisp_parser.hpp
+ * Lisp parser implementation
+ * 
+ * This file defines the parser for Lisp-style expressions.
+ * 
+ * \ingroup lisp
+ */
+
 
 namespace opi {
 
+/**
+ * Parser for Lisp-style expressions
+ * 
+ * \ingroup lisp
+ */
 class lisp_parser {
   public:
   // Parse a LISP-style string into an opi::value
@@ -19,7 +33,11 @@ class lisp_parser {
   value
   parse(std::istream &input);
 
-  // Tokenizer
+  /**
+   * Token representation for the lexical analyzer
+   * 
+   * \ingroup lisp
+   */
   struct token {
     enum class type {
       LPAREN,  // (
@@ -74,7 +92,11 @@ class lisp_parser {
 };
 
 
-// Exception class for parser errors
+/**
+ * Exception class for parser errors
+ * 
+ * \ingroup lisp
+ */
 struct parse_error: public std::runtime_error {
   explicit parse_error(const std::string& what) : std::runtime_error(what) {}
 };

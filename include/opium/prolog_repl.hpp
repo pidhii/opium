@@ -5,6 +5,15 @@
 
 #include <stdexcept>
 
+/**
+ * \file prolog_repl.hpp
+ * Prolog REPL (Read-Eval-Print Loop) implementation
+ * 
+ * This file defines the interactive REPL for the Prolog language implementation.
+ * 
+ * \ingroup prolog
+ */
+
 
 namespace opi {
 
@@ -13,11 +22,15 @@ namespace opi {
  * 
  * Extends the base prolog evaluator with interactive capabilities
  * for defining predicates and executing queries
+ * 
+ * \ingroup prolog
  */
 class prolog_repl: public prolog {
   public:
   /**
    * Error type for REPL-specific errors
+   * 
+   * \ingroup prolog
    */
   struct error: public std::runtime_error {
     using std::runtime_error::runtime_error;

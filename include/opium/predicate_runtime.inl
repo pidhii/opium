@@ -1,13 +1,12 @@
 /**
+ * \file predicate_runtime.ini
  * Template implementation of opium/predicate_runtime.hpp members 
  */
 #pragma once
 
 #include "opium/predicate_runtime.hpp"
-#include "opium/logging.hpp"
 
 #include <cassert>
-#include <functional>
 
 
 namespace opi::detail {

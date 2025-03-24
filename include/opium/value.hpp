@@ -7,6 +7,16 @@
 #include <cstring>
 #include <ranges>
 
+/**
+ * \file value.hpp
+ * Core value representation for the Opium library
+ * 
+ * This file defines the fundamental value types and operations used throughout
+ * the Opium library.
+ * 
+ * \ingroup core
+ */
+
 
 
 namespace opi {
@@ -14,6 +24,8 @@ namespace opi {
 
 /**
  * Tag enumeration for object types
+ * 
+ * \ingroup core
  */
 enum class tag {
   nil,
@@ -29,6 +41,8 @@ struct object;
 
 /**
  * Value class representing a reference to an object
+ * 
+ * \ingroup core
  */
 class value {
   public:
@@ -76,6 +90,8 @@ class value {
 
 /**
  * Object structure representing a value
+ * 
+ * \ingroup core
  */
 struct object {
   /**
@@ -100,7 +116,7 @@ struct object {
 
 /**
  * \name Fundamental constructors
- * @{
+ * \{
  */
 
 /**
@@ -108,6 +124,8 @@ struct object {
  * 
  * \param str Symbol name
  * \return Symbol value
+ *
+ * \ingroup core
  */
 inline value
 sym(std::string_view str)
@@ -124,6 +142,8 @@ sym(std::string_view str)
  * 
  * \param str String content
  * \return String value
+ *
+ * \ingroup core
  */
 inline value
 str(const std::string &str)
@@ -140,6 +160,8 @@ str(const std::string &str)
  * 
  * \param val Numeric value
  * \return Numeric value
+ *
+ * \ingroup core
  */
 inline value
 num(long double val)
@@ -154,6 +176,8 @@ num(long double val)
  * 
  * \param ptr Pointer value
  * \return Pointer value
+ *
+ * \ingroup core
  */
 inline value
 ptr(void *ptr)
@@ -169,6 +193,8 @@ ptr(void *ptr)
  * \param car First element of the pair
  * \param cdr Second element of the pair
  * \return Pair value
+ *
+ * \ingroup core
  */
 inline value
 pair(value car, value cdr)
@@ -182,11 +208,11 @@ pair(value car, value cdr)
 extern const value True, False; /**< Boolean constants */
 extern const value nil; /**< Nil constant */
 
-/** @} */
+/** \} */
 
 /**
  * \name Overloaded constructors from C++ types (casts)
- * @{
+ * \{
  */
 
 /**
@@ -194,6 +220,8 @@ extern const value nil; /**< Nil constant */
  * 
  * \param x Number to convert
  * \return Numeric value
+ *
+ * \ingroup core
  */
 inline value
 from(long double x)
@@ -204,6 +232,8 @@ from(long double x)
  * 
  * \param p Pair to convert
  * \return Pair value
+ *
+ * \ingroup core
  */
 inline value
 from(const std::pair<value, value> &p)
@@ -214,20 +244,24 @@ from(const std::pair<value, value> &p)
  * 
  * \param val Value to convert
  * \return The same value
+ *
+ * \ingroup core
  */
 inline value
 from(value val)
 { return val; }
 
-/** @} */
+/** \} */
 
 /**
  * \name List constructor
- * @{
+ * \{
  */
 
 /**
  * Dot type for dotted pairs in list construction
+ * 
+ * \ingroup core
  */
 struct dot_t { };
 constexpr dot_t dot; /**< Dot constant */
@@ -237,6 +271,8 @@ constexpr dot_t dot; /**< Dot constant */
  * 
  * \param head List element
  * \return List with a single element
+ *
+ * \ingroup core
  */
 template <typename Head>
 value
@@ -250,6 +286,8 @@ list(Head head)
  * \param _ Dot marker (unused)
  * \param cdr Second element
  * \return Dotted pair
+ *
+ * \ingroup core
  */
 template <typename Car, typename Cdr>
 value
@@ -262,12 +300,22 @@ list(Car car, [[maybe_unused]] dot_t _, Cdr cdr)
  * \param head First element
  * \param tail Rest of the elements
  * \return List containing all elements
+ *
+ * \ingroup core
  */
 template <typename Head, typename ...Tail>
 value
 list(Head head, Tail&& ...tail)
 { return pair(from(head), list(std::forward<Tail>(tail)...)); }
 
+/**
+ * Reverse a list
+ * 
+ * \param l List to reverse
+ * \return New list with elements in reverse order
+ *
+ * \ingroup core
+ */
 inline value
 reverse(value l)
 {
@@ -288,16 +336,16 @@ value
 list(Range range)
 {
   value acc = nil;
-  for (value x : range)
+  for (value x : range | std::views::reverse)
     acc = pair(x, acc);
-  return reverse(acc);
+  return acc;
 }
 
-/** @} */
+/** \} */
 
 /**
  * \name Type tests
- * @{
+ * \{
  */
 
 /**
@@ -305,6 +353,8 @@ list(Range range)
  * 
  * \param x Value to check
  * \return True if the value is a symbol
+ *
+ * \ingroup core
  */
 inline bool
 issym(value x)
@@ -316,6 +366,8 @@ issym(value x)
  * \param x Value to check
  * \param str Symbol name to compare with
  * \return True if the value is a symbol with the given name
+ *
+ * \ingroup core
  */
 inline bool
 issym(value x, std::string_view str)
@@ -326,6 +378,8 @@ issym(value x, std::string_view str)
  * 
  * \param x Value to check
  * \return True if the value is a string
+ *
+ * \ingroup core
  */
 inline bool
 isstr(value x)
@@ -337,6 +391,8 @@ isstr(value x)
  * \param x Value to check
  * \param str String content to compare with
  * \return True if the value is a string with the given content
+ *
+ * \ingroup core
  */
 inline bool
 isstr(value x, const char *str)
@@ -347,6 +403,8 @@ isstr(value x, const char *str)
  * 
  * \param x Value to check
  * \return True if the value is a number
+ *
+ * \ingroup core
  */
 inline bool
 isnum(value x)
@@ -358,16 +416,18 @@ isnum(value x)
  * \param x Value to check
  * \param num Number to compare with
  * \return True if the value is a number equal to the given number
+ *
+ * \ingroup core
  */
 inline bool
 isnum(value x, long double num)
 { return isnum(x) and x->num == num; }
 
-/** @} */
+/** \} */
 
 /**
  * \name Basic functions
- * @{
+ * \{
  */
 
 /**
@@ -376,6 +436,8 @@ isnum(value x, long double num)
  * \param a First value
  * \param b Second value
  * \return True if the values are the same object
+ *
+ * \ingroup core
  */
 inline bool
 is(value a, value b)
@@ -387,15 +449,17 @@ is(value a, value b)
  * \param a First value
  * \param b Second value
  * \return True if the values are equal
+ *
+ * \ingroup core
  */
 bool
 equal(value a, value b);
 
-/** @} */
+/** \} */
 
 /**
  * \name Basic list functions
- * @{
+ * \{
  */
 
 /**
@@ -404,6 +468,8 @@ equal(value a, value b);
  * \param car First element
  * \param cdr Second element
  * \return Pair value
+ *
+ * \ingroup core
  */
 inline value
 cons(value car, value cdr)
@@ -416,6 +482,8 @@ cons(value car, value cdr)
  * \param x Pair value
  * \return First element of the pair
  * \throws std::runtime_error If the value is not a pair and Test is true
+ *
+ * \ingroup core
  */
 template <bool Test=true>
 inline value
@@ -436,6 +504,8 @@ car(value x)
  * \param x Pair value
  * \return Second element of the pair
  * \throws std::runtime_error If the value is not a pair and Test is true
+ *
+ * \ingroup core
  */
 template <bool Test=true>
 inline value
@@ -454,6 +524,8 @@ cdr(value x)
  * 
  * \param l List value
  * \return Length of the list
+ *
+ * \ingroup core
  */
 inline size_t
 length(value l)
@@ -469,6 +541,8 @@ length(value l)
  * \param x Value to check
  * \param l List to search in
  * \return True if the value is a member of the list
+ *
+ * \ingroup core
  */
 inline bool
 memq(value x, value l)
@@ -481,7 +555,15 @@ memq(value x, value l)
   return false;
 }
 
-// TODO: add docs
+/**
+ * Check if a value is a member of a list (using value equality)
+ * 
+ * \param x Value to check
+ * \param l List to search in
+ * \return True if the value is a member of the list
+ *
+ * \ingroup core
+ */
 inline bool
 member(value x, value l)
 {
@@ -493,7 +575,17 @@ member(value x, value l)
   return false;
 }
 
-// TODO: add docs
+/**
+ * Look up a key in an association list using object identity
+ * 
+ * \param k Key to look up
+ * \param l Association list to search in
+ * \param result Output parameter to store the value if found
+ * \return True if the key was found, false otherwise
+ * \throws std::runtime_error If the list is not an association list
+ *
+ * \ingroup core
+ */
 inline bool
 assq(value k, value l, value &result)
 {
@@ -511,7 +603,17 @@ assq(value k, value l, value &result)
   return false;
 }
 
-// TODO: add docs
+/**
+ * Look up a key in an association list using value equality
+ * 
+ * \param k Key to look up
+ * \param l Association list to search in
+ * \param result Output parameter to store the value if found
+ * \return True if the key was found, false otherwise
+ * \throws std::runtime_error If the list is not an association list
+ *
+ * \ingroup core
+ */
 inline bool
 assoc(value k, value l, value &result)
 {
@@ -529,6 +631,15 @@ assoc(value k, value l, value &result)
   return false;
 }
 
+/**
+ * Append a value to the end of a list
+ * 
+ * \param l List to append to
+ * \param x Value to append
+ * \return New list with x appended
+ *
+ * \ingroup core
+ */
 inline value
 append(value l, value x)
 {
@@ -538,15 +649,17 @@ append(value l, value x)
     return x;
 }
 
-/** @} */
+/** \} */
 
 /**
  * \name Utility functions
- * @{
+ * \{
  */
 
 /**
  * Iterator for association lists
+ * 
+ * \ingroup core
  */
 struct alist_iterator {
   using difference_type = ptrdiff_t;
@@ -594,6 +707,8 @@ struct alist_iterator {
 
 /**
  * Sentinel for association list iteration
+ * 
+ * \ingroup core
  */
 struct alist_sentinel {
   /**
@@ -612,29 +727,45 @@ struct alist_sentinel {
  * 
  * \param l List to iterate over
  * \return Range over the list elements
+ *
+ * \ingroup core
  */
 inline auto
 range(value l)
 { return std::ranges::subrange(alist_iterator {l}, alist_sentinel {}); }
 
-/** @} */
+/** \} */
 
 /**
  * \name Printing
- * @{
+ * \{
  */
 
-
+ /**
+  * Write value in a format that can be parsed back preserving the value
+  *
+  * \ingroup core
+  */
 void
 write(std::ostream &os, const opi::value &val);
 
+/**
+ * Write value in a human appealing format
+ *
+ * \ingroup core
+ */
 void
 display(std::ostream &os, const opi::value &val);
 
+/**
+ * Mixture of write- and display- formats
+ *
+ * \ingroup core
+ */
 void
 print(std::ostream &os, const opi::value &val);
 
-/** @} */
+/** \} */
 
 } // namespace opi
 
@@ -645,6 +776,8 @@ print(std::ostream &os, const opi::value &val);
  * \param os Output stream
  * \param val Value to output
  * \return Reference to the output stream
+ * 
+ * \ingroup core
  */
 inline std::ostream&
 operator << (std::ostream &os, const opi::value &val)

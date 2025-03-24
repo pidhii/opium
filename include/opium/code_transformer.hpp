@@ -7,10 +7,24 @@
 #include <functional>
 #include <stdexcept>
 
+/**
+ * \file code_transformer.hpp
+ * Code transformation utilities for Lisp-style code
+ * 
+ * This file defines utilities for transforming Lisp-style symbolical-expression.
+ * 
+ * \ingroup lisp
+ */
+
 
 namespace opi {
 
 
+/**
+ * Exception thrown when code transformation fails
+ * 
+ * \ingroup lisp
+ */
 struct code_transformation_error: public std::runtime_error {
   using std::runtime_error::runtime_error;
 }; // struct opi::code_transformation_error
@@ -42,6 +56,8 @@ struct code_transformation_error: public std::runtime_error {
  * value result = transformer(list("add", num(1), num(2)));
  * // result is now (+ 1 2)
  * ```
+ * 
+ * \ingroup lisp
  */
 class code_transformer {
   public:
@@ -51,8 +67,8 @@ class code_transformer {
   /**
    * Add syntax rule at highest priority (beginning of the syntax table).
    * 
-   * @param matcher The pattern matcher that identifies expressions to transform
-   * @param transformer The transformation function to apply when pattern matches
+   * \param matcher The pattern matcher that identifies expressions to transform
+   * \param transformer The transformation function to apply when pattern matches
    */
   void
   prepend_rule(const match &matcher, const transformation &transformer);
@@ -60,8 +76,8 @@ class code_transformer {
   /**
    * Add syntax rule at lowest priority (end of the syntax table).
    * 
-   * @param matcher The pattern matcher that identifies expressions to transform
-   * @param transformer The transformation function to apply when pattern matches
+   * \param matcher The pattern matcher that identifies expressions to transform
+   * \param transformer The transformation function to apply when pattern matches
    */
   void
   append_rule(const match &matcher, const transformation &transformer);
@@ -73,9 +89,9 @@ class code_transformer {
    * then applies the corresponding transformation. If no rule matches,
    * a code_transformation_error is thrown.
    * 
-   * @param inexpr The expression to transform
-   * @return The transformed expression
-   * @throws code_transformation_error if no rule matches the input expression
+   * \param inexpr The expression to transform
+   * \return The transformed expression
+   * \throws code_transformation_error if no rule matches the input expression
    */
   value
   operator () (value inexpr) const;
@@ -93,26 +109,28 @@ class code_transformer {
  * the condition, then-branch, and else-branch are all recursively transformed.
  * 
  * Supported Scheme syntax:
- * - (if <cond> <then> <else>): Conditional expression
- *   - Transforms to: (if T[<cond>] T[<then>] T[<else>])
+ * - `(if <cond> <then> <else>)`: Conditional expression
+ *   - Transforms to: `(if T[<cond>] T[<then>] T[<else>])`
  *   
- * - (let ((<ident> <expr>) ...) body ...): Local variable binding
- *   - Transforms to: (let ((<ident> T[<expr>]) ...) T[body] ...)
+ * - `(let ((<ident> <expr>) ...) body ...)`: Local variable binding
+ *   - Transforms to: `(let ((<ident> T[<expr>]) ...) T[body] ...)`
  *   
- * - (let* ((<ident> <expr>) ...) body ...): Sequential local variable binding
- *   - Transforms to: (let* ((<ident> T[<expr>]) ...) T[body] ...)
+ * - `(let* ((<ident> <expr>) ...) body ...)`: Sequential local variable binding
+ *   - Transforms to: `(let* ((<ident> T[<expr>]) ...) T[body] ...)`
  *   
- * - (letrec ((<ident> <expr>) ...) body ...): Recursive local variable binding
- *   - Transforms to: (letrec ((<ident> T[<expr>]) ...) T[body] ...)
+ * - `(letrec ((<ident> <expr>) ...) body ...)`: Recursive local variable binding
+ *   - Transforms to: `(letrec ((<ident> T[<expr>]) ...) T[body] ...)`
  *   
- * - (letrec* ((<ident> <expr>) ...) body ...): Sequential recursive local variable binding
- *   - Transforms to: (letrec* ((<ident> T[<expr>]) ...) T[body] ...)
+ * - `(letrec* ((<ident> <expr>) ...) body ...)`: Sequential recursive local variable binding
+ *   - Transforms to: `(letrec* ((<ident> T[<expr>]) ...) T[body] ...)`
  *   
- * - (let-values (((<ident> ...) <expr>) ...) body ...): Multiple value binding
- *   - Transforms to: (let-values (((<ident> ...) T[<expr>]) ...) T[body] ...)
+ * - `(let-values (((<ident> ...) <expr>) ...) body ...)`: Multiple value binding
+ *   - Transforms to: `(let-values (((<ident> ...) T[<expr>]) ...) T[body] ...)`
  *   
- * - (let*-values (((<ident> ...) <expr>) ...) body ...): Sequential multiple value binding
- *   - Transforms to: (let*-values (((<ident> ...) T[<expr>]) ...) T[body] ...)
+ * - `(let*-values (((<ident> ...) <expr>) ...) body ...)`: Sequential multiple value binding
+ *   - Transforms to: `(let*-values (((<ident> ...) T[<expr>]) ...) T[body] ...)`
+ * 
+ * \ingroup lisp
  */
 struct scheme_code_transformer: public code_transformer {
   /**
