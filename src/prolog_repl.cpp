@@ -59,64 +59,30 @@ _pretty_print_body(std::ostream &os, opi::value body, int indent_level = 0)
 
         // Close the parenthesis
         os << ")";
-      }
-      // Handle predicate calls with multiple arguments
-      else if (length(clauses) > 1)
-      {
-        os << "(" << op;
 
-        // Print first argument
-        os << " ";
-        _pretty_print_body(os, car(clauses), indent_level);
-
-        // Print remaining arguments with proper indentation
-        value rest = cdr(clauses);
-        while (rest->t == tag::pair)
-        {
-          os << " ";
-          _pretty_print_body(os, car(rest), indent_level);
-          rest = cdr(rest);
-        }
-
-        os << ")";
-      }
-      // Simple predicate call or other expression
-      else
-      {
-        os << "(" << op;
-
-        // Print arguments
-        for (value arg : range(clauses))
-        {
-          os << " ";
-          _pretty_print_body(os, arg, indent_level);
-        }
-
-        os << ")";
+        return;
       }
     }
-    // Non-symbol car, use default printing
-    else
+
+    // Any other list-expression
+    os << "(";
+    _pretty_print_body(os, car(body), indent_level);
+
+    value rest = cdr(body);
+    while (rest->t == tag::pair)
     {
-      os << "(";
-      _pretty_print_body(os, car(body), indent_level);
-
-      value rest = cdr(body);
-      while (rest->t == tag::pair)
-      {
-        os << " ";
-        _pretty_print_body(os, car(rest), indent_level);
-        rest = cdr(rest);
-      }
-
-      if (rest->t != tag::nil)
-      {
-        os << " . ";
-        _pretty_print_body(os, rest, indent_level);
-      }
-
-      os << ")";
+      os << " ";
+      _pretty_print_body(os, car(rest), indent_level);
+      rest = cdr(rest);
     }
+
+    if (rest->t != tag::nil)
+    {
+      os << " . ";
+      _pretty_print_body(os, rest, indent_level);
+    }
+
+    os << ")";
   }
   else
     // For other types, use the default printing
@@ -145,7 +111,8 @@ opi::prolog_repl::operator << (opi::value expr)
         break;
     }
     const predicate &pred = add_predicate(signature, body);
-    std::cout << pred.name() << opi::list(pred.arguments()) << " :- ";
+    std::cout << std::format("{}{} :- ", pred.name(),
+                             opi::list(pred.arguments()));
     if (length(pred.body()) > 1)
     {
       std::cout << "\n  ";

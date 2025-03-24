@@ -268,6 +268,15 @@ value
 list(Head head, Tail&& ...tail)
 { return pair(from(head), list(std::forward<Tail>(tail)...)); }
 
+inline value
+reverse(value l)
+{
+  value acc = nil;
+  for (; l->t == tag::pair; l = value {&*l->cdr})
+    acc = pair(value {&*l->car}, acc);
+  return acc;
+}
+
 /**
  * Create a list from a range
  * 
@@ -279,9 +288,9 @@ value
 list(Range range)
 {
   value acc = nil;
-  for (value x : range | std::views::reverse)
+  for (value x : range)
     acc = pair(x, acc);
-  return acc;
+  return reverse(acc);
 }
 
 /** @} */

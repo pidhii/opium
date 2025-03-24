@@ -310,12 +310,13 @@ main(int argc, char **argv)
     [](const auto &ms) { return ms.at("x"); }
   );
 
+  GC_gcollect();
 
   pretty_printer pprint {scheme_formatter {}};
   const value in = parser.parse("(if (input prompt)           "
                                 "    (print (foo bar))        "
-                                "    (let ((z (foo (bar baz)))"
-                                "          (zz 12345))        "
+                                "    (let* ((z (foo (bar baz)))"
+                                "           (zz 12345))       "
                                 "      (print z)))            ");
   const value out = ct(in);
 

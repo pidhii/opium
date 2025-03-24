@@ -72,7 +72,7 @@ struct gc_allocator_base {
 
   void
   deallocate(pointer p, [[maybe_unused]] size_type n)
-  { GC_FREE(p); }
+  { GC_free(p); }
 
   private:
   RawAllocator m_rawalloc;

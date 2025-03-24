@@ -10,13 +10,11 @@ namespace opi {
 
 class pretty_printer {
   public:
-  pretty_printer(const code_transformer &formatter)
-  : m_formatter {formatter}
-  { m_formatter.append_rule({nil, "x"}, [](const auto &ms) { return ms.at("x"); }); }
+  pretty_printer(const code_transformer &formatter);
 
   static value
-  format_block(bool block_after, int extra_indent, value x)
-  { return list("_FormatBlock", block_after ? True : False, extra_indent, x); }
+  format_block(bool keep_first, int extra_indent, value x)
+  { return list("_FormatBlock", keep_first ? True : False, extra_indent, x); }
 
   void
   print(std::ostream &os, value x, int indent = 0);
@@ -26,14 +24,14 @@ class pretty_printer {
   { print(os, x, indent); }
 
   private:
-  struct block_format {
-    bool break_after;
+  struct _block_format {
+    bool keep_first;
     int extra_indent;
   };
 
   void
   _print_block(std::ostream &os, opi::value stmt, int indent,
-               const block_format &fmt);
+               const _block_format &fmt);
 
   code_transformer m_formatter;
 }; // class opi::pretty_print
