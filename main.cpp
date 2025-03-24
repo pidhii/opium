@@ -4,6 +4,7 @@
 #include "opium/value.hpp"
 #include "opium/logging.hpp"
 #include "opium/code_transformer.hpp"
+#include "opium/pretty_print.hpp"
 
 #include <asm-generic/errno.h>
 #include <boost/program_options.hpp>
@@ -267,7 +268,6 @@ main(int argc, char **argv)
   };
 
   scheme_code_transformer ct;
-
   // function invocation
   // -------------------
   // Pull output nested comound expressions from inside the invocation by
@@ -303,20 +303,25 @@ main(int argc, char **argv)
         return list("let", binds, result);
     }
   );
-
   // atoms
+  // -----
   ct.append_rule(
     match {nil, "x"},
     [](const auto &ms) { return ms.at("x"); }
   );
 
-  const value in = parser.parse("(if (input prompt)            "
-                                "    (print (foo bar))         "
-                                "    (let ((z (foo (bar baz))))"
-                                "      (print z)))             ");
+
+  pretty_printer pprint {scheme_formatter {}};
+  const value in = parser.parse("(if (input prompt)           "
+                                "    (print (foo bar))        "
+                                "    (let ((z (foo (bar baz)))"
+                                "          (zz 12345))        "
+                                "      (print z)))            ");
   const value out = ct(in);
-  std::cout << std::format("[test code_transformer]\nin: {}\nout: {}", in, out)
-            << std::endl;
+
+  std::cout << "[test]" << std::endl;
+  std::cout << "in:\n", pprint(std::cout, in), std::cout << std::endl;
+  std::cout << "out:\n", pprint(std::cout, out), std::cout << std::endl;
 
   // Clean up readline before exiting
   cleanup_readline();

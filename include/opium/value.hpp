@@ -199,10 +199,6 @@ inline value
 from(long double x)
 { return num(x); }
 
-//inline value
-//from(bool x)
-//{ return boolean(x); }
-
 /**
  * Convert a pair to a value
  * 
