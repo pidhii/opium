@@ -15,9 +15,8 @@ _initialize_boolean(opi::object *ptr, bool val)
 
 static
 opi::object True_object {opi::tag::boolean}, False_object {opi::tag::boolean};
-opi::value opi::True {_initialize_boolean(&True_object, true)},
-           opi::False {_initialize_boolean(&False_object, false)};
-
+const opi::value opi::True {_initialize_boolean(&True_object, true)},
+                opi::False {_initialize_boolean(&False_object, false)};
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -25,5 +24,4 @@ opi::value opi::True {_initialize_boolean(&True_object, true)},
 //
 static
 opi::object nil_object {opi::tag::nil};
-opi::value opi::nil {&nil_object};
-
+const opi::value opi::nil {&nil_object};

@@ -177,8 +177,8 @@ pair(value car, value cdr)
   return ret;
 }
 
-extern value True, False; /**< Boolean constants */
-extern value nil; /**< Nil constant */
+extern const value True, False; /**< Boolean constants */
+extern const value nil; /**< Nil constant */
 
 /** @} */
 
@@ -502,9 +502,12 @@ assq(value k, value l, value &result)
 {
   for (; l->t == tag::pair; l = cdr(l))
   {
-    if (is(k, car(car(l))))
+    const value kv = car(l);
+    if (kv->t != tag::pair)
+      throw std::runtime_error {"assq() used on non-associative list"};
+    if (is(k, car(kv)))
     {
-      result = cdr(car(l));
+      result = cdr(kv);
       return true;
     }
   }
@@ -517,9 +520,12 @@ assoc(value k, value l, value &result)
 {
   for (; l->t == tag::pair; l = cdr(l))
   {
-    if (equal(k, car(car(l))))
+    const value kv = car(l);
+    if (kv->t != tag::pair)
+      throw std::runtime_error {"assoc() used on non-associative list"};
+    if (equal(k, car(kv)))
     {
-      result = cdr(car(l));
+      result = cdr(kv);
       return true;
     }
   }
