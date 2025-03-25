@@ -96,9 +96,7 @@ opi::scheme_code_transformer::scheme_code_transformer()
     value newbinds = nil;
     for (; exprs->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
       newbinds = append(newbinds, list(list(car(idents), (*this)(car(exprs)))));
-    value newbody = nil;
-    for (const value x : range(body))
-      newbody = append(newbody, list((*this)(x)));
+    const value newbody = list(range(body) | std::views::transform(*this));
     return list(sym(let), newbinds, dot, newbody);
   };
 
@@ -121,4 +119,29 @@ opi::scheme_code_transformer::scheme_code_transformer()
   // let*-values - sequential multiple value binding
   append_rule(match {list("let*-values"), cons("let*-values", let_pattern)},
               std::bind(let_rule, "let*-values", std::placeholders::_1));
+
+  /**
+   * Rule for define statements (T-agnostic scheme syntax)
+   * 
+   * Propagates transformation to all contained expressions:
+   * (define <ident> <body> ...) ->
+   * (define <ident> T[<body>] ...)
+   * 
+   * This ensures that all expressions within a define statement
+   * are also transformed according to the rules.
+   */
+  append_rule(
+    match {
+      // literals:
+      list("define"),
+      // pattern:
+      list("define", "ident", "body", "...")
+    },
+    [this](const auto &ms) {
+      const value ident = ms.at("ident");
+      const value body = ms.at("body");
+      const value newbody = list(range(body) | std::views::transform(*this));
+      return list("define", ident, dot, newbody);
+    }
+  );
 }
