@@ -11,7 +11,7 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem)
   switch (val->t)
   {
     case tag::nil:
-      os << (mode == mode::write ? "'()" : "nil");
+      os << (mode == mode::write ? "'()" : "()");
       break;
 
     case tag::boolean:

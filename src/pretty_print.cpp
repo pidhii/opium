@@ -46,6 +46,9 @@ opi::pretty_printer::_print_block(std::ostream &os, opi::value stmt, int indent,
 {
   using namespace opi;
 
+  if (stmt->t != tag::pair)
+    return print(os, stmt, indent);
+
   const std::string op = car(stmt)->sym.data;
   const value clauses = cdr(stmt);
 
@@ -90,13 +93,14 @@ opi::scheme_formatter::scheme_formatter()
 
   const value let_pat = list(list(list("ident", "expr"), "..."), "body", "...");
   auto let_rule = [&](const std::string &let, const auto &ms) {
-    value idents = ms.at("ident");
-    value exprs = ms.at("expr");
+    value idents = ms.contains("ident") ? ms.at("ident") : nil;
+    value exprs = ms.contains("expr") ? ms.at("expr") : nil;
+    const value body = ms.contains("body") ? ms.at("body") : nil;
     value binds = nil;
     for (; idents->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
       binds = append(binds, list(list(car(idents), car(exprs))));
     binds = pretty_printer::format_block(false, 1 + let.length(), binds);
-    const value letexpr = list(sym(let), binds, dot, ms.at("body"));
+    const value letexpr = list(sym(let), binds, dot, body);
     return pretty_printer::format_block(true, 2, letexpr);
   };
   append_rule(match {list("let"), cons("let", let_pat)},
