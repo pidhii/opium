@@ -331,14 +331,24 @@ reverse(value l)
  * \param range Range of elements
  * \return List containing all elements from the range
  */
-template <std::ranges::bidirectional_range Range>
+template <std::ranges::range Range>
 value
 list(Range range)
 {
-  value acc = nil;
-  for (value x : range | std::views::reverse)
-    acc = pair(x, acc);
-  return acc;
+  if constexpr (std::ranges::bidirectional_range<Range>)
+  {
+    value acc = nil;
+    for (const value x : range | std::views::reverse)
+      acc = pair(x, acc);
+    return acc;
+  }
+  else
+  {
+    value acc = nil;
+    for (const value x : range)
+      acc = pair(x, acc);
+    return reverse(acc);
+  }
 }
 
 /** \} */
@@ -652,91 +662,6 @@ append(value l, value x)
 /** \} */
 
 /**
- * \name Utility functions
- * \{
- */
-
-/**
- * Iterator for association lists
- * 
- * \ingroup core
- */
-struct alist_iterator {
-  using difference_type = ptrdiff_t;
-
-  /**
-   * Constructor
-   * 
-   * \param l List to iterate over
-   */
-  explicit
-  alist_iterator(value l): m_l {l} { }
-
-  /**
-   * Dereference operator
-   * 
-   * \return Current element
-   */
-  value
-  operator * () const noexcept
-  { return car<false>(m_l); }
-
-  /**
-   * Pre-increment operator
-   * 
-   * \return Reference to this iterator
-   */
-  alist_iterator&
-  operator ++ () noexcept
-  { m_l = cdr<false>(m_l); return *this; }
-
-  /**
-   * Post-increment operator
-   * 
-   * \return New iterator pointing to the next element
-   */
-  alist_iterator
-  operator ++ (int) noexcept
-  { return alist_iterator {cdr(m_l)}; }
-
-  private:
-  value m_l; /**< Current list position */
-
-  friend struct alist_sentinel;
-};
-
-/**
- * Sentinel for association list iteration
- * 
- * \ingroup core
- */
-struct alist_sentinel {
-  /**
-   * Equality comparison
-   * 
-   * \param it Iterator to compare with
-   * \return True if the iterator has reached the end
-   */
-  bool
-  operator == (const alist_iterator &it) const noexcept
-  { return it.m_l->t != tag::pair; }
-};
-
-/**
- * Create a range over a list
- * 
- * \param l List to iterate over
- * \return Range over the list elements
- *
- * \ingroup core
- */
-inline auto
-range(value l)
-{ return std::ranges::subrange(alist_iterator {l}, alist_sentinel {}); }
-
-/** \} */
-
-/**
  * \name Printing
  * \{
  */
@@ -768,6 +693,9 @@ print(std::ostream &os, const opi::value &val);
 /** \} */
 
 } // namespace opi
+
+
+#include "opium/cons_list_view.inl" // IWYU pragma: export
 
 
 /**
