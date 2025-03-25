@@ -5,6 +5,7 @@
 #include "opium/logging.hpp"
 #include "opium/code_transformer.hpp"
 #include "opium/pretty_print.hpp"
+#include "opium/scheme/scheme_transformations.hpp"
 
 #include <asm-generic/errno.h>
 #include <boost/program_options.hpp>
@@ -262,63 +263,20 @@ main(int argc, char **argv)
   }
 
 
-  size_t gensymcounter = 0;
-  auto gensym = [&gensymcounter]() -> value {
-    return sym(std::format("_T{}", gensymcounter++));
-  };
-
-  scheme_code_transformer ct;
-  // function invocation
-  // -------------------
-  // Pull output nested comound expressions from inside the invocation by
-  // separating them into bindings to temporary variables to replace
-  // corresponding expressions in the invocation form:
-  //
-  // (<expr1> <expr2> ...) ->
-  // (let ((<tmp1> T[<expr1>])
-  //       (<tmp2> T[<expr2>])
-  //             ...          )
-  //   (<tmp1> <tmp2> ...))
-  //
-  ct.append_rule(
-    match {nil, list("form", "...")},
-    [&ct, &gensym](const auto &ms) {
-      value binds = nil;
-      value result = nil;
-      for (const value x : range(ms.at("form")))
-      {
-        if (x->t == tag::pair)
-        {
-          const value uid = gensym();
-          binds = append(binds, list(list(uid, ct(x))));
-          result = append(result, list(uid));
-        }
-        else
-          result = append(result, list(x));
-      }
-      // Don't bloat output with empty let-statements
-      if (binds == nil)
-        return result;
-      else
-        return list("let", binds, result);
-    }
-  );
-  // atoms
-  // -----
-  ct.append_rule(
-    match {nil, "x"},
-    [](const auto &ms) { return ms.at("x"); }
-  );
-
-  GC_gcollect();
+  symbol_generator gensym;
+  scheme_unique_identifiers makeuids {gensym};
+  scheme_code_flattener flatten {gensym};
 
   pretty_printer pprint {scheme_formatter {}};
-  const value in = parser.parse("(if (input prompt)           "
-                                "    (print (foo bar))        "
-                                "    (let* ((z (foo (bar baz)))"
-                                "           (zz 12345))       "
-                                "      (print z)))            ");
-  const value out = ct(in);
+  const value in = parser.parse("(let ()                                 "
+                                "  (define (print x) (__builtin_print x))"
+                                "  (define baz (__builtin_baz x))        "
+                                "  (if (input prompt)                    "
+                                "      (print (foo bar))                 "
+                                "      (let ((z (foo (bar baz)))         "
+                                "            (zz 12345))                 "
+                                "        (print z))))                    ");
+  const value out = compose(makeuids, flatten)(in);
 
   std::cout << "[test]" << std::endl;
   std::cout << "in:\n", pprint(std::cout, in), std::cout << std::endl;
