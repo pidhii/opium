@@ -1,6 +1,6 @@
 #pragma once
 
-#include "opium/format.hpp"
+#include "opium/format.hpp" // IWYU pragma: export
 
 #include <format>
 #include <iostream>

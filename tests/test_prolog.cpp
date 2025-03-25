@@ -1,4 +1,4 @@
-#include "opium/hash.hpp"
+#include "opium/hash.hpp" // IWYU pragma: export
 #include "opium/predicate_runtime.hpp"
 #include "opium/prolog.hpp"
 #include "opium/stl/unordered_set.hpp"

@@ -1,5 +1,5 @@
 #include "opium/predicate_runtime.hpp"
-#include "opium/hash.hpp"
+#include "opium/hash.hpp" // IWYU pragma: export
 #include "opium/stl/unordered_map.hpp"
 #include "opium/value.hpp"
 

@@ -1,5 +1,5 @@
 #include "opium/lisp_parser.hpp"
-#include "opium/format.hpp"
+#include "opium/format.hpp" // IWYU pragma: export
 
 #include <cctype>
 #include <iostream>

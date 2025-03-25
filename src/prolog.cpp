@@ -1,5 +1,4 @@
 #include "opium/prolog.hpp"
-#include "opium/predicate_runtime.hpp"
 #include "opium/value.hpp"
 #include <regex.h>
 

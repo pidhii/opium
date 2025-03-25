@@ -1,14 +1,13 @@
 #pragma once
 
 #include "opium/value.hpp"
-#include "opium/format.hpp"
+#include "opium/format.hpp" // IWYU pragma: export
 #include "opium/predicate_runtime.hpp"
 #include "opium/stl/vector.hpp"
 #include "opium/logging.hpp"
 
 #include <asm-generic/errno.h>
 #include <concepts>
-#include <functional>
 #include <string>
 #include <cassert>
 #include <ranges>

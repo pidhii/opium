@@ -1,11 +1,11 @@
 #pragma once
 
 #include "opium/value.hpp"
-#include "opium/hash.hpp"
+#include "opium/hash.hpp" // IWYU pragma: export
 #include "opium/stl/unordered_map.hpp"
 #include "opium/stl/vector.hpp"
 #include "opium/stl/deque.hpp"
-#include "opium/format.hpp"
+#include "opium/format.hpp" // IWYU pragma: export
 
 #include <concepts>
 #include <stdexcept>

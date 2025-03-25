@@ -5,6 +5,8 @@
 
 #include "opium/prolog.hpp"
 
+#include <functional>
+
 
 namespace opi {
 
