@@ -4,6 +4,7 @@
 #include "opium/value.hpp"
 #include "opium/stl/deque.hpp"
 
+#include <concepts>
 #include <functional>
 #include <stdexcept>
 
@@ -19,6 +20,12 @@
 
 namespace opi {
 
+
+template <typename T>
+concept transformation = requires(const T t, value x)
+{
+  { t(x) } -> std::convertible_to<value>;
+};
 
 /**
  * Exception thrown when code transformation fails
@@ -99,49 +106,91 @@ class code_transformer {
   private:
   opi::deque<std::pair<match, transformation>> m_syntax_table; /**< Syntax table */
 }; // class opi::code_transformer
+static_assert(transformation<code_transformer>);
+
+
+template <transformation Lhs, transformation Rhs>
+class composed_transformer {
+  public:
+  template <typename LhsArgs, typename RhsArgs>
+    requires std::copy_constructible<Lhs> and std::copy_constructible<Rhs>
+  composed_transformer(const std::tuple<LhsArgs> &lhsargs,
+                       const std::tuple<RhsArgs> &rhsargs)
+  : m_lhs {std::make_from_tuple<Lhs>(lhsargs)},
+    m_rhs {std::make_from_tuple<Rhs>(rhsargs)}
+  { }
+
+  composed_transformer(const Lhs &lhs, const Rhs &rhs)
+  : m_lhs {lhs}, m_rhs {rhs}
+  { }
+
+  composed_transformer(Lhs &&lhs, Rhs &&rhs)
+  : m_lhs {std::move(lhs)}, m_rhs {std::move(rhs)}
+  { }
+
+  value
+  operator () (value inexpr) const
+  { return m_lhs(m_rhs(inexpr)); }
+
+  private:
+  Lhs m_lhs;
+  Rhs m_rhs;
+}; // class opi::composed_transformer
+static_assert(
+    transformation<composed_transformer<code_transformer, code_transformer>>);
+
+template <transformation Lhs, transformation Rhs>
+  requires std::copy_constructible<Lhs> and std::copy_constructible<Rhs>
+composed_transformer<Lhs, Rhs>
+compose(const Lhs &lhs, const Rhs &rhs)
+{ return {lhs, rhs}; }
 
 
 /**
  * A specialized code transformer with built-in support for Scheme syntax.
- * 
+ *
  * This transformer includes rules for common Scheme constructs, propagating
  * transformations to all contained expressions. For example, in an if-expression,
  * the condition, then-branch, and else-branch are all recursively transformed.
- * 
+ *
  * Supported Scheme syntax:
  * - `(if <cond> <then> <else>)`: Conditional expression
  *   - Transforms to: `(if T[<cond>] T[<then>] T[<else>])`
- *   
+ *
  * - `(let ((<ident> <expr>) ...) body ...)`: Local variable binding
  *   - Transforms to: `(let ((<ident> T[<expr>]) ...) T[body] ...)`
- *   
+ *
  * - `(let* ((<ident> <expr>) ...) body ...)`: Sequential local variable binding
  *   - Transforms to: `(let* ((<ident> T[<expr>]) ...) T[body] ...)`
- *   
+ *
  * - `(letrec ((<ident> <expr>) ...) body ...)`: Recursive local variable binding
  *   - Transforms to: `(letrec ((<ident> T[<expr>]) ...) T[body] ...)`
- *   
+ *
  * - `(letrec* ((<ident> <expr>) ...) body ...)`: Sequential recursive local variable binding
  *   - Transforms to: `(letrec* ((<ident> T[<expr>]) ...) T[body] ...)`
- *   
+ *
  * - `(let-values (((<ident> ...) <expr>) ...) body ...)`: Multiple value binding
  *   - Transforms to: `(let-values (((<ident> ...) T[<expr>]) ...) T[body] ...)`
- *   
+ *
  * - `(let*-values (((<ident> ...) <expr>) ...) body ...)`: Sequential multiple value binding
  *   - Transforms to: `(let*-values (((<ident> ...) T[<expr>]) ...) T[body] ...)`
- * 
+ *
+ * - `(define <ident> <body> ...)`: Variable or function definition
+ *   - Transforms to: `(define <ident> T[<body>] ...)`
+ *
  * \ingroup lisp
  */
 struct scheme_code_transformer: public code_transformer {
   /**
    * Constructs a code transformer with built-in Scheme syntax rules.
-   * 
+   *
    * Initializes the syntax table with rules for transforming common Scheme
-   * constructs like if, let, let*, letrec, letrec*, let-values, and let*-values.
+   * constructs like if, let, let*, letrec, letrec*, let-values, let*-values, and define.
    * Each rule recursively applies the transformer to all contained expressions.
    */
   scheme_code_transformer();
 }; // struct opi::scheme_code_transformer
+static_assert(transformation<code_transformer>);
 
 
 } // namespace opi
