@@ -384,6 +384,23 @@ issym(value x, std::string_view str)
 { return issym(x) and (str == std::string_view {x->sym.data, x->sym.len}); }
 
 /**
+ * Get the name of a symbol
+ * 
+ * \param x Value to get the name from (must be a symbol)
+ * \return The name of the symbol as a string
+ * \throws std::runtime_error If the value is not a symbol
+ *
+ * \ingroup core
+ */
+inline std::string_view
+sym_name(value x)
+{
+  if (not issym(x))
+    throw std::runtime_error {"sym_name() - not a symbol"};
+  return std::string_view {x->sym.data, x->sym.len};
+}
+
+/**
  * Check if a value is a string
  * 
  * \param x Value to check
@@ -603,7 +620,7 @@ assq(value k, value l, value &result)
   {
     const value kv = car(l);
     if (kv->t != tag::pair)
-      throw std::runtime_error {"assq() used on non-associative list"};
+      throw std::runtime_error {"assq() - non-associative list"};
     if (is(k, car(kv)))
     {
       result = cdr(kv);
@@ -631,7 +648,7 @@ assoc(value k, value l, value &result)
   {
     const value kv = car(l);
     if (kv->t != tag::pair)
-      throw std::runtime_error {"assoc() used on non-associative list"};
+      throw std::runtime_error {"assoc() - non-associative list"};
     if (equal(k, car(kv)))
     {
       result = cdr(kv);

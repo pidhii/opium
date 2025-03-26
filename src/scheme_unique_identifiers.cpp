@@ -49,7 +49,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(symbol_generator &gens
     for (const value ident : range(xs))
     {
       const value newident = m_gensym();
-      newxs = cons(newident, newxs);
+      newxs = append(newxs, list(newident));
       m_alist = cons(cons(ident, newident), m_alist);
     }
 
@@ -180,6 +180,30 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(symbol_generator &gens
     // Transform body with new alist
     const value newbody = list(range(body) | std::views::transform(*this));
     return list("letrec*", newbinds, dot, newbody);
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                               lambda
+  const value lambdapat = list("lambda", "args", dot, "body");
+  append_rule({list("lambda"), lambdapat}, [this](const auto &ms) {
+    const value args = ms.at("args");
+    const value body = ms.at("body");
+
+    // Roll-back alist afterward
+    _state_saver _ {m_alist};
+
+    // Replace identifiers in arguments with unique ones
+    value newargs = nil;
+    for (const value ident : range(args))
+    {
+      const value newident = m_gensym();
+      newargs = append(newargs, list(newident));
+      m_alist = cons(cons(ident, newident), m_alist);
+    }
+
+    // Transform body with new alist
+    const value newbody = list(range(body) | std::views::transform(*this));
+    return list("lambda", newargs, dot, newbody);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>

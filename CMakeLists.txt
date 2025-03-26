@@ -83,6 +83,11 @@ add_executable (test_match tests/test_match.cpp ${src})
 target_include_directories (test_match PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries (test_match PUBLIC -lgc GTest::gtest_main)
 
+# Scheme Unique Identifiers Tests
+add_executable (test_scheme_unique_identifiers tests/test_scheme_unique_identifiers.cpp ${src})
+target_include_directories (test_scheme_unique_identifiers PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries (test_scheme_unique_identifiers PUBLIC -lgc GTest::gtest_main)
+
 # Register tests with CTest
 include (GoogleTest)
 gtest_discover_tests (test_predicate_runtime)
@@ -91,3 +96,4 @@ gtest_discover_tests (test_prolog)
 gtest_discover_tests (test_lisp_reader)
 gtest_discover_tests (test_equality)
 gtest_discover_tests (test_match)
+gtest_discover_tests (test_scheme_unique_identifiers)
