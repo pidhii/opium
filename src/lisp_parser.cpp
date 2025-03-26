@@ -87,6 +87,25 @@ opi::lisp_parser::tokenize(std::istream &input)
       continue;
     }
 
+    // Handle quasiquote (backtick)
+    if (c == '`') {
+      tokens.push_back({token::type::QUASIQUOTE, "`"});
+      continue;
+    }
+
+    // Handle unquote and unquote-splicing
+    if (c == ',') {
+      // Check if it's unquote-splicing (,@)
+      char next = input.peek();
+      if (next == '@') {
+        input.get(); // Consume the '@'
+        tokens.push_back({token::type::UNQUOTE_SPLICE, ",@"});
+      } else {
+        tokens.push_back({token::type::UNQUOTE, ","});
+      }
+      continue;
+    }
+
     // Handle strings
     if (c == '"') {
       std::string str;
@@ -125,7 +144,8 @@ opi::lisp_parser::tokenize(std::istream &input)
     while (input.get(c) and
            not std::isspace(c) and
            c != '(' and c != ')' and 
-           c != ';' and c != '"' and c != '\'')
+           c != ';' and c != '"' and c != '\'' and
+           c != '`' and c != ',')
       atom += c;
     
     // Put back the last character that didn't match
@@ -170,6 +190,27 @@ opi::lisp_parser::_parse_tokens(const std::vector<token> &tokens, size_t &pos)
         throw parse_error {"Unexpected end of input after quote"};
       value quoted = parse_tokens(tokens, pos);
       return list(sym("quote"), quoted);
+    }
+
+    case token::type::QUASIQUOTE: {
+      if (pos >= tokens.size())
+        throw parse_error {"Unexpected end of input after quasiquote"};
+      value quoted = parse_tokens(tokens, pos);
+      return list(sym("quasiquote"), quoted);
+    }
+
+    case token::type::UNQUOTE: {
+      if (pos >= tokens.size())
+        throw parse_error {"Unexpected end of input after unquote"};
+      value unquoted = parse_tokens(tokens, pos);
+      return list(sym("unquote"), unquoted);
+    }
+
+    case token::type::UNQUOTE_SPLICE: {
+      if (pos >= tokens.size())
+        throw parse_error {"Unexpected end of input after unquote-splicing"};
+      value spliced = parse_tokens(tokens, pos);
+      return list(sym("unquote-splicing"), spliced);
     }
 
     default:

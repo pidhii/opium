@@ -40,15 +40,18 @@ class lisp_parser {
    */
   struct token {
     enum class type {
-      LPAREN,  // (
-      RPAREN,  // )
-      DOT,     // .
-      QUOTE,   // '
-      SYMBOL,  // foo, bar, etc.
-      STRING,  // "hello"
-      NUMBER,  // 123, 3.14
-      BOOLEAN, // #t, #f
-      NIL      // nil
+      LPAREN,         // (
+      RPAREN,         // )
+      DOT,            // .
+      QUOTE,          // '
+      QUASIQUOTE,     // `
+      UNQUOTE,        // ,
+      UNQUOTE_SPLICE, // ,@
+      SYMBOL,         // foo, bar, etc.
+      STRING,         // "hello"
+      NUMBER,         // 123, 3.14
+      BOOLEAN,        // #t, #f
+      NIL             // nil
     };
 
     type type;

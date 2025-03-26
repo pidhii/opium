@@ -138,4 +138,129 @@ TEST(LispParserTest, ParseErrorHandling) {
   ASSERT_THROW(opi::lisp_parser{}.parse(text), opi::parse_error);
 }
 
+// Test parsing quasiquote
+TEST(LispParserTest, ParseQuasiquote) {
+  const std::string text = "`(1 2 3)";
+  opi::value result = opi::lisp_parser{}.parse(text);
+  
+  // Should be (quasiquote (1 2 3))
+  ASSERT_EQ(result->t, opi::tag::pair);
+  ASSERT_TRUE(opi::issym(opi::car(result), "quasiquote"));
+  
+  // Check the quasiquoted list
+  opi::value quoted = opi::car(opi::cdr(result));
+  ASSERT_EQ(quoted->t, opi::tag::pair);
+  
+  // Check elements of the quasiquoted list
+  ASSERT_EQ(opi::car(quoted)->t, opi::tag::num);
+  ASSERT_EQ(opi::car(quoted)->num, 1.0);
+  
+  ASSERT_EQ(opi::car(opi::cdr(quoted))->t, opi::tag::num);
+  ASSERT_EQ(opi::car(opi::cdr(quoted))->num, 2.0);
+  
+  ASSERT_EQ(opi::car(opi::cdr(opi::cdr(quoted)))->t, opi::tag::num);
+  ASSERT_EQ(opi::car(opi::cdr(opi::cdr(quoted)))->num, 3.0);
+}
+
+// Test parsing unquote
+TEST(LispParserTest, ParseUnquote) {
+  const std::string text = "`(1 ,x 3)";
+  opi::value result = opi::lisp_parser{}.parse(text);
+  
+  // Should be (quasiquote (1 (unquote x) 3))
+  ASSERT_EQ(result->t, opi::tag::pair);
+  ASSERT_TRUE(opi::issym(opi::car(result), "quasiquote"));
+  
+  // Check the quasiquoted list
+  opi::value quoted = opi::car(opi::cdr(result));
+  ASSERT_EQ(quoted->t, opi::tag::pair);
+  
+  // First element should be 1
+  ASSERT_EQ(opi::car(quoted)->t, opi::tag::num);
+  ASSERT_EQ(opi::car(quoted)->num, 1.0);
+  
+  // Second element should be (unquote x)
+  opi::value second = opi::car(opi::cdr(quoted));
+  ASSERT_EQ(second->t, opi::tag::pair);
+  ASSERT_TRUE(opi::issym(opi::car(second), "unquote"));
+  ASSERT_TRUE(opi::issym(opi::car(opi::cdr(second)), "x"));
+  
+  // Third element should be 3
+  ASSERT_EQ(opi::car(opi::cdr(opi::cdr(quoted)))->t, opi::tag::num);
+  ASSERT_EQ(opi::car(opi::cdr(opi::cdr(quoted)))->num, 3.0);
+}
+
+// Test parsing unquote-splicing
+TEST(LispParserTest, ParseUnquoteSplicing) {
+  const std::string text = "`(1 ,@xs 3)";
+  opi::value result = opi::lisp_parser{}.parse(text);
+  
+  // Should be (quasiquote (1 (unquote-splicing xs) 3))
+  ASSERT_EQ(result->t, opi::tag::pair);
+  ASSERT_TRUE(opi::issym(opi::car(result), "quasiquote"));
+  
+  // Check the quasiquoted list
+  opi::value quoted = opi::car(opi::cdr(result));
+  ASSERT_EQ(quoted->t, opi::tag::pair);
+  
+  // First element should be 1
+  ASSERT_EQ(opi::car(quoted)->t, opi::tag::num);
+  ASSERT_EQ(opi::car(quoted)->num, 1.0);
+  
+  // Second element should be (unquote-splicing xs)
+  opi::value second = opi::car(opi::cdr(quoted));
+  ASSERT_EQ(second->t, opi::tag::pair);
+  ASSERT_TRUE(opi::issym(opi::car(second), "unquote-splicing"));
+  ASSERT_TRUE(opi::issym(opi::car(opi::cdr(second)), "xs"));
+  
+  // Third element should be 3
+  ASSERT_EQ(opi::car(opi::cdr(opi::cdr(quoted)))->t, opi::tag::num);
+  ASSERT_EQ(opi::car(opi::cdr(opi::cdr(quoted)))->num, 3.0);
+}
+
+// Test parsing nested quasiquote
+TEST(LispParserTest, ParseNestedQuasiquote) {
+  const std::string text = "`(1 `(2 ,(+ 1 2)) 4)";
+  opi::value result = opi::lisp_parser{}.parse(text);
+  
+  // Should be (quasiquote (1 (quasiquote (2 (unquote (+ 1 2)))) 4))
+  ASSERT_EQ(result->t, opi::tag::pair);
+  ASSERT_TRUE(opi::issym(opi::car(result), "quasiquote"));
+  
+  // Check the outer quasiquoted list
+  opi::value outer = opi::car(opi::cdr(result));
+  ASSERT_EQ(outer->t, opi::tag::pair);
+  
+  // First element should be 1
+  ASSERT_EQ(opi::car(outer)->t, opi::tag::num);
+  ASSERT_EQ(opi::car(outer)->num, 1.0);
+  
+  // Second element should be (quasiquote (2 (unquote (+ 1 2))))
+  opi::value second = opi::car(opi::cdr(outer));
+  ASSERT_EQ(second->t, opi::tag::pair);
+  ASSERT_TRUE(opi::issym(opi::car(second), "quasiquote"));
+  
+  // Check the inner quasiquoted list
+  opi::value inner = opi::car(opi::cdr(second));
+  ASSERT_EQ(inner->t, opi::tag::pair);
+  
+  // First element of inner list should be 2
+  ASSERT_EQ(opi::car(inner)->t, opi::tag::num);
+  ASSERT_EQ(opi::car(inner)->num, 2.0);
+  
+  // Second element of inner list should be (unquote (+ 1 2))
+  opi::value innerSecond = opi::car(opi::cdr(inner));
+  ASSERT_EQ(innerSecond->t, opi::tag::pair);
+  ASSERT_TRUE(opi::issym(opi::car(innerSecond), "unquote"));
+  
+  // Check the unquoted expression (+ 1 2)
+  opi::value unquoted = opi::car(opi::cdr(innerSecond));
+  ASSERT_EQ(unquoted->t, opi::tag::pair);
+  ASSERT_TRUE(opi::issym(opi::car(unquoted), "+"));
+  
+  // Third element of outer list should be 4
+  ASSERT_EQ(opi::car(opi::cdr(opi::cdr(outer)))->t, opi::tag::num);
+  ASSERT_EQ(opi::car(opi::cdr(opi::cdr(outer)))->num, 4.0);
+}
+
 } // anonymous namespace
