@@ -6,7 +6,7 @@
 
 namespace opi {
 
-class scheme_unique_identifiers: public code_transformer {
+class scheme_unique_identifiers: public scheme_code_transformer {
   public:
   scheme_unique_identifiers(symbol_generator &gensym);
 
@@ -23,5 +23,16 @@ class scheme_code_flattener: public scheme_code_transformer {
   private:
   symbol_generator &m_gensym;
 }; // clss opi::scheme_code_flattener
+
+
+class scheme_to_prolog: public code_transformer {
+  public:
+  using type_format_string = std::format_string<std::string_view>;
+
+  scheme_to_prolog(type_format_string format = "T:{}");
+
+  private:
+  type_format_string m_type_format;
+}; // class opi::scheme_to_prolog
 
 } // namespace opi

@@ -14,13 +14,13 @@
 void
 opi::code_transformer::prepend_rule(const match &matcher,
                                     const transformation &transformer)
-{ m_syntax_table.emplace_front(matcher, transformer); }
+{ m_pages.front().emplace_front(matcher, transformer); }
 
 
 void
 opi::code_transformer::append_rule(const match &matcher,
                                    const transformation &transformer)
-{ m_syntax_table.emplace_back(matcher, transformer); }
+{ m_pages.front().emplace_back(matcher, transformer); }
 
 
 opi::value
@@ -28,7 +28,7 @@ opi::code_transformer::operator () (value inexpr) const
 {
   // Iterate through the syntax table and find the first matching rule
   match_mapping matches;
-  for (const auto &[matcher, transformer]: m_syntax_table)
+  for (const auto &[matcher, transformer]: m_pages | std::views::join)
   {
     if (matcher(inexpr, matches))
       return transformer(matches);
@@ -39,7 +39,6 @@ opi::code_transformer::operator () (value inexpr) const
   throw code_transformation_error {
       std::format("no syntax rule matches the expression: {}", inexpr)};
 }
-
 
 opi::scheme_code_transformer::scheme_code_transformer()
 {
@@ -53,19 +52,12 @@ opi::scheme_code_transformer::scheme_code_transformer()
    * This ensures that all subexpressions within an if statement
    * are also transformed according to the rules.
    */
-  append_rule(
-    match {
-      // literals:
-      list("if"),
-      // pattern:
-      list("if", "cond", "then", "else")
-    },
-    [this](const auto &ms) {
-      return list("if", (*this)(ms.at("cond")),
-                        (*this)(ms.at("then")),
-                        (*this)(ms.at("else")));
-    }
-  );
+  const match ifmatch {list("if"), list("if", "cond", "then", "else")};
+  append_rule(ifmatch, [this](const auto &ms) {
+    return list("if", (*this)(ms.at("cond")),
+                      (*this)(ms.at("then")),
+                      (*this)(ms.at("else")));
+  });
 
   /**
    * Rules for let-family bindings (T-agnostic scheme syntax)
@@ -130,18 +122,12 @@ opi::scheme_code_transformer::scheme_code_transformer()
    * This ensures that all expressions within a define statement
    * are also transformed according to the rules.
    */
-  append_rule(
-    match {
-      // literals:
-      list("define"),
-      // pattern:
-      list("define", "ident", "body", "...")
-    },
-    [this](const auto &ms) {
-      const value ident = ms.at("ident");
-      const value body = ms.at("body");
-      const value newbody = list(range(body) | std::views::transform(*this));
-      return list("define", ident, dot, newbody);
-    }
-  );
+  const match definematch {list("define"),
+                           list("define", "ident", dot, "body")};
+  append_rule(definematch, [this](const auto &ms) {
+    const value ident = ms.at("ident");
+    const value body = ms.at("body");
+    const value newbody = list(range(body) | std::views::transform(*this));
+    return list("define", ident, dot, newbody);
+  });
 }

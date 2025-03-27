@@ -34,11 +34,11 @@ protected:
   }
 
   // Helper to get variable bindings from a query
-  std::pair<bool, opi::unordered_set<opi::value>>
+  std::pair<bool, opi::stl::unordered_set<opi::value>>
   query_with_bindings(opi::value query, opi::value var)
   {
     bool success = false;
-    opi::unordered_set<opi::value> results;
+    opi::stl::unordered_set<opi::value> results;
 
     opi::predicate_runtime prt;
     pl.make_true(prt, opi::insert_cells(prt, query), [&]() {

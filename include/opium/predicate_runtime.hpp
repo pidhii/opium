@@ -278,7 +278,7 @@ class predicate_runtime {
   std::ranges::range auto
   variables() const noexcept
   {
-    opi::deque<value> result;
+    opi::stl::deque<value> result;
     for (const predicate_runtime *prt = this; prt; prt = prt->m_parent)
     {
       for (const auto &[key, _] : prt->m_varmap)
@@ -317,8 +317,8 @@ class predicate_runtime {
   mark_dead();
 
   private:
-  opi::unordered_map<value, cell *> m_varmap; /**< Associations table between variables and cells */
-  opi::vector<cell *> m_terms; /**< Values-cells created within this frame */
+  opi::stl::unordered_map<value, cell *> m_varmap; /**< Associations table between variables and cells */
+  opi::stl::vector<cell *> m_terms; /**< Values-cells created within this frame */
   predicate_runtime *m_parent; /**< Parent runtime for variable lookup */
   const void *m_preduid;       /**< Active predicate */
   value m_signature; /**< Resolved signature of active predicate arguments to identify recursion */

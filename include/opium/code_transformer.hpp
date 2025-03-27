@@ -3,6 +3,7 @@
 #include "opium/match.hpp"
 #include "opium/value.hpp"
 #include "opium/stl/deque.hpp"
+#include "opium/stl/list.hpp"
 
 #include <concepts>
 #include <functional>
@@ -68,8 +69,10 @@ struct code_transformation_error: public std::runtime_error {
  */
 class code_transformer {
   public:
-  using match_mapping = opi::unordered_map<value, value>;
+  using match_mapping = opi::stl::unordered_map<value, value>;
   using transformation = std::function<value(const match_mapping&)>;
+
+  code_transformer() { m_pages.emplace_front(); }
 
   /**
    * Add syntax rule at highest priority (beginning of the syntax table).
@@ -90,6 +93,14 @@ class code_transformer {
   append_rule(const match &matcher, const transformation &transformer);
 
   /**
+   * Start new syntax table s.t. all rules inserted after calling these method
+   * will have higher priority to the rules inserted prior to this point.
+   */
+  void
+  flip_page()
+  { m_pages.emplace_front(); }
+
+  /**
    * Transform expression according to the rules in the syntax table.
    * 
    * The transformer tries each rule in order until it finds a match,
@@ -104,7 +115,8 @@ class code_transformer {
   operator () (value inexpr) const;
 
   private:
-  opi::deque<std::pair<match, transformation>> m_syntax_table; /**< Syntax table */
+  using syntax_table = opi::stl::deque<std::pair<match, transformation>>;
+  opi::stl::list<syntax_table> m_pages; /**< Syntax tables */
 }; // class opi::code_transformer
 static_assert(transformation<code_transformer>);
 

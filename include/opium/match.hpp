@@ -37,7 +37,7 @@ class match {
   bool
   operator () (value expr) const
   {
-    opi::unordered_map<value, value> _;
+    opi::stl::unordered_map<value, value> _;
     return _match(m_pattern, expr, _);
   }
 
@@ -73,7 +73,7 @@ class match {
           // When followed by ellipsis, match as many consecutive elements of
           //  `expr` with the pattern as possible
           {
-            opi::unordered_map<value, value> subresult;
+            opi::stl::unordered_map<value, value> subresult;
             for (; eit->t == tag::pair and _match(car(pit), car(eit), subresult);
                  eit = cdr(eit))
             { // Append new matches

@@ -18,19 +18,12 @@ struct _state_saver {
   std::tuple<T&...> m_refs;
 }; // struct _state_saver
 
-
-opi::scheme_unique_identifiers::scheme_unique_identifiers(symbol_generator &gensym)
+opi::scheme_unique_identifiers::scheme_unique_identifiers(
+    symbol_generator &gensym)
 : m_gensym {gensym},
   m_alist {nil}
 {
-  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
-  //                                 if
-  append_rule({list("if"), list("if", "cond", "then", "else")}, [this](const auto &ms) {
-    // Get cdr of the if-expression (as clauses)
-    const value clauses = list(ms.at("cond"), ms.at("then"), ms.at("else"));
-    // Transform if-expression by transforming all sub-clauses
-    return list("if", dot, list(range(clauses) | std::views::transform(*this)));
-  });
+  flip_page();
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               define (function-syntax)
@@ -206,12 +199,10 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(symbol_generator &gens
     return list("lambda", newargs, dot, newbody);
   });
 
-  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
-  //                               form
-  append_rule({nil, list("func", "args", "...")}, [this](const auto &ms) {
-    const value func = ms.at("func");
-    const value args = ms.contains("args") ? ms.at("args") : nil;
-    const value form = cons(func, args);
+  append_rule(match {nil, list("f", dot, "xs")}, [this](const auto &ms) {
+    const value f = ms.at("f");
+    const value xs = ms.at("xs");
+    const value form = cons(f, xs);
     return list(range(form) | std::views::transform(*this));
   });
 

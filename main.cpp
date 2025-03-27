@@ -282,6 +282,9 @@ main(int argc, char **argv)
   std::cout << "in:\n", pprint(std::cout, in), std::cout << std::endl;
   std::cout << "out:\n", pprint(std::cout, out), std::cout << std::endl;
 
+  std::cout << "[test quotes]" << std::endl;
+  std::cout << parser.parse("`(a b c ,d e ,f ,g h)") << std::endl;;
+
   // Clean up readline before exiting
   cleanup_readline();
 

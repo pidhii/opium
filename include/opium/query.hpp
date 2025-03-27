@@ -43,7 +43,7 @@ struct _compare_symbols {
  * A map that summarizes determined values for variables in a predicate runtime
  */
 class unified_determined_summary
-    : public opi::map<value, opi::unordered_set<value>,
+    : public opi::stl::map<value, opi::stl::unordered_set<value>,
                       detail::_compare_symbols> {
   public:
   /**

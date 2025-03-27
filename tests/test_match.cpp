@@ -56,7 +56,7 @@ TEST_F(MatchTest, VariableMatching)
   opi::match matcher(literals, pattern);
 
   // Create a mapping to store variable bindings
-  opi::unordered_map<opi::value, opi::value> bindings;
+  opi::stl::unordered_map<opi::value, opi::value> bindings;
 
   // Test matching with a variable - X can match any value since it's not in literals
   EXPECT_TRUE(matcher(opi::sym("c"), bindings));
@@ -66,7 +66,7 @@ TEST_F(MatchTest, VariableMatching)
   EXPECT_TRUE(opi::equal(bindings.at(opi::sym("X")), opi::sym("c")));
 
   // Test that literals are not treated as variables
-  opi::unordered_map<opi::value, opi::value> bindings2;
+  opi::stl::unordered_map<opi::value, opi::value> bindings2;
   opi::match matcher2(literals, opi::sym("a"));
   
   // 'a' is in literals, so it must match exactly with 'a'
@@ -90,7 +90,7 @@ TEST_F(MatchTest, PairMatching)
   opi::match matcher(literals, pattern);
 
   // Create a mapping to store variable bindings
-  opi::unordered_map<opi::value, opi::value> bindings;
+  opi::stl::unordered_map<opi::value, opi::value> bindings;
 
   // Test matching with a pair - 'a' must match exactly, 'X' can match anything
   EXPECT_TRUE(matcher(opi::pair(opi::sym("a"), opi::sym("c")), bindings));
@@ -100,7 +100,7 @@ TEST_F(MatchTest, PairMatching)
   EXPECT_TRUE(opi::equal(bindings.at(opi::sym("X")), opi::sym("c")));
 
   // Test non-matching pairs - 'b' doesn't match 'a' in the first position
-  opi::unordered_map<opi::value, opi::value> bindings2;
+  opi::stl::unordered_map<opi::value, opi::value> bindings2;
   EXPECT_FALSE(matcher(opi::pair(opi::sym("b"), opi::sym("c")), bindings2));
   EXPECT_TRUE(bindings2.empty());
 }
@@ -118,7 +118,7 @@ TEST_F(MatchTest, NestedStructureMatching)
   opi::match matcher(literals, pattern);
 
   // Create a mapping to store variable bindings
-  opi::unordered_map<opi::value, opi::value> bindings;
+  opi::stl::unordered_map<opi::value, opi::value> bindings;
 
   // Test matching with a nested structure - 'a' must match exactly, 'X' and 'Y' can match anything
   EXPECT_TRUE(matcher(opi::list(opi::sym("a"), opi::sym("c"), opi::sym("d")),
@@ -131,13 +131,13 @@ TEST_F(MatchTest, NestedStructureMatching)
   EXPECT_TRUE(opi::equal(bindings.at(opi::sym("Y")), opi::sym("d")));
 
   // Test non-matching structures - 'b' doesn't match 'a' in the first position
-  opi::unordered_map<opi::value, opi::value> bindings2;
+  opi::stl::unordered_map<opi::value, opi::value> bindings2;
   EXPECT_FALSE(matcher(opi::list(opi::sym("b"), opi::sym("c"), opi::sym("d")),
                        bindings2));
   EXPECT_TRUE(bindings2.empty());
 
   // Test structures of different lengths
-  opi::unordered_map<opi::value, opi::value> bindings3;
+  opi::stl::unordered_map<opi::value, opi::value> bindings3;
   EXPECT_FALSE(matcher(opi::list(opi::sym("a"), opi::sym("c")), bindings3));
   // Note: The match fails, but some bindings might have been created before the failure
   // was detected, so we don't assert that bindings3 is empty
@@ -156,7 +156,7 @@ TEST_F(MatchTest, MultipleVariableOccurrences)
   opi::match matcher(literals, pattern);
 
   // Create a mapping to store variable bindings
-  opi::unordered_map<opi::value, opi::value> bindings;
+  opi::stl::unordered_map<opi::value, opi::value> bindings;
 
   // Test matching with the same value for both occurrences
   // Both occurrences of 'X' must match the same value
@@ -168,7 +168,7 @@ TEST_F(MatchTest, MultipleVariableOccurrences)
 
   // Test that matching fails when trying to bind the same variable to different values
   // Both occurrences of 'X' must match the same value
-  opi::unordered_map<opi::value, opi::value> bindings2;
+  opi::stl::unordered_map<opi::value, opi::value> bindings2;
   EXPECT_FALSE(matcher(opi::list(opi::sym("c"), opi::sym("d")), bindings2));
 }
 
@@ -185,7 +185,7 @@ TEST_F(MatchTest, DifferentTypeMatching)
   opi::match matcher(literals, pattern);
 
   // Create a mapping to store variable bindings
-  opi::unordered_map<opi::value, opi::value> bindings;
+  opi::stl::unordered_map<opi::value, opi::value> bindings;
 
   // Test matching with different types - 'X' can match any value, including numbers
   EXPECT_TRUE(matcher(opi::num(42), bindings));
@@ -195,7 +195,7 @@ TEST_F(MatchTest, DifferentTypeMatching)
   EXPECT_TRUE(opi::equal(bindings.at(opi::sym("X")), opi::num(42)));
 
   // Test with string - 'X' can match any value, including strings
-  opi::unordered_map<opi::value, opi::value> bindings2;
+  opi::stl::unordered_map<opi::value, opi::value> bindings2;
   EXPECT_TRUE(matcher(opi::str("hello"), bindings2));
   EXPECT_TRUE(bindings2.contains(opi::sym("X")));
   EXPECT_TRUE(opi::equal(bindings2.at(opi::sym("X")), opi::str("hello")));
@@ -233,7 +233,7 @@ TEST_F(MatchTest, EllipsisMatching)
   opi::match matcher(literals, pattern);
 
   // Create a mapping to store variable bindings
-  opi::unordered_map<opi::value, opi::value> bindings;
+  opi::stl::unordered_map<opi::value, opi::value> bindings;
 
   // Test matching with multiple elements - 'X ...' should match 'd', 'e', 'f'
   EXPECT_TRUE(matcher(
@@ -246,14 +246,14 @@ TEST_F(MatchTest, EllipsisMatching)
   EXPECT_TRUE(opi::equal(bindings.at(opi::sym("X")), expected_list));
 
   // Test matching with zero elements - 'X ...' can match zero occurrences
-  opi::unordered_map<opi::value, opi::value> bindings2;
+  opi::stl::unordered_map<opi::value, opi::value> bindings2;
   EXPECT_TRUE(matcher(opi::list(opi::sym("a")), bindings2));
   
   // For empty matches, no binding is created in the map
   EXPECT_FALSE(bindings2.contains(opi::sym("X")));
 
   // Test matching with a single element - 'X ...' should match 'd'
-  opi::unordered_map<opi::value, opi::value> bindings3;
+  opi::stl::unordered_map<opi::value, opi::value> bindings3;
   EXPECT_TRUE(matcher(opi::list(opi::sym("a"), opi::sym("d")), bindings3));
   
   // X should be bound to a list containing just 'd'
@@ -261,7 +261,7 @@ TEST_F(MatchTest, EllipsisMatching)
   EXPECT_TRUE(opi::equal(bindings3.at(opi::sym("X")), opi::list(opi::sym("d"))));
 
   // Test non-matching pattern - 'b' doesn't match 'a' in the first position
-  opi::unordered_map<opi::value, opi::value> bindings4;
+  opi::stl::unordered_map<opi::value, opi::value> bindings4;
   EXPECT_FALSE(matcher(
       opi::list(opi::sym("b"), opi::sym("d"), opi::sym("e")),
       bindings4));

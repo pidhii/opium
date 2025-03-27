@@ -19,7 +19,7 @@ namespace opi::detail {
 template <unbound_variable_handler UVHandler>
 struct _reconstructor {
   UVHandler uvhandler; /**< Handler for unbound variables */
-  opi::unordered_map<cell *, value> mem; /**< Memoization map to avoid infinite recursion */
+  opi::stl::unordered_map<cell *, value> mem; /**< Memoization map to avoid infinite recursion */
 
   /**
    * Constructor

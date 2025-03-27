@@ -56,11 +56,10 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
       break;
     }
 
-    case tag::boolean: {
+    case tag::boolean:
       if (e->boolean)
         cont();
       return;
-    }
 
     default:;
   }

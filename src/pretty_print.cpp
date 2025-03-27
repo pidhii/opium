@@ -19,7 +19,7 @@ opi::pretty_printer::print(std::ostream &os, value x, int indent)
   const match blockfmtpat {
       list("_FormatBlock"),
       list("_FormatBlock", "keep-first", "extra-indent", "expr")};
-  opi::unordered_map<value, value> matches;
+  opi::stl::unordered_map<value, value> matches;
   if (blockfmtpat(x, matches))
   {
     _block_format fmt;
@@ -113,4 +113,6 @@ opi::scheme_formatter::scheme_formatter()
               std::bind(let_rule, "let-values", std::placeholders::_1));
   append_rule(match {list("let*-values"), cons("let*-values", let_pat)},
               std::bind(let_rule, "let*-values", std::placeholders::_1));
+
+  append_rule({nil, sym("x")}, [](const auto &ms) { return ms.at("x"); });
 }

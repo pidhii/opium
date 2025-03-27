@@ -42,7 +42,5 @@ opi::scheme_code_flattener::scheme_code_flattener(symbol_generator &gensym)
   });
 
   // atoms
-  // -----
-  // Identity transformation
   append_rule(match {nil, "x"}, [](const auto &ms) { return ms.at("x"); });
 }

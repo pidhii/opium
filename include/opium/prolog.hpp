@@ -79,7 +79,7 @@ class predicate {
 
   private:
   std::string m_name; /**< Name of the predicate */
-  opi::vector<value> m_args; /**< Arguments of the predicate */
+  opi::stl::vector<value> m_args; /**< Arguments of the predicate */
   value m_body; /**< Body/rule of the predicate */
 }; // class opi::predicate
 
@@ -143,7 +143,7 @@ class prolog {
                        value eargs, Cont cont, NTVHandler ntvhandler) const;
 
   private:
-  opi::unordered_multimap<std::string, predicate> m_db; /**< Database of predicates */
+  opi::stl::unordered_multimap<std::string, predicate> m_db; /**< Database of predicates */
 }; // class opi::prolog
 
 

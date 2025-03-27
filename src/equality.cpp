@@ -3,7 +3,7 @@
 #include "opium/stl/unordered_set.hpp"
 
 using _pair_of_pointers = std::pair<void*, void*>;
-using _memory_set = opi::unordered_set<_pair_of_pointers>;
+using _memory_set = opi::stl::unordered_set<_pair_of_pointers>;
 
 
 namespace std {
@@ -71,4 +71,3 @@ opi::equal(value a, value b)
   _memory_set mem;
   return _equal(a, b, mem);
 }
-
