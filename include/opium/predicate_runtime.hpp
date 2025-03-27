@@ -299,7 +299,7 @@ class predicate_runtime {
   operator [] (value var) const;
 
   /**
-   * Get cell with value `val`
+   * Make cell with value `val`
    * 
    * \note Cell will be owned by this runtime and will thus
    * be marked by `mark_dead()`.
@@ -309,6 +309,17 @@ class predicate_runtime {
    */
   cell*
   make_term(value val);
+
+  /**
+   * Make unbound cell
+   * 
+   * \note Cell will be owned by this runtime and will thus
+   * be marked by `mark_dead()`.
+   * 
+   * \return Pointer to the created cell
+   */
+  cell*
+  make_var();
 
   /**
    * Will effectively erase unifications with variables in this frame

@@ -11,20 +11,27 @@
  * Check if a value is a variable (symbol starting with a capital letter)
  * 
  * \param x Value to check
+ * \param is_wildcard[out] Whether its a wildcard variable
  * \return True if the value is a variable
  */
-[[gnu::pure]] static inline bool
-_is_variable(opi::value x)
+static inline bool
+_is_variable(opi::value x, bool &is_wildcard)
 {
-  return opi::issym(x) and
-         (isupper((unsigned char)x->sym.data[0]) or x->sym.data[0] == '_');
+  if (not issym(x))
+    return (is_wildcard = false);
+  const bool starts_with_capital = isupper((unsigned char)x->sym.data[0]);
+  const bool starts_with_underscore = x->sym.data[0] == '_';
+  is_wildcard = starts_with_underscore and x->sym.len == 1;
+  return starts_with_capital or starts_with_underscore;
 }
+
 
 opi::value
 opi::insert_cells(predicate_runtime &prt, value expr)
 {
-  if (_is_variable(expr))
-    return opi::cons(opi::sym("__cell"), opi::ptr(prt[expr]));
+  bool iswild;
+  if (_is_variable(expr, iswild))
+    return opi::cons("__cell", opi::ptr(iswild ? prt.make_var() : prt[expr]));
   else if (expr->t == opi::tag::pair)
     return opi::cons(insert_cells(prt, car(expr)),
                      insert_cells(prt, cdr(expr)));
@@ -130,6 +137,16 @@ opi::predicate_runtime::make_term(value val)
   m_terms.push_back(valcell);
   return valcell;
 }
+
+
+opi::cell*
+opi::predicate_runtime::make_var()
+{
+  cell *varcell = make<cell>();
+  m_terms.push_back(varcell);
+  return varcell;
+}
+
 
 
 void
