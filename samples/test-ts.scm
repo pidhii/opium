@@ -23,11 +23,11 @@
            (return-type (runThread Thread Tmp) Return))))
 
 
-(predicate (return-type (_thread ) numeric))
-(query (return-type (runThread _thread numeric) T))
+(predicate (return-type (thread ) numeric))
+(query (return-type (runThread thread numeric) T))
 (query
   (and 
-       (= Thread _thread)
+       (= Thread thread)
        (= Timeout numeric)
        (return-type (real_time) StartTime)
        (return-type (poll Thread) MaybeResult)
@@ -63,7 +63,7 @@
            (= Return (cons X_ Tmp0)))
       (= Return nil)))
 
-(predicate (return-type (_f numeric numeric) (pair numeric numeric)))
+(predicate (return-type (f numeric numeric) (pair numeric numeric)))
 
 (predicate (cons-list ValueType ListType)
   (or (= ListType (cons ValueType ListType))
@@ -72,7 +72,7 @@
 
 (query
   (and (cons-list numeric NumericList)
-       (return-type (fold_map _f numeric NumericList) X)))
+       (return-type (fold_map f numeric NumericList) X)))
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -101,3 +101,7 @@
        (or (= Return boolean)
            (and (return-type (operator- X numeric) Tmp0)
                (return-type (even Tmp0) Return)))))
+
+
+
+; ((and (result-of (define T: T:) _) (result-of (define _Uid5 T:) _) (and (result-of (input prompt) _) (or (and (result-of (foo bar) _Uid6) (and (result-of (_Uid3 _Uid6) _))) (and (and (result-of (bar _Uid5) _Uid8) (and (result-of (foo _Uid8) _Uid7))) num (and (result-of (_Uid3 _Uid7) _)))))))
