@@ -2,6 +2,7 @@
 
 #include "opium/memory.hpp"
 
+#include <stdexcept>
 #include <string>
 #include <ostream>
 #include <cstring>
@@ -80,8 +81,20 @@ class value {
    * \param other Value to compare with
    * \return True if the values are equal
    */
-  bool
+  [[nodiscard]] bool
   operator == (opi::value other) const noexcept;
+
+  /**
+   * Overload of equality comparison for symbols 
+   *
+   * Allows comparing values with string constants (value must be a symbol).
+   *
+   * \param symbol Symbol name to compare with
+   * \return True if `this` is a symbol with name \p symbol
+   * \throws std::invalid_argument If the value is not a symbol
+   */
+  [[nodiscard]] bool
+  operator == (const char *symbol) const;
 
   private:
   object *m_ptr; /**< Pointer to the object */
@@ -127,7 +140,7 @@ struct object {
  *
  * \ingroup core
  */
-inline value
+[[nodiscard]] inline value
 sym(std::string_view str)
 {
   value ret {make<object>(tag::sym)};
@@ -145,7 +158,7 @@ sym(std::string_view str)
  *
  * \ingroup core
  */
-inline value
+[[nodiscard]] inline value
 str(const std::string &str)
 {
   value ret {make<object>(tag::str)};
@@ -163,7 +176,7 @@ str(const std::string &str)
  *
  * \ingroup core
  */
-inline value
+[[nodiscard]] inline value
 num(long double val)
 {
   value ret {make_atomic<object>(tag::num)};
@@ -179,7 +192,7 @@ num(long double val)
  *
  * \ingroup core
  */
-inline value
+[[nodiscard]] inline value
 ptr(void *ptr)
 {
   value ret {make<object>(tag::ptr)};
@@ -196,7 +209,7 @@ ptr(void *ptr)
  *
  * \ingroup core
  */
-inline value
+[[nodiscard]] inline value
 pair(value car, value cdr)
 {
   value ret {make<object>(tag::pair)};
@@ -223,7 +236,7 @@ extern const value nil; /**< Nil constant */
  *
  * \ingroup core
  */
-inline value
+[[nodiscard]] inline value
 from(long double x)
 { return num(x); }
 
@@ -235,7 +248,7 @@ from(long double x)
  *
  * \ingroup core
  */
-inline value
+[[nodiscard]] inline value
 from(const std::pair<value, value> &p)
 { return pair(p.first, p.second); }
 
@@ -247,7 +260,7 @@ from(const std::pair<value, value> &p)
  *
  * \ingroup core
  */
-inline value
+[[nodiscard]] inline value
 from(value val)
 { return val; }
 
@@ -275,7 +288,7 @@ constexpr dot_t dot; /**< Dot constant */
  * \ingroup core
  */
 template <typename Head>
-value
+[[nodiscard]] value
 list(Head head)
 { return pair(from(head), nil); }
 
@@ -290,7 +303,7 @@ list(Head head)
  * \ingroup core
  */
 template <typename Car, typename Cdr>
-value
+[[nodiscard]] value
 list(Car car, [[maybe_unused]] dot_t _, Cdr cdr)
 { return pair(from(car), from(cdr)); }
 
@@ -304,7 +317,7 @@ list(Car car, [[maybe_unused]] dot_t _, Cdr cdr)
  * \ingroup core
  */
 template <typename Head, typename ...Tail>
-value
+[[nodiscard]] value
 list(Head head, Tail&& ...tail)
 { return pair(from(head), list(std::forward<Tail>(tail)...)); }
 
@@ -316,7 +329,7 @@ list(Head head, Tail&& ...tail)
  *
  * \ingroup core
  */
-inline value
+[[nodiscard]] inline value
 reverse(value l)
 {
   value acc = nil;
@@ -332,7 +345,7 @@ reverse(value l)
  * \return List containing all elements from the range
  */
 template <std::ranges::range Range>
-value
+[[nodiscard]] value
 list(Range range)
 {
   if constexpr (std::ranges::bidirectional_range<Range>)
@@ -366,7 +379,7 @@ list(Range range)
  *
  * \ingroup core
  */
-inline bool
+[[nodiscard]] inline bool
 issym(value x)
 { return x->t == tag::sym; }
 
@@ -379,7 +392,7 @@ issym(value x)
  *
  * \ingroup core
  */
-inline bool
+[[nodiscard]] inline bool
 issym(value x, std::string_view str)
 { return issym(x) and (str == std::string_view {x->sym.data, x->sym.len}); }
 
@@ -388,15 +401,15 @@ issym(value x, std::string_view str)
  * 
  * \param x Value to get the name from (must be a symbol)
  * \return The name of the symbol as a string
- * \throws std::runtime_error If the value is not a symbol
+ * \throws std::invalid_argument If the value is not a symbol
  *
  * \ingroup core
  */
-inline std::string_view
+[[nodiscard]] inline std::string_view
 sym_name(value x)
 {
   if (not issym(x))
-    throw std::runtime_error {"sym_name() - not a symbol"};
+    throw std::invalid_argument {"sym_name() - not a symbol"};
   return std::string_view {x->sym.data, x->sym.len};
 }
 
@@ -408,7 +421,7 @@ sym_name(value x)
  *
  * \ingroup core
  */
-inline bool
+[[nodiscard]] inline bool
 isstr(value x)
 { return x->t == tag::str; }
 
@@ -421,9 +434,26 @@ isstr(value x)
  *
  * \ingroup core
  */
-inline bool
+[[nodiscard]] inline bool
 isstr(value x, const char *str)
 { return isstr(x) and strncmp(x->sym.data, str, x->sym.len) == 0; }
+
+/**
+ * Get the string
+ *
+ * \param x Value to get the string from (must be a string)
+ * \return String view corresponding to contents of the object
+ * \throws std::runtime_error If the value is not a string
+ *
+ * \ingroup core
+ */
+[[nodiscard]] inline std::string_view
+str_view(value x)
+{
+  if (not isstr(x))
+    throw std::invalid_argument {"str_view() - not a string"};
+  return std::string_view {x->str.data, x->str.len};
+}
 
 /**
  * Check if a value is a number
@@ -433,7 +463,7 @@ isstr(value x, const char *str)
  *
  * \ingroup core
  */
-inline bool
+[[nodiscard]] inline bool
 isnum(value x)
 { return x->t == tag::num; }
 
@@ -446,9 +476,26 @@ isnum(value x)
  *
  * \ingroup core
  */
-inline bool
+[[nodiscard]] inline bool
 isnum(value x, long double num)
 { return isnum(x) and x->num == num; }
+
+/**
+ * Get the number value
+ *
+ * \param x Value to get the value from (must be a number)
+ * \return Number value
+ * \throws std::runtime_error If the value is not a number
+ *
+ * \ingroup core
+ */
+[[nodiscard]] inline long double
+num_val(value x)
+{
+  if (not isnum(x))
+    throw std::invalid_argument {"num_val() - not a number"};
+  return x->num;
+}
 
 /** \} */
 
@@ -466,7 +513,7 @@ isnum(value x, long double num)
  *
  * \ingroup core
  */
-inline bool
+[[nodiscard]] inline bool
 is(value a, value b)
 { return &*a == &*b; }
 
@@ -479,7 +526,7 @@ is(value a, value b)
  *
  * \ingroup core
  */
-bool
+[[nodiscard]] bool
 equal(value a, value b);
 
 /** \} */
@@ -498,7 +545,7 @@ equal(value a, value b);
  *
  * \ingroup core
  */
-inline value
+[[nodiscard]] inline value
 cons(value car, value cdr)
 { return pair(car, cdr); }
 
@@ -513,7 +560,7 @@ cons(value car, value cdr)
  * \ingroup core
  */
 template <bool Test=true>
-inline value
+[[nodiscard]] inline value
 car(value x)
 {
   if constexpr (Test)
@@ -535,7 +582,7 @@ car(value x)
  * \ingroup core
  */
 template <bool Test=true>
-inline value
+[[nodiscard]] inline value
 cdr(value x)
 {
   if constexpr (Test)
@@ -554,7 +601,7 @@ cdr(value x)
  *
  * \ingroup core
  */
-inline size_t
+[[nodiscard]] inline size_t
 length(value l)
 {
   size_t len = 0;
@@ -571,7 +618,7 @@ length(value l)
  *
  * \ingroup core
  */
-inline bool
+[[nodiscard]] inline bool
 memq(value x, value l)
 {
   for (; l->t == tag::pair; l = cdr(l))
@@ -591,7 +638,7 @@ memq(value x, value l)
  *
  * \ingroup core
  */
-inline bool
+[[nodiscard]] inline bool
 member(value x, value l)
 {
   for (; l->t == tag::pair; l = cdr(l))
@@ -667,7 +714,7 @@ assoc(value k, value l, value &result)
  *
  * \ingroup core
  */
-inline value
+[[nodiscard]] inline value
 append(value l, value x)
 {
   if (l->t == tag::pair)
@@ -736,3 +783,7 @@ opi::value::value(const char *sym)
 inline bool
 opi::value::operator == (opi::value other) const noexcept
 { return opi::equal(*this, other); }
+
+inline bool
+opi::value::operator == (const char *symbol) const
+{ return opi::str_view(*this) == symbol; }
