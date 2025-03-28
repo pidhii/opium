@@ -3,6 +3,7 @@
  */
 #pragma once
 
+#include "opium/predicate_runtime.hpp"
 #include "opium/prolog.hpp"
 
 #include <functional>
@@ -29,7 +30,7 @@ void
 prolog::make_true(predicate_runtime &ert, value e, Cont cont,
                   NTVHandler ntvhandler) const
 {
-  debug("make_true {}", e);
+  debug("make_true {}", reconstruct(e, stringify_unbound_variables));
 
   indent _ {};
   switch (e->t)
@@ -108,7 +109,7 @@ prolog::_make_or_true(predicate_runtime &ert, value clauses, Cont cont,
       assert(ok and "Failed to create variable in or-clause");
     }
     
-    debug("[or] make_true({}) and <cont>", clause);
+    debug("[or] make_true({}) and <cont>", reconstruct(clause, stringify_unbound_variables));
     make_true(crt, clause, cont, ntvhandler);
     crt.mark_dead();
   }
@@ -124,12 +125,15 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
   predicate_runtime prt;
 
   const value pargs = insert_cells(prt, list(pred.arguments()));
-  debug("match {} on {}{} :- {}", eargs, pred.name(), pargs, pred.body());
+  debug("match {} on {}{} :- {}",
+        reconstruct(eargs, stringify_unbound_variables), pred.name(),
+        reconstruct(pargs, stringify_unbound_variables), pred.body());
 
   if (match_arguments(prt, ert, pargs, eargs))
   {
     const value signature = eargs;
-    debug("\e[38;5;2maccept\e[0m [signature={}{}]", pred.name(), signature);
+    debug("\e[38;5;2maccept\e[0m [signature={}{}]", pred.name(),
+          reconstruct(signature, stringify_unbound_variables));
     indent _ {};
     if (prt.try_sign(&pred, signature, ert, ntvhandler))
     {

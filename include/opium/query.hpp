@@ -65,13 +65,9 @@ class unified_determined_summary
   {
     for (const value var : m_prt.variables())
     {
-      try {
-        const value varval =
-            reconstruct(m_prt[var], [&](cell *) { return sym("<any>"); });
-        this->operator[](var).emplace(varval);
-      }
-      catch (const reconstruction_error&)
-      { /* just ignore the value */; }
+      const value varval =
+          reconstruct(m_prt[var], [&](cell *) { return sym("<any>"); });
+      this->operator[](var).emplace(varval);
     }
   }
 

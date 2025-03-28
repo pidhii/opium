@@ -5,6 +5,7 @@
 #pragma once
 
 #include "opium/predicate_runtime.hpp"
+#include "opium/logging.hpp"
 
 #include <cassert>
 
@@ -120,6 +121,11 @@ opi::predicate_runtime::try_sign(const void *preduid, value signature,
       assert(prt->m_preduid != nullptr);
       if (equivalent(signature, prt->m_signature))
       {
+        // Do the actual match as we may be dealing with recursive types instead
+        // if just non-terminals
+        const bool ok = match_arguments(*this, *prt, signature, prt->m_signature);
+        assert(ok and "Failed to match equivalent signatures");
+
         // Process non-terminal variables
         if constexpr (not std::is_same_v<NTVHandler, ignore_nonterminal_variables>)
         {

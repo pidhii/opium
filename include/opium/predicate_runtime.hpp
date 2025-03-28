@@ -115,10 +115,19 @@ struct reconstruction_error: public std::runtime_error {
  */
 struct throw_on_unbound_variable {
   value
-  operator () (cell *x) //const
+  operator () (cell *x) const
   { throw reconstruction_error {std::format("unbound variable @ {}", (void*)x)}; }
 }; // struct opi::throw_on_unbound_variable
 static_assert(unbound_variable_handler<throw_on_unbound_variable>);
+
+
+struct stringify_unbound_variables_t {
+  value
+  operator () (cell *x) const
+  { return sym(std::format("X:{}", (void*)x)); }
+}; // struct opi::stringify_unbound_variables
+static_assert(unbound_variable_handler<stringify_unbound_variables_t>);
+constexpr stringify_unbound_variables_t stringify_unbound_variables;
 
 
 /**
