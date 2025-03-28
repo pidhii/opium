@@ -28,7 +28,7 @@ opi::code_transformer::operator () (value inexpr) const
 {
   // Iterate through the syntax table and find the first matching rule
   match_mapping matches;
-  for (const auto &[matcher, transformer]: m_pages | std::views::join)
+  for (const auto &[matcher, transformer] : m_pages | std::views::join)
   {
     if (matcher(inexpr, matches))
       return transformer(matches);
@@ -88,7 +88,7 @@ opi::scheme_code_transformer::scheme_code_transformer()
     value newbinds = nil;
     for (; exprs->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
       newbinds = append(newbinds, list(list(car(idents), (*this)(car(exprs)))));
-    const value newbody = list(range(body) | std::views::transform(*this));
+    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
     return list(sym(let), newbinds, dot, newbody);
   };
 
@@ -122,12 +122,19 @@ opi::scheme_code_transformer::scheme_code_transformer()
    * This ensures that all expressions within a define statement
    * are also transformed according to the rules.
    */
-  const match definematch {list("define"),
-                           list("define", "ident", dot, "body")};
+  const match definematch {list("define"), list("define", "ident", dot, "body")};
   append_rule(definematch, [this](const auto &ms) {
     const value ident = ms.at("ident");
     const value body = ms.at("body");
-    const value newbody = list(range(body) | std::views::transform(*this));
+    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
     return list("define", ident, dot, newbody);
+  });
+
+  const match lambdamatch {list("lambda"), list("lambda", "args", dot, "body")};
+  append_rule(lambdamatch, [this](const auto &ms) {
+    const value args = ms.at("args");
+    const value body = ms.at("body");
+    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    return list("lambda", args, dot, newbody);
   });
 }

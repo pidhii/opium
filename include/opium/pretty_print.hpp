@@ -31,12 +31,16 @@ class pretty_printer {
   _print_block(std::ostream &os, opi::value stmt, int indent,
                const _block_format &fmt);
 
-  code_transformer m_formatter;
+  const code_transformer &m_formatter;
 }; // class opi::pretty_print
 
 
 struct scheme_formatter: public code_transformer {
   scheme_formatter();
+};
+
+struct prolog_formatter: public code_transformer {
+  prolog_formatter();
 };
 
 } // namespace opi

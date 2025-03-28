@@ -1,14 +1,11 @@
 #include "opium/pretty_print.hpp"
 #include "opium/code_transformer.hpp"
+#include "opium/value.hpp"
 
 
 opi::pretty_printer::pretty_printer(const code_transformer &formatter)
-    : m_formatter {formatter}
-{
-  // Identity map
-  m_formatter.append_rule({nil, "x"},
-                          [](const auto &ms) { return ms.at("x"); });
-}
+: m_formatter {formatter}
+{ }
 
 
 void
@@ -23,8 +20,8 @@ opi::pretty_printer::print(std::ostream &os, value x, int indent)
   if (blockfmtpat(x, matches))
   {
     _block_format fmt;
-    fmt.keep_first = matches.at("keep-first")->boolean;
-    fmt.extra_indent = matches.at("extra-indent")->num;
+    fmt.keep_first = matches.at("keep-first") != False;
+    fmt.extra_indent = num_val(matches.at("extra-indent"));
     _print_block(os, matches.at("expr"), indent, fmt);
   }
   else
@@ -114,5 +111,27 @@ opi::scheme_formatter::scheme_formatter()
   append_rule(match {list("let*-values"), cons("let*-values", let_pat)},
               std::bind(let_rule, "let*-values", std::placeholders::_1));
 
-  append_rule({nil, sym("x")}, [](const auto &ms) { return ms.at("x"); });
+  append_rule({nil, "x"}, [](const auto &ms) { return ms.at("x"); });
+}
+
+
+opi::prolog_formatter::prolog_formatter()
+{
+  append_rule({list("and"), cons("and", "clauses")}, [this](const auto &ms) {
+    value clauses = ms.at("clauses");
+    // TODO: Move this cleanup stuff to a separate transformer
+    while (length(clauses) == 1 and issym(car(car(clauses)), "and"))
+      clauses = cdr(car(clauses));
+    if (length(clauses) == 1)
+      return (*this)(car(clauses));
+    else
+      return pretty_printer::format_block(true, 5, cons("and", clauses));
+  });
+
+  append_rule({list("or"), cons("or", "clauses")}, [](const auto &ms) {
+    const value clauses = ms.at("clauses");
+    return pretty_printer::format_block(true, 4, cons("or", clauses));
+  });
+
+  append_rule({nil, "x"}, [](const auto &ms) { return ms.at("x"); });
 }

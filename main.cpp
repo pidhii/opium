@@ -266,24 +266,31 @@ main(int argc, char **argv)
   symbol_generator gensym;
   scheme_unique_identifiers makeuids {gensym};
   scheme_code_flattener flatten {gensym};
+  scheme_to_prolog toprolog;
 
-  pretty_printer pprint {scheme_formatter {}};
+  // FIXME (seems to be a bug in C++/GCC)
+  // The code below should work when formatters are constructed within arguments
+  // of the pretty_printter, i.e. a temporary object is created and the reference
+  // to this temporary is passed to the formatter. It seems that some (deleted)
+  // copying / move-assignment is taking place if you do it.
+  const scheme_formatter scmfmt;
+  const prolog_formatter plfmt;
+  pretty_printer pprint_scm {scmfmt};
+  pretty_printer pprint_pl {plfmt};
+
   const value in = parser.parse("(let ()                                 "
-                                "  (define (print x) (__builtin_print x))"
-                                "  (define baz (__builtin_baz x))        "
+                                // "  (define (print x) (__builtin_print x))"
+                                // "  (define baz (__builtin_baz x))        "
                                 "  (if (input prompt)                    "
                                 "      (print (foo bar))                 "
                                 "      (let ((z (foo (bar baz)))         "
                                 "            (zz 12345))                 "
                                 "        (print z))))                    ");
-  const value out = compose(makeuids, flatten)(in);
+  const value out = compose(toprolog, compose(makeuids, flatten))(in);
 
   std::cout << "[test]" << std::endl;
-  std::cout << "in:\n", pprint(std::cout, in), std::cout << std::endl;
-  std::cout << "out:\n", pprint(std::cout, out), std::cout << std::endl;
-
-  std::cout << "[test quotes]" << std::endl;
-  std::cout << parser.parse("`(a b c ,d e ,f ,g h)") << std::endl;;
+  std::cout << "in:\n", pprint_scm(std::cout, in), std::cout << std::endl;
+  std::cout << "out:\n", pprint_pl(std::cout, out), std::cout << std::endl;
 
   // Clean up readline before exiting
   cleanup_readline();

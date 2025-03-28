@@ -73,6 +73,10 @@ class code_transformer {
   using transformation = std::function<value(const match_mapping&)>;
 
   code_transformer() { m_pages.emplace_front(); }
+  code_transformer(const code_transformer&) = delete;
+  code_transformer(code_transformer&&) = delete;
+  code_transformer& operator = (const code_transformer&) = delete;
+  code_transformer& operator = (code_transformer&&) = delete;
 
   /**
    * Add syntax rule at highest priority (beginning of the syntax table).
@@ -116,7 +120,7 @@ class code_transformer {
 
   private:
   using syntax_table = opi::stl::deque<std::pair<match, transformation>>;
-  opi::stl::list<syntax_table> m_pages; /**< Syntax tables */
+  opi::stl::deque<syntax_table> m_pages; /**< Syntax tables */
 }; // class opi::code_transformer
 static_assert(transformation<code_transformer>);
 
@@ -124,20 +128,8 @@ static_assert(transformation<code_transformer>);
 template <transformation Lhs, transformation Rhs>
 class composed_transformer {
   public:
-  template <typename LhsArgs, typename RhsArgs>
-    requires std::copy_constructible<Lhs> and std::copy_constructible<Rhs>
-  composed_transformer(const std::tuple<LhsArgs> &lhsargs,
-                       const std::tuple<RhsArgs> &rhsargs)
-  : m_lhs {std::make_from_tuple<Lhs>(lhsargs)},
-    m_rhs {std::make_from_tuple<Rhs>(rhsargs)}
-  { }
-
   composed_transformer(const Lhs &lhs, const Rhs &rhs)
   : m_lhs {lhs}, m_rhs {rhs}
-  { }
-
-  composed_transformer(Lhs &&lhs, Rhs &&rhs)
-  : m_lhs {std::move(lhs)}, m_rhs {std::move(rhs)}
   { }
 
   value
@@ -145,14 +137,13 @@ class composed_transformer {
   { return m_lhs(m_rhs(inexpr)); }
 
   private:
-  Lhs m_lhs;
-  Rhs m_rhs;
+  const Lhs &m_lhs;
+  const Rhs &m_rhs;
 }; // class opi::composed_transformer
 static_assert(
     transformation<composed_transformer<code_transformer, code_transformer>>);
 
 template <transformation Lhs, transformation Rhs>
-  requires std::copy_constructible<Lhs> and std::copy_constructible<Rhs>
 composed_transformer<Lhs, Rhs>
 compose(const Lhs &lhs, const Rhs &rhs)
 { return {lhs, rhs}; }

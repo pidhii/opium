@@ -1,22 +1,12 @@
 #include "opium/code_transform_utils.hpp"
 #include "opium/code_transformer.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
+#include "opium/utilities/state_saver.hpp"
 #include "opium/value.hpp"
 
 #include <ranges>
 #include <readline/readline.h>
 
-
-template <typename ...T>
-struct _state_saver {
-  _state_saver(T &...refs): m_save {refs...}, m_refs {refs...} {}
-
-  ~_state_saver()
-  { m_refs = m_save; }
-
-  std::tuple<T...> m_save;
-  std::tuple<T&...> m_refs;
-}; // struct _state_saver
 
 opi::scheme_unique_identifiers::scheme_unique_identifiers(
     symbol_generator &gensym)
@@ -37,7 +27,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     // Replace identifiers with unique ones
     const value newf = m_gensym();
     m_alist = cons(cons(f, newf), m_alist); // Leak function identifier
-    _state_saver _ {m_alist}; // But will roll-back further changes to alist
+    utl::state_saver _ {m_alist}; // But will roll-back further changes to alist
     value newxs = nil;
     for (const value ident : range(xs))
     {
@@ -47,7 +37,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(*this));
+    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
     return list("define", cons(newf, newxs), dot, newbody);
   });
 
@@ -64,7 +54,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     m_alist = cons(cons(ident, newident), m_alist);
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(*this));
+    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
     return list("define", newident, dot, newbody);
   });
 
@@ -75,7 +65,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
   value exprs = (ms).contains("expr") ? (ms).at("expr") : nil;                 \
   const value body = (ms).contains("body") ? (ms).at("body") : nil;            \
   /* Guard to recover alist after finishing this function */                   \
-  _state_saver _ {m_alist};
+  utl::state_saver _ {m_alist};
 
   const value letpat = list(list(list("ident", "expr"), "..."), "body", "...");
 
@@ -101,7 +91,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     m_alist = newalist;
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(*this));
+    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
     return list("let", newbinds, dot, newbody);
   });
 
@@ -123,7 +113,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(*this));
+    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
     return list("let*", newbinds, dot, newbody);
   });
 
@@ -149,7 +139,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(*this));
+    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
     return list("letrec", newbinds, dot, newbody);
   });
 
@@ -171,7 +161,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(*this));
+    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
     return list("letrec*", newbinds, dot, newbody);
   });
 
@@ -183,7 +173,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     const value body = ms.at("body");
 
     // Roll-back alist afterward
-    _state_saver _ {m_alist};
+    utl::state_saver _ {m_alist};
 
     // Replace identifiers in arguments with unique ones
     value newargs = nil;
@@ -195,7 +185,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(*this));
+    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
     return list("lambda", newargs, dot, newbody);
   });
 
@@ -203,7 +193,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     const value f = ms.at("f");
     const value xs = ms.at("xs");
     const value form = cons(f, xs);
-    return list(range(form) | std::views::transform(*this));
+    return list(range(form) | std::views::transform(std::ref(*this)));
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
@@ -217,7 +207,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
                       ident)};
     // Lookup for identifier 
     value newident = nil;
-    if (issym(ident), assoc(ident, m_alist, newident))
+    if (issym(ident) and assoc(ident, m_alist, newident))
       return newident;
     return ident;
   });
