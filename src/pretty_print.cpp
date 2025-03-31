@@ -88,6 +88,14 @@ opi::scheme_formatter::scheme_formatter()
                 return pretty_printer::format_block(true, 4, expr);
               });
 
+  const match defmatch {list("define"), list("define", "ident", dot, "body")};
+  append_rule(defmatch, [](const auto &ms) {
+    const value ident = ms.at("ident");
+    const value body = ms.at("body");
+    const value expr = list("define", ident, dot, body);
+    return pretty_printer::format_block(true, 2, expr);
+  });
+
   const value let_pat = list(list(list("ident", "expr"), "..."), "body", "...");
   auto let_rule = [&](const std::string &let, const auto &ms) {
     value idents = ms.contains("ident") ? ms.at("ident") : nil;
