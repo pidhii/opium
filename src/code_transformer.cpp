@@ -1,4 +1,5 @@
 #include "opium/code_transformer.hpp"
+#include "opium/logging.hpp"
 
 #include <format>
 #include <functional>
@@ -31,7 +32,12 @@ opi::code_transformer::operator () (value inexpr) const
   for (const auto &[matcher, transformer] : m_pages | std::views::join)
   {
     if (matcher(inexpr, matches))
-      return transformer(matches);
+    {
+      // TODO insert location memorization
+      const value result = transformer(matches);
+      // debug("[code_transformer] T[{}] -> {}", inexpr, result);
+      return result;
+    }
     matches.clear(); // Clean up after unsuccessful match
   }
 
@@ -136,5 +142,12 @@ opi::scheme_code_transformer::scheme_code_transformer()
     const value body = ms.at("body");
     const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
     return list("lambda", args, dot, newbody);
+  });
+
+  const match beginmatch {list("begin"), list("begin", dot, "body")};
+  append_rule(beginmatch, [this](const auto &ms) {
+    const value body = ms.at("body");
+    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    return cons("begin", newbody);
   });
 }
