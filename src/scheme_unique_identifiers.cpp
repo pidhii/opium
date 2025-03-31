@@ -166,6 +166,66 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                              let-values
+  append_rule({list("let-values"), cons("let-values", letpat)}, [this](const auto &ms) {
+    UNPACK_MATCHES_AND_SAVE_STATE(ms)
+
+    // Transform bind-expressions with current alist;
+    // replace identifiers with new unique symbols;
+    value newbinds = nil;
+    value newalist = m_alist;
+    for (; exprs->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
+    {
+      const value identlist = car(idents);
+      const value expr = car(exprs);
+
+      value newidentlist = nil;
+      for (const value ident : range(identlist))
+      {
+        const value newident = m_gensym();
+        newidentlist = append(newidentlist, list(newident));
+        newalist = cons(cons(ident, newident), newalist);
+      }
+      newbinds = append(newbinds, list(list(newidentlist, (*this)(expr))));
+    }
+
+    // Update alist with new identifiers
+    m_alist = newalist;
+
+    // Transform body with new alist
+    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    return list("let-values", newbinds, dot, newbody);
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                              let*-values
+  append_rule({list("let*-values"), cons("let*-values", letpat)}, [this](const auto &ms) {
+    UNPACK_MATCHES_AND_SAVE_STATE(ms)
+
+    value newbinds = nil;
+    for (; exprs->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
+    {
+      const value identlist = car(idents);
+      const value expr = car(exprs);
+
+      const value newexpr = (*this)(expr);
+
+      value newidentlist = nil;
+      for (const value ident : range(identlist))
+      {
+        const value newident = m_gensym();
+        m_alist = cons(cons(ident, newident), m_alist);
+        newidentlist = append(newidentlist, list(newident));
+      }
+      newbinds = append(newbinds, list(list(newidentlist, newexpr)));
+    }
+
+    // Transform body with new alist
+    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    return list("let*-values", newbinds, dot, newbody);
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               lambda
   const value lambdapat = list("lambda", "args", dot, "body");
   append_rule({list("lambda"), lambdapat}, [this](const auto &ms) {

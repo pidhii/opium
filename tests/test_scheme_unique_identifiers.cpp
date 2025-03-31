@@ -459,4 +459,124 @@ TEST_F(SchemeUniqueIdentifiersTest, ComplexExpression) {
     EXPECT_TRUE(opi::equal(else_arg1, var_z)); // Same symbol as binding
 }
 
+// Test variable replacement in let-values
+TEST_F(SchemeUniqueIdentifiersTest, LetValuesVariableReplacement) {
+    // let-values expression with bindings
+    opi::value expr = parse("(let-values (((x y) (values 1 2))) (+ x y))");
+    opi::value result = (*transformer)(expr);
+    
+    // Check that it's still a let-values expression
+    ASSERT_EQ(result->t, opi::tag::pair);
+    ASSERT_TRUE(opi::issym(opi::car(result), "let-values"));
+    
+    // Get the bindings
+    opi::value bindings = opi::car(opi::cdr(result));
+    ASSERT_EQ(bindings->t, opi::tag::pair);
+    
+    // Check the binding ((x y) (values 1 2))
+    opi::value binding = opi::car(bindings);
+    ASSERT_EQ(binding->t, opi::tag::pair);
+    
+    // Check the identifier list (x y)
+    opi::value identlist = opi::car(binding);
+    ASSERT_EQ(identlist->t, opi::tag::pair);
+    
+    // Check that x and y are replaced with unique symbols
+    opi::value var_x = opi::car(identlist);
+    opi::value var_y = opi::car(opi::cdr(identlist));
+    EXPECT_TRUE(is_unique_symbol(var_x, "_test"));
+    EXPECT_TRUE(is_unique_symbol(var_y, "_test"));
+    EXPECT_NE(opi::sym_name(var_x), opi::sym_name(var_y)); // Different symbols
+    
+    // Check the expression (values 1 2)
+    opi::value expr_values = opi::car(opi::cdr(binding));
+    ASSERT_EQ(expr_values->t, opi::tag::pair);
+    ASSERT_TRUE(opi::issym(opi::car(expr_values), "values"));
+    
+    // Check the body
+    opi::value body = opi::car(opi::cdr(opi::cdr(result)));
+    ASSERT_EQ(body->t, opi::tag::pair);
+    ASSERT_TRUE(opi::issym(opi::car(body), "+"));
+    
+    // Check that variable references in the body are replaced with the same unique symbols
+    opi::value body_x = opi::car(opi::cdr(body));
+    opi::value body_y = opi::car(opi::cdr(opi::cdr(body)));
+    EXPECT_TRUE(opi::equal(body_x, var_x)); // Same symbol as binding
+    EXPECT_TRUE(opi::equal(body_y, var_y)); // Same symbol as binding
+}
+
+// Test variable replacement in let*-values
+TEST_F(SchemeUniqueIdentifiersTest, LetStarValuesVariableReplacement) {
+    // let*-values expression with bindings where second binding uses first
+    opi::value expr = parse("(let*-values (((x) (values 1))                  "
+                            "              ((y z) (values (+ x 1) (* x 2)))) "
+                            "  (+ y z))                                      ");
+    opi::value result = (*transformer)(expr);
+
+    // Check that it's still a let*-values expression
+    ASSERT_EQ(result->t, opi::tag::pair);
+    ASSERT_TRUE(opi::issym(opi::car(result), "let*-values"));
+    
+    // Get the bindings
+    opi::value bindings = opi::car(opi::cdr(result));
+    ASSERT_EQ(bindings->t, opi::tag::pair);
+    
+    // Check the first binding ((x) (values 1))
+    opi::value binding_x = opi::car(bindings);
+    ASSERT_EQ(binding_x->t, opi::tag::pair);
+    
+    // Check the identifier list (x)
+    opi::value identlist_x = opi::car(binding_x);
+    ASSERT_EQ(identlist_x->t, opi::tag::pair);
+    opi::value var_x = opi::car(identlist_x);
+    EXPECT_TRUE(is_unique_symbol(var_x, "_test"));
+    
+    // Check the second binding ((y z) (values (+ x 1) (* x 2)))
+    opi::value binding_yz = opi::car(opi::cdr(bindings));
+    ASSERT_EQ(binding_yz->t, opi::tag::pair);
+    
+    // Check the identifier list (y z)
+    opi::value identlist_yz = opi::car(binding_yz);
+    ASSERT_EQ(identlist_yz->t, opi::tag::pair);
+    opi::value var_y = opi::car(identlist_yz);
+    opi::value var_z = opi::car(opi::cdr(identlist_yz));
+    EXPECT_TRUE(is_unique_symbol(var_y, "_test"));
+    EXPECT_TRUE(is_unique_symbol(var_z, "_test"));
+    EXPECT_NE(opi::sym_name(var_y), opi::sym_name(var_z)); // Different symbols
+    
+    // Check the expression (values (+ x 1) (* x 2))
+    opi::value expr_values = opi::car(opi::cdr(binding_yz));
+    ASSERT_EQ(expr_values->t, opi::tag::pair);
+    ASSERT_TRUE(opi::issym(opi::car(expr_values), "values"));
+    
+    // Check the first value expression (+ x 1)
+    opi::value expr_y = opi::car(opi::cdr(expr_values));
+    ASSERT_EQ(expr_y->t, opi::tag::pair);
+    ASSERT_TRUE(opi::issym(opi::car(expr_y), "+"));
+    
+    // Check that x in (+ x 1) is replaced with the same unique symbol
+    opi::value expr_y_x = opi::car(opi::cdr(expr_y));
+    EXPECT_TRUE(opi::equal(expr_y_x, var_x)); // Same symbol as first binding
+    
+    // Check the second value expression (* x 2)
+    opi::value expr_z = opi::car(opi::cdr(opi::cdr(expr_values)));
+    ASSERT_EQ(expr_z->t, opi::tag::pair);
+    ASSERT_TRUE(opi::issym(opi::car(expr_z), "*"));
+    
+    // Check that x in (* x 2) is replaced with the same unique symbol
+    opi::value expr_z_x = opi::car(opi::cdr(expr_z));
+    EXPECT_TRUE(opi::equal(expr_z_x, var_x)); // Same symbol as first binding
+    
+    // Check the body
+    opi::value body = opi::car(opi::cdr(opi::cdr(result)));
+    ASSERT_EQ(body->t, opi::tag::pair);
+    ASSERT_TRUE(opi::issym(opi::car(body), "+"));
+    
+    // Check that variable references in the body are replaced with the same unique symbols
+    opi::value body_y = opi::car(opi::cdr(body));
+    opi::value body_z = opi::car(opi::cdr(opi::cdr(body)));
+    EXPECT_TRUE(opi::equal(body_y, var_y)); // Same symbol as binding
+    EXPECT_TRUE(opi::equal(body_z, var_z)); // Same symbol as binding
+}
+
 } // anonymous namespace
