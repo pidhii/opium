@@ -1,8 +1,9 @@
 #include "opium/code_transformer.hpp"
-#include "opium/logging.hpp"
 
 #include <format>
 #include <functional>
+
+using namespace std::placeholders;
 
 /**
  * Implementation of the code_transformer class and its derivatives.
@@ -101,22 +102,22 @@ opi::scheme_code_transformer::scheme_code_transformer()
   // Add rules for each let-family variant
   // let - basic local variable binding
   append_rule(match {list("let"), cons("let", let_pattern)},
-              std::bind(let_rule, "let", std::placeholders::_1));
+              std::bind(let_rule, "let", _1));
   // let* - sequential local variable binding
   append_rule(match {list("let*"), cons("let*", let_pattern)},
-              std::bind(let_rule, "let*", std::placeholders::_1));
+              std::bind(let_rule, "let*", _1));
   // letrec - recursive local variable binding
   append_rule(match {list("letrec"), cons("letrec", let_pattern)},
-              std::bind(let_rule, "letrec", std::placeholders::_1));
+              std::bind(let_rule, "letrec", _1));
   // letrec* - sequential recursive local variable binding
   append_rule(match {list("letrec*"), cons("letrec*", let_pattern)},
-              std::bind(let_rule, "letrec*", std::placeholders::_1));
+              std::bind(let_rule, "letrec*", _1));
   // let-values - multiple value binding
   append_rule(match {list("let-values"), cons("let-values", let_pattern)},
-              std::bind(let_rule, "let-values", std::placeholders::_1));
+              std::bind(let_rule, "let-values", _1));
   // let*-values - sequential multiple value binding
   append_rule(match {list("let*-values"), cons("let*-values", let_pattern)},
-              std::bind(let_rule, "let*-values", std::placeholders::_1));
+              std::bind(let_rule, "let*-values", _1));
 
   /**
    * Rule for define statements (T-agnostic scheme syntax)
@@ -149,5 +150,10 @@ opi::scheme_code_transformer::scheme_code_transformer()
     const value body = ms.at("body");
     const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
     return cons("begin", newbody);
+  });
+
+  const match quotematch {list("quote"), list("quote", dot, "x")};
+  append_rule(quotematch, [](const auto &ms) {
+    return list("quote", dot, ms.at("x"));
   });
 }
