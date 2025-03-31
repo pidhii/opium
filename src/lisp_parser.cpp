@@ -1,5 +1,6 @@
 #include "opium/lisp_parser.hpp"
 #include "opium/format.hpp" // IWYU pragma: export
+#include "opium/stl/deque.hpp"
 
 #include <cctype>
 #include <iostream>
@@ -26,6 +27,20 @@ opi::lisp_parser::parse(std::istream &input)
   if (tokens.empty())
     return nil;
   return parse_tokens(tokens, pos);
+}
+
+
+opi::value
+opi::lisp_parser::parse_all(std::istream &input)
+{
+  const std::vector<token> tokens = tokenize(input);
+  size_t pos = 0;
+
+  stl::deque<value> result;
+  while (pos < tokens.size())
+    result.push_back(parse_tokens(tokens, pos));
+
+  return list(result);
 }
 
 

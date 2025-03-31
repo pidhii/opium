@@ -33,6 +33,9 @@ class lisp_parser {
   value
   parse(std::istream &input);
 
+  value
+  parse_all(std::istream &input);
+
   /**
    * Token representation for the lexical analyzer
    * 
