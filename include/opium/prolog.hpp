@@ -116,6 +116,9 @@ class prolog {
   const predicate&
   add_predicate(value sig, value body);
 
+  const predicate&
+  add_predicate(const predicate &pred);
+
   std::ranges::view auto
   predicate_branches(const std::string &name) const;
 
