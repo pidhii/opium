@@ -120,7 +120,7 @@ class code_transformer {
 
   private:
   using syntax_table = opi::stl::deque<std::pair<match, transformation>>;
-  opi::stl::deque<syntax_table> m_pages; /**< Syntax tables */
+  opi::stl::list<syntax_table> m_pages; /**< Syntax tables */
 }; // class opi::code_transformer
 static_assert(transformation<code_transformer>);
 

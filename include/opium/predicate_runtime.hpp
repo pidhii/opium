@@ -89,11 +89,10 @@ unify(cell *x, cell *y);
  * \ingroup prolog
  */
 template <typename T>
-concept unbound_variable_handler = requires(T & f)
+concept unbound_variable_handler = requires(T &f)
 {
   { f((cell *){}) } -> std::convertible_to<value>;
 };
-
 
 /**
  * Exception type thrown upon encountering unbound variable by default
