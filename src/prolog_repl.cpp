@@ -2,97 +2,17 @@
 #include "opium/prolog_repl.hpp"
 #include "opium/predicate_runtime.hpp"
 #include "opium/value.hpp"
+#include "opium/pretty_print.hpp"
 
 #include <iostream>
-
-
-/**
- * Helper function to pretty print predicate body with indentation
- * 
- * \param os Output stream to write to
- * \param body Predicate body to print
- * \param indent_level Current indentation level
- */
-static void
-_pretty_print_body(std::ostream &os, opi::value body, int indent_level = 0)
-{
-  using namespace opi;
-
-  /**
-   * Helper lambda for indentation
-   */
-  auto print_indent = [&os](int level) {
-    for (int i = 0; i < level; ++i)
-      os << " "; // Two spaces per indent level
-  };
-
-  // Handle different types of expressions
-  if (body->t == tag::pair)
-  {
-    // Handle special operators and predicates
-    if (issym(car(body)))
-    {
-      const std::string op = car(body)->sym.data;
-      const value clauses = cdr(body);
-
-      // Special handling for 'and' and 'or' operators
-      if (op == "and" || op == "or")
-      {
-        // Print the operator
-        os << "(" << op;
-
-        // If there are no clauses, just close the parenthesis
-        if (clauses->t != tag::pair)
-          os << ")";
-
-        // Print first clause on the same line
-        os << " ";
-        _pretty_print_body(os, car(clauses), indent_level + 2 + op.length());
-
-        // Print each subsequent clause on a new line with increased indentation
-        for (value clause : range(cdr(clauses)))
-        {
-          os << std::endl;
-          print_indent(indent_level + 2 + op.length());
-          _pretty_print_body(os, clause, indent_level + 2 + op.length());
-        }
-
-        // Close the parenthesis
-        os << ")";
-
-        return;
-      }
-    }
-
-    // Any other list-expression
-    os << "(";
-    _pretty_print_body(os, car(body), indent_level);
-
-    value rest = cdr(body);
-    while (rest->t == tag::pair)
-    {
-      os << " ";
-      _pretty_print_body(os, car(rest), indent_level);
-      rest = cdr(rest);
-    }
-
-    if (rest->t != tag::nil)
-    {
-      os << " . ";
-      _pretty_print_body(os, rest, indent_level);
-    }
-
-    os << ")";
-  }
-  else
-    // For other types, use the default printing
-    os << body;
-}
 
 
 void
 opi::prolog_repl::operator << (opi::value expr)
 {
+  const prolog_formatter plfmt;
+  pretty_printer pprint {plfmt};
+
   // Handle a new predicate definition
   if (issym(car(expr), "predicate"))
   {
@@ -116,10 +36,10 @@ opi::prolog_repl::operator << (opi::value expr)
     if (length(pred.body()) > 1)
     {
       std::cout << "\n  ";
-      _pretty_print_body(std::cout, pred.body(), 2);
+      pprint(std::cout, pred.body(), 2);
     }
     else
-      _pretty_print_body(std::cout, pred.body());
+      pprint(std::cout, pred.body());
     std::cout << "\n" << std::endl;
     return;
   }
@@ -140,8 +60,11 @@ opi::prolog_repl::operator << (opi::value expr)
 void
 opi::prolog_repl::_query(opi::value expr)
 {
+  const prolog_formatter plfmt;
+  pretty_printer pprint {plfmt};
+
   std::cout << "?- ";
-  _pretty_print_body(std::cout, expr, 3);
+  pprint(std::cout, expr, 3);
   std::cout << std::endl;
 
   /**
