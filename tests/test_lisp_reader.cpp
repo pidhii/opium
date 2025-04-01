@@ -214,7 +214,7 @@ TEST(LispReaderTest, DifferentValueTypes) {
   opi::lisp_reader reader(parser);
   
   // Add expressions with different types
-  reader << "symbol 42 \"string\" #t nil";
+  reader << "symbol 42 \"string\" #t ()";
   
   // Extract and verify symbol
   opi::value result = opi::nil;
