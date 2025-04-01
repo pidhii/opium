@@ -331,7 +331,7 @@ opi::lisp_parser::is_boolean(const std::string &s)
 
 bool
 opi::lisp_parser::is_nil(const std::string &s)
-{ return s == "nil" or s == "()"; }
+{ return s == "()"; }
 
 
 opi::value
