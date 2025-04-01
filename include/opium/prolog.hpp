@@ -47,7 +47,6 @@ class predicate {
   {
     for (opi::value x : opi::range(opi::cdr(sig)))
       m_args.emplace_back(x);
-    debug("new predicate: {}{} :- {}", m_name, opi::list(m_args), m_body);
   }
 
   /**
