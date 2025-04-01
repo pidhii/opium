@@ -80,7 +80,7 @@ debug(std::format_string<Args...> fmt, Args &&...args)
 {
   if (loglevel >= loglevel::debug)
   {
-    std::cerr << "[\e[7;1m debg \e[0m] " << add_indent(logging_indent);
+    std::cerr << "opium \e[7;1mdebug\e[0m " << add_indent(logging_indent);
     std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
   }
 }
@@ -91,7 +91,7 @@ info(std::format_string<Args...> fmt, Args &&...args)
 {
   if (loglevel >= loglevel::info)
   {
-    std::cerr << "[ info ] " << add_indent(logging_indent);
+    std::cerr << "opium " << add_indent(logging_indent);
     std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
   }
 }
@@ -102,7 +102,7 @@ warning(std::format_string<Args...> fmt, Args &&...args)
 {
   if (loglevel >= loglevel::warning)
   {
-    std::cerr << "[\e[38;5;3;1m warn \e[0m] " << add_indent(logging_indent);
+    std::cerr << "opium \e[38;5;3;1mwarning\e[0m " << add_indent(logging_indent);
     std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
   }
 }
@@ -113,7 +113,7 @@ error(std::format_string<Args...> fmt, Args &&...args)
 {
   if (loglevel >= loglevel::error)
   {
-    std::cerr << "[\e[38;5;1;1m fail \e[0m] " << add_indent(logging_indent);
+    std::cerr << "opium \e[38;5;1;1merror\e[0m " << add_indent(logging_indent);
     std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
   }
 }
