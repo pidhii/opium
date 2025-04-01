@@ -6,6 +6,7 @@
 #include "opium/code_transformer.hpp"
 #include "opium/pretty_print.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
+#include "opium/scheme/scheme_type_system.hpp"
 
 #include <asm-generic/errno.h>
 #include <boost/program_options.hpp>
@@ -241,7 +242,7 @@ main(int argc, char **argv)
   
   // Run REPL
   lisp_reader reader {parser};
-  for (std::string line; prompt_line("> ", line); line.clear())
+  for (std::string line; false and prompt_line("> ", line); line.clear())
   {
     // Feed new piece of text into the reader
     reader << line;
@@ -263,34 +264,64 @@ main(int argc, char **argv)
   }
 
 
-  symbol_generator gensym;
+  size_t gensym_counter = 0;
+  symbol_generator gensym {gensym_counter};
   scheme_unique_identifiers makeuids {gensym};
   scheme_code_flattener flatten {gensym};
-  scheme_to_prolog toprolog;
+  scheme_to_prolog toprolog {gensym_counter};
+
+  toprolog.add_global("pair?", "pair?");
+  toprolog.add_global("cons", "cons");
+  toprolog.add_global("unpack-tuple/2", "unpack-tuple/2");
+  toprolog.add_global("unpack-pair", "unpack-pair");
+  toprolog.add_global("<f>", "<f>");
+  toprolog.add_global("<z>", "num");
+  toprolog.add_global("<xs>", "<xs>");
 
   // FIXME (seems to be a bug in C++/GCC)
   // The code below should work when formatters are constructed within arguments
   // of the pretty_printter, i.e. a temporary object is created and the reference
   // to this temporary is passed to the formatter. It seems that some (deleted)
   // copying / move-assignment is taking place if you do it.
+  //
+  // ```{cpp}
+  // pretty_printer pprint_scm {scheme_formatter {}};
+  // pretty_printer pprint_pl {prolog_formatter {}};
+  // ```
+  // NOTE could be due to copy elision
   const scheme_formatter scmfmt;
   const prolog_formatter plfmt;
   pretty_printer pprint_scm {scmfmt};
   pretty_printer pprint_pl {plfmt};
 
-  const value in = parser.parse("(let ()                                 "
-                                // "  (define (print x) (__builtin_print x))"
-                                // "  (define baz (__builtin_baz x))        "
-                                "  (if (input prompt)                    "
-                                "      (print (foo bar))                 "
-                                "      (let ((z (foo (bar baz)))         "
-                                "            (zz 12345))                 "
-                                "        (print z))))                    ");
-  const value out = compose(toprolog, compose(makeuids, flatten))(in);
+  std::ifstream testfile {"./test.scm", std::ios::binary};
+  assert(testfile.is_open());
+  const value in = parser.parse_all(testfile);
 
-  std::cout << "[test]" << std::endl;
-  std::cout << "in:\n", pprint_scm(std::cout, in), std::cout << std::endl;
-  std::cout << "out:\n", pprint_pl(std::cout, out), std::cout << std::endl;
+  std::cout << "\e[1mscheme input:\e[0m" << std::endl;
+  for (const value expr : range(in))
+  {
+    pprint_scm(std::cout, expr);
+    std::cout << std::endl;
+  }
+  std::cout << std::endl;
+
+  size_t cnt = 0;
+  const auto [result, out] = scheme_type_check(cnt, pl, in);
+
+  std::cout << "\e[1mgenerated prolog type analyser:\e[0m" << std::endl;
+  pprint_pl(std::cout, out);
+  std::cout << std::endl;
+  std::cout << std::endl;
+
+  for (const auto &[var, vals] : result)
+  {
+    std::ostringstream buf;
+    buf << var << " = ";
+    for (std::string prefix = ""; const value val : vals)
+      buf << prefix << val, prefix = " | ";
+    std::cout << std::format("=> {}", buf.str()) << std::endl;
+  }
 
   // Clean up readline before exiting
   cleanup_readline();

@@ -14,7 +14,8 @@ class SchemeUniqueIdentifiersTest : public testing::Test {
 protected:
     void SetUp() override {
         // Create a symbol generator with a predictable format for testing
-        gensym = std::make_unique<opi::symbol_generator>("_test{}");
+        size_t counter = 0;
+        gensym = std::make_unique<opi::symbol_generator>(counter, "_test{}");
         transformer = std::make_unique<opi::scheme_unique_identifiers>(*gensym);
     }
 

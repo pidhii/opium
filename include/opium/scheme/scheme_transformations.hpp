@@ -25,7 +25,7 @@ class scheme_code_flattener: public scheme_code_transformer {
 
   private:
   symbol_generator &m_gensym;
-}; // clss opi::scheme_code_flattener
+}; // class opi::scheme_code_flattener
 
 
 class scheme_to_prolog: public code_transformer {
@@ -36,7 +36,7 @@ class scheme_to_prolog: public code_transformer {
 
   using type_format_string = std::format_string<std::string>;
 
-  scheme_to_prolog(type_format_string format = "T:{}");
+  scheme_to_prolog(size_t &counter, type_format_string format = "T:{}");
 
   void
   add_global(value ident, value type) noexcept
@@ -48,6 +48,10 @@ class scheme_to_prolog: public code_transformer {
   std::ranges::range auto
   predicates() const
   { return m_predicates; }
+
+  std::ranges::range auto
+  unresolved() const
+  { return range(m_unresolved) | std::views::transform(car<false>); }
 
   protected:
   value

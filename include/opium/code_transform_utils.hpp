@@ -11,8 +11,8 @@ namespace opi {
 
 class symbol_generator {
   public:
-  symbol_generator(std::string_view format = "_Uid{}")
-  : m_format {format}, m_counter {0}
+  symbol_generator(size_t &counter, std::string_view format = "_Uid{}")
+  : m_format {format}, m_counter {counter}
   { }
 
   value
@@ -24,7 +24,7 @@ class symbol_generator {
 
   private:
   const std::string m_format;
-  size_t m_counter;
+  size_t &m_counter;
 }; // class opi::symbol_generator
 
 } // namespace opi

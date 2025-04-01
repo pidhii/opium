@@ -5,14 +5,14 @@
 
 using namespace std::placeholders;
 
-
-opi::scheme_to_prolog::scheme_to_prolog(type_format_string format)
+opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
+                                        type_format_string format)
 : m_type_format {format},
   m_target {"_"},
   m_alist {nil},
   m_global_alist {nil},
   m_unresolved {nil},
-  m_lambda_gensym {"lambda{}"}
+  m_lambda_gensym {counter, "lambda{}"}
 {
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 if
@@ -204,21 +204,23 @@ opi::scheme_to_prolog::transform_block(value block)
   if (length(block) == 0)
     return nil;
 
-  // Reverse the block to split last expression from the rest
+  // Split last expression from the rest
   const value revblock = reverse(block);
   value last = car(revblock);
-  value rest = cdr(revblock);
+  value rest = reverse(cdr(revblock));
 
-  // Evaluate `last` with the current target
+  // Evaluate the `rest`
+  rest = ({
+    utl::state_saver _ {m_target};
+    m_target = "_";
+    list(range(rest) | std::views::transform(std::ref(*this)));
+  });
+
+  // Evaluate `last` with the actual (current) target
   last = (*this)(last);
 
-  // Evaluate everything else with dummy target
-  utl::state_saver _ {m_target};
-  m_target = "_";
-  rest = list(range(rest) | std::views::transform(std::ref(*this)));
-
   // Dont forget to reverse the results and wrap them in AND
-  return cons("and", reverse(cons(last, rest)));
+  return cons("and", append(rest, list(last)));
 }
 
 
