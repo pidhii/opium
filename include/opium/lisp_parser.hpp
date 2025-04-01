@@ -19,6 +19,41 @@
 namespace opi {
 
 /**
+ * Structure representing a location in the input stream
+ * 
+ * \ingroup lisp
+ */
+struct source_location {
+  std::string source; ///< Source name (filepath or "<string>")
+  size_t start;       ///< Start offset in the input stream
+  size_t end;         ///< End offset in the input stream
+};
+
+
+/**
+  * Set the source location for a value
+  * 
+  * \param val Value to set the location for
+  * \param loc Source location
+  */
+void
+set_location(value val, source_location loc);
+
+
+/**
+  * Display a fragment of a file according to location with surrounding context
+  * and highlighting of the location region
+  * 
+  * \param location Source location to display
+  * \param context_lines Number of context lines to show before and after the location
+  * \return Formatted string with the file fragment and highlighting
+  */
+std::string
+display_location(const source_location &location, size_t context_lines = 2,
+                 std::string_view style = "\e[38;5;1;1m");
+
+
+/**
  * Parser for Lisp-style expressions
  * 
  * \ingroup lisp
@@ -27,14 +62,24 @@ class lisp_parser {
   public:
   // Parse a LISP-style string into an opi::value
   value
-  parse(const std::string &input);
+  parse(const std::string &input, const std::string &source_name = "<string>");
 
   // Parse a LISP-style input stream into an opi::value
   value
-  parse(std::istream &input);
+  parse(std::istream &input, const std::string &source_name = "<stream>");
 
   value
-  parse_all(std::istream &input);
+  parse_all(std::istream &input, const std::string &source_name = "<stream>");
+
+  /**
+   * Get the source location for a value
+   * 
+   * \param val Value to get the location for
+   * \param[out] location Source location if available
+   * \return True if location for \p val is available
+   */
+  [[nodiscard]] static bool
+  get_location(value val, source_location &location);
 
   /**
    * Token representation for the lexical analyzer
@@ -56,18 +101,18 @@ class lisp_parser {
       BOOLEAN,        // #t, #f
       NIL             // nil
     };
-
     type type;
     std::string value;
+    source_location location;
   };
 
   // Tokenize the input string
   std::vector<token>
-  tokenize(const std::string &input);
+  tokenize(const std::string &input, const std::string &source_name = "<string>");
 
   // Tokenize the input stream
   std::vector<token>
-  tokenize(std::istream &input);
+  tokenize(std::istream &input, const std::string &source_name = "<stream>");
 
   // Parse tokens into a value
   value

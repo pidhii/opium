@@ -3,7 +3,6 @@
 #include "opium/prolog_repl.hpp"
 #include "opium/value.hpp"
 #include "opium/logging.hpp"
-#include "opium/code_transformer.hpp"
 #include "opium/pretty_print.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
 #include "opium/scheme/scheme_type_system.hpp"
@@ -21,10 +20,16 @@
 #include <string>
 #include <cstring>
 #include <set>
+#include <filesystem>
+
+namespace std {
+namespace fs = std::filesystem;
+}
 
 // Readline headers
 #include <readline/readline.h>
 #include <readline/history.h>
+
 
 
 // Global set to store used symbols for autocompletion
@@ -216,14 +221,22 @@ main(int argc, char **argv)
   // Read input file if provided
   if (varmap.contains("input-file"))
   {
-    const std::string input_file = varmap["input-file"].as<std::string>();
+    const std::fs::path input_file = varmap["input-file"].as<std::string>();
     if (std::ifstream infile {input_file, std::ios::binary})
     {
-      const auto tokens = parser.tokenize(infile);
+      const auto tokens = parser.tokenize(infile, input_file);
       size_t cursor = 0;
       while (cursor < tokens.size())
       {
         const value expr = parser.parse_tokens(tokens, cursor);
+        source_location location;
+        if (lisp_parser::get_location(expr, location))
+        {
+          debug("[test locations]\nparsed '{}'", expr);
+
+          // Display the location with context
+          std::cout << display_location(location) << std::endl;
+        }
         // Process the expression
         pl << expr;
         // Extract symbols for autocompletion
@@ -232,7 +245,7 @@ main(int argc, char **argv)
     }
     else
     {
-      error("Could not open input file '{}'", input_file);
+      error("Could not open input file '{}'", input_file.c_str());
       return EXIT_FAILURE;
     }
   }
