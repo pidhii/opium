@@ -1,7 +1,7 @@
 #include "opium/code_transformer.hpp"
+#include "opium/lisp_parser.hpp"
 
 #include <format>
-#include <functional>
 
 using namespace std::placeholders;
 
@@ -34,9 +34,10 @@ opi::code_transformer::operator () (value inexpr) const
   {
     if (matcher(inexpr, matches))
     {
-      // TODO insert location memorization
-      const value result = transformer(matches);
-      // debug("[code_transformer] T[{}] -> {}", inexpr, result);
+      const value result = transformer(matches, inexpr);
+      source_location location;
+      if (lisp_parser::get_location(inexpr, location))
+        set_location(result, location);
       return result;
     }
     matches.clear(); // Clean up after unsuccessful match

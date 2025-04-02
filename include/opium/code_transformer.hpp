@@ -70,7 +70,8 @@ struct code_transformation_error: public std::runtime_error {
 class code_transformer {
   public:
   using match_mapping = opi::stl::unordered_map<value, value>;
-  using transformation = std::function<value(const match_mapping&)>;
+  using transformation = std::function<value(const match_mapping&, value)>;
+  using transformation_nofm = std::function<value(const match_mapping&)>;
 
   code_transformer() { m_pages.emplace_front(); }
   code_transformer(const code_transformer&) = delete;
@@ -88,6 +89,18 @@ class code_transformer {
   prepend_rule(const match &matcher, const transformation &transformer);
 
   /**
+   * Add syntax rule at highest priority (beginning of the syntax table).
+   * 
+   * \param matcher The pattern matcher that identifies expressions to transform
+   * \param rule The transformation function to apply when pattern matches
+   */
+  template <typename RuleNoFM>
+    requires std::regular_invocable<RuleNoFM, const match_mapping&, value>
+  void
+  prepend_rule(const match &matcher, RuleNoFM rule)
+  { prepend_rule(matcher, [=](const auto &ms, value) { return rule(ms); }); }
+
+  /**
    * Add syntax rule at lowest priority (end of the syntax table).
    * 
    * \param matcher The pattern matcher that identifies expressions to transform
@@ -95,6 +108,18 @@ class code_transformer {
    */
   void
   append_rule(const match &matcher, const transformation &transformer);
+
+  /**
+   * Add syntax rule at lowest priority (end of the syntax table).
+   * 
+   * \param matcher The pattern matcher that identifies expressions to transform
+   * \param rule The transformation function to apply when pattern matches
+   */
+  template <typename RuleNoFM>
+    requires std::regular_invocable<RuleNoFM, const match_mapping&>
+  void
+  append_rule(const match &matcher, RuleNoFM rule)
+  { append_rule(matcher, [=](const auto &ms, value) { return rule(ms); }); }
 
   /**
    * Start new syntax table s.t. all rules inserted after calling these method
