@@ -3,6 +3,14 @@
 #include "opium/value.hpp"
 
 
+
+static opi::scheme_formatter scmfmt;
+opi::pretty_printer opi::pprint_scm {scmfmt};
+
+static opi::prolog_formatter plfmt;
+opi::pretty_printer opi::pprint_pl {plfmt};
+
+
 opi::pretty_printer::pretty_printer(const code_transformer &formatter)
 : m_formatter {formatter}
 { }

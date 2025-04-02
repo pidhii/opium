@@ -38,9 +38,11 @@ class pretty_printer {
 struct scheme_formatter: public code_transformer {
   scheme_formatter();
 };
+extern pretty_printer pprint_scm;
 
 struct prolog_formatter: public code_transformer {
   prolog_formatter();
 };
+extern pretty_printer pprint_pl;
 
 } // namespace opi
