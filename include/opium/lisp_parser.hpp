@@ -5,6 +5,7 @@
 #include <vector>
 #include <stdexcept>
 #include <istream>
+#include <sstream>
 
 /**
  * \file lisp_parser.hpp
@@ -22,6 +23,8 @@ namespace opi {
  * Structure representing a location in the input stream
  * 
  * \ingroup lisp
+ *
+ * TODO Move to a different file
  */
 struct source_location {
   std::string source; ///< Source name (filepath or "<string>")
@@ -31,27 +34,44 @@ struct source_location {
 
 
 /**
-  * Set the source location for a value
-  * 
-  * \param val Value to set the location for
-  * \param loc Source location
-  */
+ * Set the source location for a value
+ * 
+ * \param val Value to set the location for
+ * \param loc Source location
+ *
+ * TODO Move to a different file
+ */
 void
 set_location(value val, source_location loc);
 
 
 /**
-  * Display a fragment of a file according to location with surrounding context
-  * and highlighting of the location region
-  * 
-  * \param location Source location to display
-  * \param context_lines Number of context lines to show before and after the location
-  * \return Formatted string with the file fragment and highlighting
-  */
-std::string
-display_location(const source_location &location, size_t context_lines = 2,
-                 std::string_view style = "\e[38;5;1;1m");
+ * Copy the source location to another value
+ *
+ * \param from Value to copy the location from
+ * \param to Value to copy the location to
+ * \return True if location was copied or if \p from and \p to is the same object
+ *
+ * TODO Move to a different file
+ */
+bool
+copy_location(opi::value from, opi::value to);
 
+
+/**
+ * Display a fragment of a file according to location with surrounding context
+ * and highlighting of the location region
+ * 
+ * \param location Source location to display
+ * \param context_lines Number of context lines to show before and after the location
+ * \return Formatted string with the file fragment and highlighting
+ *
+ * TODO Move to a different file
+ */
+[[nodiscard]] std::string
+display_location(const source_location &location, size_t context_lines = 2,
+                 std::string_view hlstyle = "\e[38;5;1;1m",
+                 std::string_view ctxstyle = "");
 
 /**
  * Parser for Lisp-style expressions

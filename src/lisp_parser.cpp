@@ -16,6 +16,7 @@ static opi::stl::unordered_map<opi::object*, opi::source_location> g_value_locat
 
 
 // Implementation of location tracking functions
+// TODO: Move to a different file
 bool
 opi::lisp_parser::get_location(opi::value val, opi::source_location &location)
 {
@@ -28,15 +29,36 @@ opi::lisp_parser::get_location(opi::value val, opi::source_location &location)
 }
 
 
+// TODO: Move to a different file
 void
 opi::set_location(opi::value val, opi::source_location loc)
 {
   g_value_locations[&*val] = loc;
 }
 
+
+// TODO: Move to a different file
+bool
+opi::copy_location(opi::value from, opi::value to)
+{
+  if (is(from, to))
+    return true;
+
+  source_location location;
+  if (lisp_parser::get_location(from, location))
+  {
+    set_location(to, location);
+    return true;
+  }
+  return false;
+}
+
+
+// TODO: Move to a different file
 std::string
 opi::display_location(const opi::source_location &location,
-                      size_t context_lines, std::string_view style)
+                      size_t context_lines, std::string_view hlstyle,
+                      std::string_view ctxstyle)
 {
   // If the source is not a file, handle it differently
   if (location.source == "<string>" || location.source == "<stream>")
@@ -44,13 +66,13 @@ opi::display_location(const opi::source_location &location,
                        location.start, location.end);
 
   // Try to open the file
-  std::ifstream file(location.source);
-  if (!file.is_open())
+  std::ifstream file {location.source};
+  if (not file.is_open())
     return std::format("Could not open file: {}", location.source);
 
   // Read the entire file content
-  std::string content((std::istreambuf_iterator<char>(file)),
-                      std::istreambuf_iterator<char>());
+  std::string content {std::istreambuf_iterator<char>(file),
+                       std::istreambuf_iterator<char>()};
   file.close();
 
   // Find line and column information
@@ -74,7 +96,7 @@ opi::display_location(const opi::source_location &location,
 
   // Find the line containing the end position
   size_t end_line = start_line;
-  while (end_line < line_starts.size() && line_starts[end_line] <= location.end)
+  while (end_line < line_starts.size() and line_starts[end_line] <= location.end)
     end_line++;
   end_line = end_line > 0 ? end_line - 1 : 0;
 
@@ -105,7 +127,7 @@ opi::display_location(const opi::source_location &location,
         content.substr(line_starts[i], line_end - line_starts[i]);
 
     // Format the line number
-    output << std::format("{:4d} | ", i + 1);
+    output << std::format("{:4d} | ", i + 1) << ctxstyle;
 
     // If this line contains the highlighted region
     if (i >= start_line && i <= end_line)
@@ -117,9 +139,9 @@ opi::display_location(const opi::source_location &location,
 
         // Output the line with highlighting
         output << line.substr(0, start_col);
-        output << style;
+        output << "\e[0m" << hlstyle;
         output << line.substr(start_col, end_col - start_col);
-        output << "\e[0m"; // Reset formatting
+        output << "\e[0m" << ctxstyle; // Reset formatting
         output << line.substr(end_col);
       }
       else if (i == start_line)
@@ -127,24 +149,24 @@ opi::display_location(const opi::source_location &location,
         size_t start_col = location.start - line_starts[start_line];
 
         output << line.substr(0, start_col);
-        output << style;
+        output << "\e[0m" << hlstyle;
         output << line.substr(start_col);
-        output << "\e[0m"; // Reset formatting
+        output << "\e[0m" << ctxstyle; // Reset formatting
       }
       else if (i == end_line)
       { // Last line of multi-line highlight
         size_t end_col = location.end - line_starts[end_line];
 
-        output << style;
+        output << "\e[0m" << hlstyle;
         output << line.substr(0, end_col);
-        output << "\e[0m"; // Reset formatting
+        output << "\e[0m" << ctxstyle; // Reset formatting
         output << line.substr(end_col);
       }
       else
       { // Middle line of multi-line highlight
-        output << "\e[1;31m"; // Bold red for highlighting
+        output << "\e[0m" << hlstyle;
         output << line;
-        output << "\e[0m"; // Reset formatting
+        output << "\e[0m" << ctxstyle; // Reset formatting
       }
     }
     else
@@ -152,11 +174,12 @@ opi::display_location(const opi::source_location &location,
       output << line;
     }
 
-    output << "\n";
+    output << "\e[0m\n";
   }
 
   return output.str();
 }
+
 
 opi::value
 opi::lisp_parser::parse(const std::string &input, const std::string &source_name)
