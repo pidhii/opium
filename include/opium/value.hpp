@@ -7,6 +7,7 @@
 #include <ostream>
 #include <cstring>
 #include <ranges>
+#include <cassert>
 
 /**
  * \file value.hpp
@@ -52,8 +53,7 @@ class value {
    * 
    * \param ptr Pointer to the object
    */
-  explicit
-  value(object *ptr): m_ptr {ptr} { }
+  explicit value(object *ptr): m_ptr {ptr} { assert(ptr != nullptr); }
 
   value(const char *sym);
 
@@ -213,6 +213,8 @@ ptr(void *ptr)
 pair(value car, value cdr)
 {
   value ret {make<object>(tag::pair)};
+  assert(&*car);
+  assert(&*cdr);
   ret->car = &*car;
   ret->cdr = &*cdr;
   return ret;
