@@ -168,10 +168,15 @@ class composed_transformer {
 static_assert(
     transformation<composed_transformer<code_transformer, code_transformer>>);
 
+
 template <transformation Lhs, transformation Rhs>
 composed_transformer<Lhs, Rhs>
 compose(const Lhs &lhs, const Rhs &rhs)
 { return {lhs, rhs}; }
 
+
+struct prolog_cleaner: public code_transformer {
+  prolog_cleaner();
+}; // struct opi::prolog_cleaner
 
 } // namespace opi

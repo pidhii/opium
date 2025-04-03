@@ -47,3 +47,52 @@ opi::code_transformer::operator () (value inexpr) const
   throw code_transformation_error {
       std::format("no syntax rule matches the expression: {}", inexpr)};
 }
+
+
+static void
+_flatten_clauses(std::string_view tag, opi::value expr, opi::value &result)
+{
+  if (expr->t == opi::tag::pair and issym(car(expr), tag))
+  {
+    for (const opi::value clause : range(cdr(expr)))
+      _flatten_clauses(tag, clause, result);
+  }
+  else
+    result = append(result, list(expr));
+}
+
+
+opi::prolog_cleaner::prolog_cleaner()
+{
+  append_rule({list("and"), cons("and", "clauses")}, [this](const auto &ms) {
+    value clauses = ms.at("clauses");
+
+    // Flatten clauses w.r.t. nested AND statements
+    value newclauses = nil;
+    for (const value clause : range(clauses))
+      _flatten_clauses("and", clause, newclauses);
+    clauses = newclauses;
+
+    if (length(clauses) == 1)
+      return (*this)(car(clauses));
+    else
+      return  cons("and", clauses);
+  });
+
+  append_rule({list("or"), cons("or", "clauses")}, [this](const auto &ms) {
+    value clauses = ms.at("clauses");
+
+    // Flatten clauses w.r.t. nested OR statements
+    value newclauses = nil;
+    for (const value clause : range(clauses))
+      _flatten_clauses("OR", clause, newclauses);
+    clauses = newclauses;
+
+    if (length(clauses) == 1)
+      return (*this)(car(clauses));
+    else
+      return  cons("or", clauses);
+  });
+
+  append_rule({nil, "x"}, [](const auto &ms) { return ms.at("x"); });
+}
