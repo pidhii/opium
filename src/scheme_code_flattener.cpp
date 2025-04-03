@@ -20,7 +20,7 @@ opi::scheme_code_flattener::scheme_code_flattener(symbol_generator &gensym)
   //             ...          )
   //   (<tmp1> <tmp2> ...))
   //
-  append_rule(match {nil, list("form", "...")}, [this](const auto &ms) {
+  append_rule({nil, list("form", "...")}, [this](const auto &ms, value fm) {
     value binds = nil;
     value result = nil;
     for (const value x : range(ms.at("form")))
@@ -28,19 +28,24 @@ opi::scheme_code_flattener::scheme_code_flattener(symbol_generator &gensym)
       if (x->t == tag::pair)
       {
         const value uid = m_gensym();
+        copy_location(x, uid);
         binds = append(binds, list(list(uid, (*this)(x))));
         result = append(result, list(uid));
       }
       else
         result = append(result, list(x));
     }
+
     // Don't bloat output with empty let-statements
     if (binds == nil)
+    {
+      copy_location(fm, result);
       return result;
+    }
     else
       return list("let", binds, result);
   });
 
   // atoms
-  append_rule(match {nil, "x"}, [](const auto &ms) { return ms.at("x"); });
+  append_rule({nil, "x"}, [](const auto &ms) { return ms.at("x"); });
 }

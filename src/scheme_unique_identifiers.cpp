@@ -1,5 +1,6 @@
 #include "opium/code_transform_utils.hpp"
 #include "opium/code_transformer.hpp"
+#include "opium/lisp_parser.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
 #include "opium/utilities/state_saver.hpp"
 #include "opium/value.hpp"
@@ -26,6 +27,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
 
     // Replace identifiers with unique ones
     const value newf = m_gensym();
+    copy_location(f, newf);
     m_alist = cons(cons(f, newf), m_alist); // Leak function identifier
     utl::state_saver _ {m_alist}; // But will roll-back further changes to alist
     value newxs = nil;
@@ -34,6 +36,8 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
       const value newident = m_gensym();
       newxs = append(newxs, list(newident));
       m_alist = cons(cons(ident, newident), m_alist);
+      // Copy original identifier location
+      copy_location(ident, newident);
     }
 
     // Transform body with new alist
@@ -52,6 +56,9 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     // Replace identifier with unique one and update alist
     const value newident = m_gensym();
     m_alist = cons(cons(ident, newident), m_alist);
+
+    // Copy original identifier location
+    copy_location(ident, newident);
 
     // Transform body with new alist
     const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
@@ -85,6 +92,9 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
       const value newident = m_gensym();
       newbinds = append(newbinds, list(list(newident, (*this)(expr))));
       newalist = cons(cons(ident, newident), newalist);
+
+      // Copy original identifier location
+      copy_location(ident, newident);
     }
 
     // Update alist with new identifiers
@@ -110,6 +120,9 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
       const value newident = m_gensym();
       newbinds = append(newbinds, list(list(newident, (*this)(expr))));
       m_alist = cons(cons(ident, newident), m_alist);
+
+      // Copy original identifier location
+      copy_location(ident, newident);
     }
 
     // Transform body with new alist
@@ -127,6 +140,9 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     {
       const value newident = m_gensym();
       m_alist = cons(cons(ident, newident), m_alist);
+
+      // Copy original identifier location
+      copy_location(ident, newident);
     }
 
     // Transform binds with new alist
@@ -158,6 +174,9 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
       const value newident = m_gensym();
       m_alist = cons(cons(ident, newident), m_alist);
       newbinds = append(newbinds, list(list(newident, (*this)(expr))));
+
+      // Copy original identifier location
+      copy_location(ident, newident);
     }
 
     // Transform body with new alist
@@ -185,6 +204,9 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
         const value newident = m_gensym();
         newidentlist = append(newidentlist, list(newident));
         newalist = cons(cons(ident, newident), newalist);
+
+        // Copy original identifier location
+        copy_location(ident, newident);
       }
       newbinds = append(newbinds, list(list(newidentlist, (*this)(expr))));
     }
@@ -216,6 +238,9 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
         const value newident = m_gensym();
         m_alist = cons(cons(ident, newident), m_alist);
         newidentlist = append(newidentlist, list(newident));
+
+        // Copy original identifier location
+        copy_location(ident, newident);
       }
       newbinds = append(newbinds, list(list(newidentlist, newexpr)));
     }
@@ -242,6 +267,9 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
       const value newident = m_gensym();
       newargs = append(newargs, list(newident));
       m_alist = cons(cons(ident, newident), m_alist);
+
+      // Copy original identifier location
+      copy_location(ident, newident);
     }
 
     // Transform body with new alist
