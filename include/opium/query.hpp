@@ -43,17 +43,21 @@ struct _compare_symbols {
  * A map that summarizes determined values for variables in a predicate runtime
  */
 class unified_determined_summary
-    : public opi::stl::map<value, opi::stl::unordered_set<value>,
-                      detail::_compare_symbols> {
+: public opi::stl::map<value, opi::stl::unordered_set<value>,
+                       detail::_compare_symbols> {
   public:
   /**
    * Constructor
    * 
    * \param prt Predicate runtime to summarize
    */
-  unified_determined_summary(const predicate_runtime &prt): m_prt {prt} { }
+  unified_determined_summary(const predicate_runtime &prt)
+  : m_prt {prt}, m_invoced {false}
+  { }
 
-  public:
+  operator bool () const noexcept
+  { return m_invoced; }
+
   /**
    * Collect determined values for all variables in the predicate runtime
    * 
@@ -73,6 +77,7 @@ class unified_determined_summary
 
   private:
   const predicate_runtime &m_prt; /**< Reference to the predicate runtime */
+  bool m_invoced;
 }; // class opi::unified_determined_summary
 
 } // namespace opi
