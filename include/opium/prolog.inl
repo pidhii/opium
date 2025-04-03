@@ -5,6 +5,9 @@
 
 #include "opium/predicate_runtime.hpp"
 #include "opium/prolog.hpp"
+#include "opium/lisp_parser.hpp"
+#include "opium/pretty_print.hpp"
+#include "opium/logging.hpp"
 
 #include <functional>
 
@@ -25,18 +28,85 @@ prolog::predicate_branches(const std::string &name) const
 }
 
 
+static inline bool
+_var_implementation(value x)
+{
+  value _ = nil;
+  if (x->t == tag::pair and issym(car(x), "__cell"))
+    return not get_value(static_cast<cell*>(cdr(x)->ptr), _);
+  return false;
+}
+
+
 template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
 void
 prolog::make_true(predicate_runtime &ert, value e, Cont cont,
                   NTVHandler ntvhandler) const
 {
-  debug("make_true {}", reconstruct(e, stringify_unbound_variables));
+  if (loglevel >= loglevel::debug)
+  {
+    std::ostringstream message;
+    message << "make_true ";
 
-  indent _ {};
+    source_location location;
+    if (lisp_parser::get_location(e, location))
+      message << display_location(location, 2, "\e[1m", "\e[2m");
+    else
+      message << pprint_pl(reconstruct(e, stringify_unbound_variables), 10);
+    // message << "\nwhere\n";
+    // for (const value var : ert.variables())
+    //   debug("  {} = {}", var,
+    //         reconstruct(ert[var], stringify_unbound_variables));
+    debug("{}", message.str());
+  }
+
   switch (e->t)
   {
     case tag::pair: {
-      if (issym(car(e), "and"))
+      if (issym(car(e), "if"))
+      { // TODO move to separate function
+        const value cond = car(cdr(e));
+        const value thenbr = car(cdr(cdr(e)));
+        const value elsebr = car(cdr(cdr(cdr(e))));
+
+        // Create auxiliary predicate_runtime with parent reference to the
+        // current frame
+        predicate_runtime crt {&ert};
+
+        // Unify variables from parent frame with ones in the current frame
+        for (const value var : ert.variables())
+        {
+          const bool ok = unify(ert[var], crt[var]);
+          assert(ok and "Failed to create variable in or-clause");
+        }
+
+        // Try <cond> -> <then>
+        bool isthen = false;
+        std::function<void()> thencont = [&]() {
+          isthen = true;
+          make_true(crt, thenbr, cont, ntvhandler);
+        };
+        make_true(crt, cond, thencont, ntvhandler);
+        crt.mark_dead();
+
+        // Otherwize, go <else>
+        if (not isthen)
+          make_true(ert, elsebr, cont, ntvhandler);
+
+        return;
+      }
+      else if (issym(car(e), "debug"))
+      {
+        std::clog << "debug ";
+        source_location location;
+        if (lisp_parser::get_location(e, location))
+          std::clog << display_location(location, 0, "\e[38;5;5;1m", "\e[2m");
+        for (const value x : range(cdr(e)))
+          display(std::clog, reconstruct(x, stringify_unbound_variables));
+        std::clog << std::endl;
+        return cont();
+      }
+      else if (issym(car(e), "and"))
       {
         const value clauses = cdr(e);
         return _make_and_true(ert, clauses, cont, ntvhandler);
@@ -46,12 +116,58 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
         const value clauses = cdr(e);
         return _make_or_true(ert, clauses, cont, ntvhandler);
       }
+      else if (issym(car(e), "var"))
+      {
+        if (_var_implementation(car(cdr(e))))
+          cont();
+        return;
+      }
+      else if (issym(car(e), "nonvar"))
+      {
+        if (not _var_implementation(car(cdr(e))))
+          cont();
+        return;
+      }
+      else if (issym(car(e), "call"))
+      {
+        // Reconstruct "Goal" as much as possible
+        const value predicate =
+            reconstruct(car(cdr(e)), ignore_unbound_variables);
+
+        if (predicate->t == tag::pair)
+          // TODO verify that car(predicate) is symbol (?)
+          e = append(predicate, cdr(cdr(e)));
+        else
+          e = cons(predicate, cdr(cdr(e)));
+
+        // Run new goal
+        return make_true(ert, e, cont, ntvhandler);
+      }
+      else if (issym(car(e), "not"))
+      {
+        bool success = false;
+        std::function<void()> newcont = [&]() { success = true; };
+        make_true(ert, car(cdr(e)), newcont, ntvhandler);
+        if (not success)
+          cont();
+        return;
+      }
       else if (issym(car(e)))
       {
         const std::string predname = car(e)->sym.data;
         const value eargs = cdr(e);
+        bool broke_through = false;
+        std::function<void()> newcont = [&broke_through, &cont]() {
+          broke_through = true;
+          cont();
+        };
         for (const predicate &p : predicate_branches(predname))
-          _make_predicate_true(ert, p, eargs, cont, ntvhandler);
+          _make_predicate_true(ert, p, eargs, newcont, ntvhandler);
+
+        // Couldn't satisfy a predicate
+        if (not broke_through)
+          debug("\e[38;5;1mfailed\e[0m to satisfy predicate {}",
+                reconstruct(e, stringify_unbound_variables));
         return;
       }
       break;
@@ -65,6 +181,7 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
     default:;
   }
 
+  // TODO: add location to the exception if available
   throw error {std::format("Invalid expression: {}", e)};
 }
 
@@ -74,7 +191,7 @@ void
 prolog::_make_and_true(predicate_runtime &ert, value clauses, Cont cont,
                        NTVHandler ntvhandler) const
 {
-    // Case 1: sequentially process and-clauses
+  // Sequentially process all clauses until none left; no clauses <=> true
   if (clauses->t == tag::pair)
   {
     // Separate head clause
@@ -86,7 +203,6 @@ prolog::_make_and_true(predicate_runtime &ert, value clauses, Cont cont,
     // Make head true and then proceed with other clauses
     make_true(ert, head, andcont, ntvhandler);
   }
-  // Case 2: no clauses left <=> true
   else
     cont();
 }
@@ -100,7 +216,7 @@ prolog::_make_or_true(predicate_runtime &ert, value clauses, Cont cont,
   for (const value clause : range(clauses))
   {
     // Create auxiliary predicate_runtime with parent reference to the current frame
-    predicate_runtime crt(&ert);
+    predicate_runtime crt {&ert};
     
     // Unify variables from parent frame with ones in the current frame
     for (const value var : ert.variables())
@@ -109,7 +225,6 @@ prolog::_make_or_true(predicate_runtime &ert, value clauses, Cont cont,
       assert(ok and "Failed to create variable in or-clause");
     }
     
-    debug("[or] make_true({}) and <cont>", reconstruct(clause, stringify_unbound_variables));
     make_true(crt, clause, cont, ntvhandler);
     crt.mark_dead();
   }
@@ -125,19 +240,14 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
   predicate_runtime prt;
 
   const value pargs = insert_cells(prt, list(pred.arguments()));
-  debug("match {} on {}{} :- {}",
-        reconstruct(eargs, stringify_unbound_variables), pred.name(),
-        reconstruct(pargs, stringify_unbound_variables), pred.body());
 
   if (match_arguments(prt, ert, pargs, eargs))
   {
     const value signature = eargs;
-    debug("\e[38;5;2maccept\e[0m [signature={}{}]", pred.name(),
+    debug("\e[38;5;2mmatch\e[0m on {}{}", pred.name(),
           reconstruct(signature, stringify_unbound_variables));
-    indent _ {};
     if (prt.try_sign(&pred, signature, ert, ntvhandler))
     {
-      debug("signed PRT");
       make_true(prt, insert_cells(prt, pred.body()), cont, ntvhandler);
     }
     else
@@ -146,8 +256,6 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
       cont();
     }
   }
-  else
-    debug("\e[38;5;1mreject\e[0m");
   // Undo constraints introduced by match_arguments()
   prt.mark_dead();
 }
