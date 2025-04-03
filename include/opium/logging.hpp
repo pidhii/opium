@@ -65,7 +65,9 @@ struct add_indent {
   inline friend std::ostream&
   operator << (std::ostream &os, const add_indent &self) noexcept
   {
-    for (size_t i = 0; i < self.m_indent; ++i)
+    for (size_t i = 1; i < self.m_indent; ++i)
+      os << "\e[2m¦\e[0m ";
+    if (self.m_indent > 0)
       os << "| ";
     return os;
   }
@@ -74,15 +76,35 @@ struct add_indent {
   size_t m_indent;
 };
 
+/**
+ * Insert indentation for each line of multiline string
+ */
+template <typename Indent>
+[[nodiscard]] std::string
+indent_lines(Indent&& indent, const std::string &string)
+{
+  std::istringstream input {string};
+  std::ostringstream output;
+  std::string line;
+  while (std::getline(input, line))
+    output << std::forward<Indent>(indent) << line << "\n";
+  return output.str();
+}
+
 
 template <typename... Args> void
-debug(std::format_string<Args...> fmt, Args &&...args)
+debug([[maybe_unused]] std::format_string<Args...> fmt, [[maybe_unused]] Args &&...args)
 {
+#ifndef OPIUM_RELEASE_BUILD
   if (loglevel >= loglevel::debug)
   {
-    std::cerr << "opium \e[7;1mdebug\e[0m " << add_indent(logging_indent);
-    std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+    const std::string message = std::format(fmt, std::forward<Args>(args)...);
+    const auto indent = add_indent(logging_indent + 7 /* for log name */);
+    const std::string indented_message = indent_lines(indent, message);
+    std::cerr << "opium \e[7;1mdebug\e[0m"
+              << indented_message.substr(60, std::string::npos);
   }
+#endif
 }
 
 
@@ -102,8 +124,11 @@ warning(std::format_string<Args...> fmt, Args &&...args)
 {
   if (loglevel >= loglevel::warning)
   {
-    std::cerr << "opium \e[38;5;3;1mwarning\e[0m " << add_indent(logging_indent);
-    std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+    const std::string message = std::format(fmt, std::forward<Args>(args)...);
+    const auto indent = add_indent(logging_indent + 8 /* for log name */);
+    const std::string indented_message = indent_lines(indent, message);
+    std::cerr << "opium \e[38;5;3;1mwarning\e[0m"
+              << indented_message.substr(76, std::string::npos);
   }
 }
 
@@ -113,14 +138,17 @@ error(std::format_string<Args...> fmt, Args &&...args)
 {
   if (loglevel >= loglevel::error)
   {
-    std::cerr << "opium \e[38;5;1;1merror\e[0m " << add_indent(logging_indent);
-    std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+    const std::string message = std::format(fmt, std::forward<Args>(args)...);
+    const auto indent = add_indent(logging_indent + 7 /* for log name */);
+    const std::string indented_message = indent_lines(indent, message);
+    std::cerr << "opium \e[38;5;1;1merror\e[0m"
+              << indented_message.substr(60, std::string::npos);
   }
 }
 
 
 struct indent {
-  indent(size_t inc = 1)
+  indent(ssize_t inc = 1)
   : m_inc {inc}
   { logging_indent += m_inc; }
 
@@ -131,7 +159,7 @@ struct indent {
   void operator = (const indent&) = delete;
 
   private:
-  size_t m_inc;
+  ssize_t m_inc;
 }; // struct opi::indent
 
 } // namespace opi
