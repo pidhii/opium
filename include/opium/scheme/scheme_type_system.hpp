@@ -1,10 +1,12 @@
 #pragma once
 
 #include "opium/code_transform_utils.hpp"
+#include "opium/lisp_parser.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
 #include "opium/prolog.hpp"
 #include "opium/stl/unordered_set.hpp"
 #include "opium/pretty_print.hpp"
+#include <ranges>
 
 
 namespace opi {
@@ -23,6 +25,7 @@ scheme_type_check(size_t gensym_counter, prolog &pl, value code)
   scheme_code_flattener flatten {genuid};
   scheme_unique_identifiers insert_uids {genuid};
   scheme_to_prolog to_prolog {gensym_counter};
+  prolog_cleaner pl_cleaner;
 
   to_prolog.add_global("pair?", "pair?");
   to_prolog.add_global("cons", "cons");
@@ -44,20 +47,20 @@ scheme_type_check(size_t gensym_counter, prolog &pl, value code)
   const value ppcode = list(range(code)
                      | std::views::transform(std::ref(flatten))
                      | std::views::transform(std::ref(insert_uids)));
-  const value plcode = to_prolog.transform_block(ppcode);
-
+  const value plcode = list(range(to_prolog.transform_block(ppcode)) |
+                            std::views::transform(std::ref(pl_cleaner)));
 
   const value unresolved = list(to_prolog.unresolved());
   if (length(unresolved) > 0)
   {
-    std::stringstream buf;
-    for (const value expr : range(ppcode))
+    for (const value symbol : range(unresolved))
     {
-      pprint_scm(buf, expr);
-      buf << std::endl;
+      error("unresolved symbol: \e[1m‘{}’\e[0m", symbol);
+      source_location location;
+      if (lisp_parser::get_location(symbol, location))
+        std::cerr << display_location(location, 0, "\e[38;5;1;1m") << std::endl;
     }
-    throw std::runtime_error {
-        std::format("unresolved symbols: {}\nin\n{}", unresolved, buf.str())};
+    throw std::runtime_error {"unresolved symbols"};
   }
 
   // Collect predicates generated during translation
@@ -68,7 +71,7 @@ scheme_type_check(size_t gensym_counter, prolog &pl, value code)
       info("add generated predicate:");
       std::cerr << std::format("{}{} :-\n  ", pred.name(),
                                list(pred.arguments()));
-      pprint_pl(std::cout, pred.body(), 2);
+      pprint_pl(std::cout, pl_cleaner(pred.body()), 2);
       std::cerr << std::endl;
     }
     pl.add_predicate(pred);
