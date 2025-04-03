@@ -4,13 +4,6 @@
 
 
 
-static opi::scheme_formatter scmfmt;
-opi::pretty_printer opi::pprint_scm {scmfmt};
-
-static opi::prolog_formatter plfmt;
-opi::pretty_printer opi::pprint_pl {plfmt};
-
-
 opi::pretty_printer::pretty_printer(const code_transformer &formatter)
 : m_formatter {formatter}
 { }
@@ -143,6 +136,7 @@ _flatten_clauses(std::string_view tag, opi::value expr, opi::value &result)
     result = append(result, list(expr));
 }
 
+// TODO Use prolog prolog_cleaner
 opi::prolog_formatter::prolog_formatter()
 {
   append_rule({list("and"), cons("and", "clauses")}, [this](const auto &ms) {

@@ -21,6 +21,14 @@ class pretty_printer {
   operator () (std::ostream &os, value x, int indent = 0)
   { print(os, x, indent); }
 
+  std::string
+  operator () (value x, int indent = 0) noexcept
+  {
+    std::ostringstream buf;
+    print(buf, x, indent);
+    return buf.str();
+  }
+
   private:
   struct _block_format {
     bool keep_first;
@@ -38,11 +46,29 @@ class pretty_printer {
 struct scheme_formatter: public code_transformer {
   scheme_formatter();
 };
-extern pretty_printer pprint_scm;
+
+template <typename ...Args>
+inline auto
+pprint_scm(Args&& ...args)
+{
+  scheme_formatter scmfmt;
+  pretty_printer pprint {scmfmt};
+  return pprint(std::forward<Args>(args)...);
+
+}
 
 struct prolog_formatter: public code_transformer {
   prolog_formatter();
 };
-extern pretty_printer pprint_pl;
+
+template <typename ...Args>
+inline auto
+pprint_pl(Args&& ...args)
+{
+  prolog_formatter plfmt;
+  pretty_printer pprint {plfmt};
+  return pprint(std::forward<Args>(args)...);
+}
+
 
 } // namespace opi
