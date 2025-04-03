@@ -20,3 +20,6 @@ UseTab: Never
 ColumnLimit: 80
 
 IndentCaseLabels: true
+
+ConstructorInitializerIndentWidth: 0
+PackConstructorInitializers: NextLine
