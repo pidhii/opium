@@ -1,10 +1,10 @@
 #pragma once
 
+#include "opium/stl/unordered_set.hpp"
 #include "opium/value.hpp"
 #include "opium/hash.hpp" // IWYU pragma: export
 #include "opium/stl/unordered_map.hpp"
 #include "opium/stl/vector.hpp"
-#include "opium/stl/deque.hpp"
 #include "opium/format.hpp" // IWYU pragma: export
 
 #include <concepts>
@@ -127,6 +127,15 @@ struct stringify_unbound_variables_t {
 }; // struct opi::stringify_unbound_variables
 static_assert(unbound_variable_handler<stringify_unbound_variables_t>);
 constexpr stringify_unbound_variables_t stringify_unbound_variables;
+
+
+struct ignore_unbound_variables_t {
+  value
+  operator () (cell *x) const
+  { return cons("__cell", ptr(x)); }
+}; // struct opi::throw_on_unbound_variable
+static_assert(unbound_variable_handler<ignore_unbound_variables_t>);
+constexpr ignore_unbound_variables_t ignore_unbound_variables;
 
 
 /**
@@ -286,11 +295,11 @@ class predicate_runtime {
   std::ranges::range auto
   variables() const noexcept
   {
-    opi::stl::deque<value> result;
+    opi::stl::unordered_set<value> result;
     for (const predicate_runtime *prt = this; prt; prt = prt->m_parent)
     {
       for (const auto &[key, _] : prt->m_varmap)
-        result.push_back(key);
+        result.insert(key);
     }
     return result;
   }

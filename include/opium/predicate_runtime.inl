@@ -5,7 +5,6 @@
 #pragma once
 
 #include "opium/predicate_runtime.hpp"
-#include "opium/logging.hpp"
 
 #include <cassert>
 
@@ -21,6 +20,7 @@ template <unbound_variable_handler UVHandler>
 struct _reconstructor {
   UVHandler uvhandler; /**< Handler for unbound variables */
   opi::stl::unordered_map<cell *, value> mem; /**< Memoization map to avoid infinite recursion */
+  opi::stl::unordered_map<value, value> pairmem;
 
   /**
    * Constructor
@@ -45,7 +45,18 @@ struct _reconstructor {
       if (opi::issym(car(x), "__cell"))
         return _reconstruct(static_cast<opi::cell *>(x->cdr->ptr));
       else
-        return cons(_reconstruct(car(x)), _reconstruct(cdr(x)));
+      {
+        // Avoid infinite recursion
+        const auto it = pairmem.find(x);
+        if (it != pairmem.end())
+          return it->second;
+        // Create and memorize placeholder-pair to be filled in later
+        value result = cons(nil, nil);
+        pairmem.emplace(x, result);
+        result->car = &*_reconstruct(car(x));
+        result->cdr = &*_reconstruct(cdr(x));
+        return result;
+      }
     }
     else
       return x;
@@ -73,8 +84,12 @@ struct _reconstructor {
         {
           const opi::value val = opi::cons(opi::nil, opi::nil);
           mem.emplace(x, val);
-          val->car = &*_reconstruct(car(x->val));
-          val->cdr = &*_reconstruct(cdr(x->val));
+          const value newcar = _reconstruct(car(x->val));
+          const value newcdr = _reconstruct(cdr(x->val));
+          assert(&*newcar);
+          assert(&*newcdr);
+          val->car = &*newcar;
+          val->cdr = &*newcdr;
           return val;
         }
         else
