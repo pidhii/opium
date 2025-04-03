@@ -28,6 +28,7 @@ opi::prolog_repl::operator << (opi::value expr)
         break;
       default:
         body = cons(sym("and"), body);
+        copy_location(expr, body);
         break;
     }
     const predicate &pred = add_predicate(signature, body);
@@ -82,9 +83,11 @@ opi::prolog_repl::_query(opi::value expr)
   for (const auto &[var, vals] : summary)
   {
     std::cout << var << " = ";
+    const std::string prefix_after =
+        "\n" + std::string(sym_name(var).length() + 1, ' ') + "| ";
     for (std::string prefix = ""; const value &val : vals)
-      std::cout << prefix << val, prefix = " | ";
+      std::cout << prefix << val, prefix = prefix_after;
     std::cout << std::endl;
   }
-  std::cout << (summary.empty() ? "=> no" : "=> yes") << std::endl;
+  std::cout << (summary ? "=> no" : "=> yes") << std::endl;
 }
