@@ -60,16 +60,18 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem)
       _print(mode, os, car(val), mem);
       value elt = nil;
       for (elt = cdr(val); elt->t == tag::pair; elt = cdr(elt))
-      { // Similar trick about self-referencing
-        if (memq(elt, mem))
-        {
-          os << "...)";
-          return;
-        }
-        mem = cons(elt, mem);
+      {
         // Normal printing
         os << ' ';
         _print(mode, os, car(elt), mem);
+
+         // Similar trick about self-referencing
+        if (memq(elt, mem))
+        {
+          os << " ...)";
+          return;
+        }
+        mem = cons(elt, mem);
       }
       if (is(elt, nil))
         os << ')';

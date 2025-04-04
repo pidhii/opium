@@ -159,5 +159,12 @@ opi::prolog_formatter::prolog_formatter()
     return pretty_printer::format_block(true, 4, cons("or", clauses));
   });
 
+  append_rule({list("if"), list("if", "cond", "then", "else")}, [](const auto &ms) {
+    const value cond = ms.at("cond");
+    const value thenbr = ms.at("then");
+    const value elsebr = ms.at("else");
+    return pretty_printer::format_block(true, 4, list("if", cond, thenbr, elsebr));
+  });
+
   append_rule({nil, "x"}, [](const auto &ms) { return ms.at("x"); });
 }
