@@ -48,15 +48,32 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
     std::ostringstream message;
     message << "make_true ";
 
+    // Show source location whenever possible
+    bool haslocation = false;
     source_location location;
     if (lisp_parser::get_location(e, location))
+    {
+      haslocation = true;
       message << display_location(location, 2, "\e[1m", "\e[2m");
-    else
-      message << pprint_pl(reconstruct(e, stringify_unbound_variables), 10);
-    // message << "\nwhere\n";
-    // for (const value var : ert.variables())
-    //   debug("  {} = {}", var,
-    //         reconstruct(ert[var], stringify_unbound_variables));
+    }
+
+    // Optionaly show Prolog sources
+    if (not haslocation or global_flags.contains("make_true:debug-prolog"))
+      message << "\nProlog expr: "
+              << pprint_pl(reconstruct(e, stringify_unbound_variables), 13);
+
+    // Optionaly show current state of local variables
+    if (global_flags.contains("make_true:debug-variables"))
+    {
+      message << "\nwhere\n";
+      for (const value var : ert.variables()) 
+      {
+        const value val = reconstruct(ert[var], stringify_unbound_variables);
+        message << std::format("  {} = {}\n", var, val);
+      }
+    }
+
+    // Display the message
     debug("{}", message.str());
   }
 
@@ -125,6 +142,14 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
       else if (issym(car(e), "nonvar"))
       {
         if (not _var_implementation(car(cdr(e))))
+          cont();
+        return;
+      }
+      else if (issym(car(e), "=@="))
+      {
+        const value a = car(cdr(e));
+        const value b = car(cdr(cdr(e)));
+        if (equivalent(a, b))
           cont();
         return;
       }
@@ -252,7 +277,27 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
     }
     else
     {
-      debug("\e[38;5;3msignature clash\e[0m");
+      if (loglevel >= loglevel::debug)
+      { // Messaage about signature clash
+        std::ostringstream message;
+        message << "\e[38;5;3msignature clash\e[0m";
+        // Optionaly show current state of local variables
+        if (global_flags.contains("make_true:debug-signature-clash"))
+        {
+          message << "\nwhere\n";
+          message << "  signature: "
+                  << reconstruct(signature, stringify_unbound_variables)
+                  << "\n";
+          for (const value var : ert.variables())
+          {
+            const value val = reconstruct(ert[var], stringify_unbound_variables);
+            message << std::format("  {} = {}\n", var, val);
+          }
+        }
+        // Display the message
+        debug("{}", message.str());
+      }
+
       cont();
     }
   }
