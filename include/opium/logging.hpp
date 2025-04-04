@@ -5,9 +5,13 @@
 #include <format>
 #include <iostream>
 #include <stdexcept>
+#include <set>
 
 
 namespace opi {
+
+extern
+std::set<std::string> global_flags;
 
 
 enum class loglevel: int {

@@ -174,13 +174,15 @@ main(int argc, char **argv)
   using namespace opi;
 
   std::string verbosity {loglevel_name(loglevel::warning)};
+  std::vector<std::string> flags;
 
   // Define command line options
   po::options_description desc {"Allowed options"};
   desc.add_options()
     ("help", "produce help message")
     ("input-file", po::value<std::string>(), "input file to process")
-    ("verbosity,v", po::value<std::string>(&verbosity)->implicit_value("debug"), "verbosity");
+    ("verbosity,v", po::value<std::string>(&verbosity)->implicit_value("debug"), "verbosity")
+    ("flag,f", po::value<std::vector<std::string>>(&flags), "flags");
 
   po::positional_options_description posdesc;
   posdesc.add("input-file", 1);
@@ -212,6 +214,10 @@ main(int argc, char **argv)
 
   // Set global log-level
   loglevel = parse_loglevel(verbosity);
+
+  // Set global flags
+  for (const std::string &flag : flags)
+    global_flags.emplace(flag);
 
 
   prolog_repl pl;
