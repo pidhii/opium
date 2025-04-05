@@ -131,6 +131,36 @@ opi::scheme_code_transformer::scheme_code_transformer()
   });
 
   /**
+   * Rule for and expressions
+   *
+   * Propagates transformation to all contained expressions:
+   * (and <clause> ...) ->
+   * (and T[<clause>] ...)
+   */
+   const match andmatch {list("and"), list("and", dot, "clauses")};
+   append_rule(andmatch, [this](const auto &ms) {
+    const value clauses = ms.at("clauses");
+    const value newclauses =
+        list(range(clauses) | std::views::transform(std::ref(*this)));
+    return cons("and", newclauses);
+   });
+
+  /**
+   * Rule for or expressions
+   *
+   * Propagates transformation to all contained expressions:
+   * (or <clause> ...) ->
+   * (or T[<clause>] ...)
+   */
+   const match ormatch {list("or"), list("or", dot, "clauses")};
+   append_rule(ormatch, [this](const auto &ms) {
+    const value clauses = ms.at("clauses");
+    const value newclauses =
+        list(range(clauses) | std::views::transform(std::ref(*this)));
+    return cons("or", newclauses);
+   });
+
+  /**
    * Rule for quote expressions
    * 
    * Preserves quoted content without transformation:

@@ -180,8 +180,33 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   const match beginmatch {list("begin"), list("begin", dot, "body")};
   append_rule(beginmatch, [this](const auto &ms) {
     const value body = ms.at("body");
+    // Special handling for blocks
     const value newbody = transform_block(body);
     return cons("begin", newbody);
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                 and
+  const match andmatch {list("and"), list("and", dot, "clauses")};
+  append_rule(andmatch, [this](const auto &ms) {
+    const value clauses = ms.at("clauses");
+    // Evaluate all clauses with current target
+    // TODO: add some boolean-convertable test
+    const value newclauses =
+        list(range(clauses) | std::views::transform(std::ref(*this)));
+    // Wrap all resulting Prolog expressions in an AND
+    return cons("and", newclauses);
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                 or
+  // NOTE: code duplication from and
+  const match ormatch {list("or"), list("or", dot, "clauses")};
+  append_rule(ormatch, [this](const auto &ms) {
+    const value clauses = ms.at("clauses");
+    const value newclauses =
+        list(range(clauses) | std::views::transform(std::ref(*this)));
+    return cons("or", newclauses);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
