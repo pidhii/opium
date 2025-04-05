@@ -52,11 +52,11 @@ class unified_determined_summary
    * \param prt Predicate runtime to summarize
    */
   unified_determined_summary(const predicate_runtime &prt)
-  : m_prt {prt}, m_invoced {false}
+  : m_prt {prt}, m_invoked {false}
   { }
 
   operator bool () const noexcept
-  { return m_invoced; }
+  { return m_invoked; }
 
   /**
    * Collect determined values for all variables in the predicate runtime
@@ -67,6 +67,7 @@ class unified_determined_summary
   void
   operator () () 
   {
+    m_invoked = true;
     for (const value var : m_prt.variables())
     {
       const value varval =
@@ -77,7 +78,7 @@ class unified_determined_summary
 
   private:
   const predicate_runtime &m_prt; /**< Reference to the predicate runtime */
-  bool m_invoced;
+  bool m_invoked;
 }; // class opi::unified_determined_summary
 
 } // namespace opi
