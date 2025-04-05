@@ -1,10 +1,25 @@
 #include "opium/value.hpp"
+#include <vector>
+#include <string>
 
 
 enum class mode { write, display, print };
 
+// ANSI color codes for rainbow parentheses
+const std::vector<std::string> PAREN_COLORS = {
+  "\e[31m", // Red
+  "\e[33m", // Yellow
+  "\e[32m", // Green
+  "\e[36m", // Cyan
+  "\e[34m", // Blue
+  "\e[35m"  // Magenta
+};
+
+const std::string RESET_COLOR = "\033[0m";
+
 void
-_print(mode mode, std::ostream &os, opi::value val, opi::value mem)
+_print(mode mode, std::ostream &os, opi::value val, opi::value mem,
+       int depth = 0)
 {
   using namespace opi;
 
@@ -56,27 +71,32 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem)
       }
       mem = cons(val, mem);
 
-      os << '(';
-      _print(mode, os, car(val), mem);
+      // Get color for current nesting level
+      std::string color = PAREN_COLORS[depth % PAREN_COLORS.size()];
+      
+      // Print opening parenthesis with color
+      os << color << '(' << RESET_COLOR;
+      
+      _print(mode, os, car(val), mem, depth + 1);
       value elt = nil;
       for (elt = cdr(val); elt->t == tag::pair; elt = cdr(elt))
       {
-        // Normal printing
-        os << ' ';
-        _print(mode, os, car(elt), mem);
-
          // Similar trick about self-referencing
         if (memq(elt, mem))
         {
-          os << " ...)";
+          os << " ..." << color << ")" << RESET_COLOR;
           return;
         }
         mem = cons(elt, mem);
+
+        // Normal printing
+        os << ' ';
+        _print(mode, os, car(elt), mem, depth + 1);
       }
       if (is(elt, nil))
-        os << ')';
+        os << color << ')' << RESET_COLOR;
       else
-        os << " . " << elt << ')';
+        os << " . " << elt << color << ')' << RESET_COLOR;
       break;
     }
   }
@@ -85,12 +105,12 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem)
 
 void
 opi::write(std::ostream &os, const opi::value &val)
-{ _print(mode::write, os, val, opi::nil); }
+{ _print(mode::write, os, val, opi::nil, 0); }
 
 void
 opi::display(std::ostream &os, const opi::value &val)
-{ _print(mode::display, os, val, opi::nil); }
+{ _print(mode::display, os, val, opi::nil, 0); }
 
 void
 opi::print(std::ostream &os, const opi::value &val)
-{ _print(mode::print, os, val, opi::nil); }
+{ _print(mode::print, os, val, opi::nil, 0); }
