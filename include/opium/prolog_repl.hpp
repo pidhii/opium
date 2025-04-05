@@ -4,6 +4,7 @@
 #include "opium/value.hpp"
 
 #include <stdexcept>
+#include <filesystem>
 
 /**
  * \file prolog_repl.hpp
@@ -55,6 +56,8 @@ class prolog_repl: public prolog {
    */
   void
   _query(value expr);
+
+  std::set<std::filesystem::path> m_loaded_pathes;
 }; // class opi::prolog_repl
 
 } // namespace opi

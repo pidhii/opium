@@ -18,7 +18,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 if
   const match ifmatch {list("if"), list("if", "cond", "then", "else")};
-  append_rule(ifmatch, [this, &counter](const auto &ms) {
+  append_rule(ifmatch, [this](const auto &ms) {
     const value cond = ms.at("cond");
     const value thenbr = ms.at("then");
     const value elsebr = ms.at("else");
@@ -31,23 +31,10 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       (*this)(cond);
     });
 
-    // Evaluate <then> and <else> with separate proxy targets
-    const value thentarget = symbol_generator {counter, "Then{}"}();
-    const value elsetarget = symbol_generator {counter, "Else{}"}();
-    const value newthen = ({
-      utl::state_saver _ {m_target};
-      m_target = thentarget;
-      (*this)(thenbr);
-    });
-    const value newelse = ({
-      utl::state_saver _ {m_target};
-      m_target = elsetarget;
-      (*this)(elsebr);
-    });
+    const value newthen = (*this)(thenbr);
+    const value newelse = (*this)(elsebr);
 
-    // Result is a union of the <then> and <else> results
-    return list("and", newcond, newthen, newelse,
-                list("unify", thentarget, elsetarget, m_target));
+    return list("and", newcond, newthen, newelse);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
@@ -210,7 +197,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value xs = ms.at("xs");
     const auto totype = std::bind(&scheme_to_prolog::_to_type, this, _1);
     const value form = list(range(cons(f, xs)) | std::views::transform(totype));
-    return list("result-of*", form, m_target);
+    return list("result-of", form, m_target);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>

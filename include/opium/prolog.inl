@@ -14,6 +14,43 @@
 
 namespace opi {
 
+/**
+ * Impelementation of some builtin prolog predicates
+ */
+namespace prolog_impl {
+
+/**
+ * Implementation of `var X` predicate
+ *
+ * Test if given value is an unbound variable.
+ *
+ * \param x Value to test
+ * \return True if \p x is an unbound variable; false otherwize
+ */
+bool
+var(value x);
+
+/**
+ * Implementation of `debug Args...` predicate
+ *
+ * \param expr Expression with location attached that triggered the call (optional)
+ * \param args List with arguments of the predicate
+ */
+void
+debug(value expr, value args);
+
+/**
+ * Implementation of `elements-of L` predicate
+ *
+ * Collect elements of (possibly infinite) list.
+ *
+ * \param l List whos elements to collect
+ * \return Elements of the list \p l
+ */
+value
+elements_of(value l);
+
+} // namespace opi::prolog_impl
 
 inline std::ranges::view auto
 prolog::predicate_branches(const std::string &name) const
@@ -25,16 +62,6 @@ prolog::predicate_branches(const std::string &name) const
   return std::ranges::subrange(it, m_db.end()) |
          std::views::take(m_db.count(name)) |
          std::views::values;
-}
-
-
-static inline bool
-_var_implementation(value x)
-{
-  value _ = nil;
-  if (x->t == tag::pair and issym(car(x), "__cell"))
-    return not get_value(static_cast<cell*>(cdr(x)->ptr), _);
-  return false;
 }
 
 
@@ -81,46 +108,15 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
   {
     case tag::pair: {
       if (issym(car(e), "if"))
-      { // TODO move to separate function
+      {
         const value cond = car(cdr(e));
         const value thenbr = car(cdr(cdr(e)));
         const value elsebr = car(cdr(cdr(cdr(e))));
-
-        // Create auxiliary predicate_runtime with parent reference to the
-        // current frame
-        predicate_runtime crt {&ert};
-
-        // Unify variables from parent frame with ones in the current frame
-        for (const value var : ert.variables())
-        {
-          const bool ok = unify(ert[var], crt[var]);
-          assert(ok and "Failed to create variable in or-clause");
-        }
-
-        // Try <cond> -> <then>
-        bool isthen = false;
-        std::function<void()> thencont = [&]() {
-          isthen = true;
-          make_true(crt, thenbr, cont, ntvhandler);
-        };
-        make_true(crt, cond, thencont, ntvhandler);
-        crt.mark_dead();
-
-        // Otherwize, go <else>
-        if (not isthen)
-          make_true(ert, elsebr, cont, ntvhandler);
-
-        return;
+        return _make_if_true(ert, cond, thenbr, elsebr, cont, ntvhandler);
       }
       else if (issym(car(e), "debug"))
       {
-        std::clog << "debug ";
-        source_location location;
-        if (lisp_parser::get_location(e, location))
-          std::clog << display_location(location, 0, "\e[38;5;5;1m", "\e[2m");
-        for (const value x : range(cdr(e)))
-          display(std::clog, reconstruct(x, stringify_unbound_variables));
-        std::clog << std::endl;
+        prolog_impl::debug(e, cdr(e));
         return cont();
       }
       else if (issym(car(e), "and"))
@@ -135,13 +131,13 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
       }
       else if (issym(car(e), "var"))
       {
-        if (_var_implementation(car(cdr(e))))
+        if (prolog_impl::var(car(cdr(e))))
           cont();
         return;
       }
       else if (issym(car(e), "nonvar"))
       {
-        if (not _var_implementation(car(cdr(e))))
+        if (not prolog_impl::var(car(cdr(e))))
           cont();
         return;
       }
@@ -153,17 +149,73 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
           cont();
         return;
       }
+      else if (issym(car(e), "elements-of"))
+      {
+        const value l = reconstruct(car(cdr(e)), ignore_unbound_variables);
+        if (l->t == tag::pair and issym(car(l), "__cell"))
+          throw error("Can't invoke `elements-of` with unbound variable");
+        const value result = car(cdr(cdr(e)));
+        const value elements = prolog_impl::elements_of(l);
+        return make_true(ert, list("=", result, elements), cont, ntvhandler);
+      }
+      else if (issym(car(e), "query"))
+      { // TODO Move to a separate function
+        // TODO Auxialry PRT below is a recurring pattern that should be somehow
+        // handled to prevent code duplication
+
+        // Gather arguments
+        value goal = car(cdr(e));
+        const value result = car(cdr(cdr(e)));
+
+        // Create auxiliary predicate_runtime with parent reference to the
+        // current frame
+        predicate_runtime crt {&ert};
+        // Unify variables from parent frame with ones in the current frame
+        for (const value var : ert.variables())
+        {
+          const bool ok = unify(ert[var], crt[var]);
+          assert(ok and "Failed to create variable in or-clause");
+        }
+
+        // Prepare continuation that will be accumulating query results
+        cell *tmp = crt.make_var();
+        const value tmpvar = cons("__cell", ptr(tmp));
+        value acc = nil;
+        std::function<void()> query = [&]() {
+          const value tmpval = reconstruct(tmp, [&](cell *c) {
+            cell *newcell = ert.make_var();
+            unify(c, newcell);
+            return cons("__cell", ptr(newcell));
+          });
+          acc = cons(tmpval, acc);
+        };
+
+        // Insert placeholder variable that would hold query results in the goal
+        if (goal->t == tag::pair)
+          goal = append(goal, list(tmpvar));
+        else
+          goal = list(goal, tmpvar);
+        debug("query goal: {}", reconstruct(goal, stringify_unbound_variables));
+
+        // Run the query
+        make_true(crt, goal, query, ntvhandler);
+        crt.mark_dead();
+        
+        // Bind accumulated results with result-argument
+        const value bindexpr = list("=", result, acc);
+        make_true(ert, bindexpr, cont, ntvhandler);
+
+        return;
+      }
       else if (issym(car(e), "call"))
       {
         // Reconstruct "Goal" as much as possible
-        const value predicate =
-            reconstruct(car(cdr(e)), ignore_unbound_variables);
+        const value goal = reconstruct(car(cdr(e)), ignore_unbound_variables);
 
-        if (predicate->t == tag::pair)
-          // TODO verify that car(predicate) is symbol (?)
-          e = append(predicate, cdr(cdr(e)));
+        if (goal->t == tag::pair)
+          e = append(goal, cdr(cdr(e)));
         else
-          e = cons(predicate, cdr(cdr(e)));
+          e = cons(goal, cdr(cdr(e)));
 
         // Run new goal
         return make_true(ert, e, cont, ntvhandler);
@@ -210,6 +262,35 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
   throw error {std::format("Invalid expression: {}", e)};
 }
 
+template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
+void
+prolog::_make_if_true(predicate_runtime &ert, value cond, value thenbr,
+                      value elsebr, Cont cont, NTVHandler ntvhandler) const
+{
+  // Create auxiliary predicate_runtime with parent reference to the
+  // current frame
+  predicate_runtime crt {&ert};
+
+  // Unify variables from parent frame with ones in the current frame
+  for (const value var : ert.variables())
+  {
+    const bool ok = unify(ert[var], crt[var]);
+    assert(ok and "Failed to create variable in or-clause");
+  }
+
+  // Try <cond> -> <then>
+  bool isthen = false;
+  std::function<void()> thencont = [&]() {
+    isthen = true;
+    make_true(crt, thenbr, cont, ntvhandler);
+  };
+  make_true(crt, cond, thencont, ntvhandler);
+  crt.mark_dead();
+
+  // Otherwize, go <else>
+  if (not isthen)
+    make_true(ert, elsebr, cont, ntvhandler);
+}
 
 template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
 void
@@ -269,11 +350,17 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
   if (match_arguments(prt, ert, pargs, eargs))
   {
     const value signature = eargs;
+
+    const value body = insert_cells(prt, pred.body());
+    debug("make predicate true:\n{}{} :-\n  {}", pred.name(),
+          reconstruct(pargs, stringify_unbound_variables),
+          pprint_pl(reconstruct(body, stringify_unbound_variables), 2));
+
     debug("\e[38;5;2mmatch\e[0m on {}{}", pred.name(),
           reconstruct(signature, stringify_unbound_variables));
     if (prt.try_sign(&pred, signature, ert, ntvhandler))
     {
-      make_true(prt, insert_cells(prt, pred.body()), cont, ntvhandler);
+      make_true(prt, body, cont, ntvhandler);
     }
     else
     {

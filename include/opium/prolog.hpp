@@ -4,7 +4,6 @@
 #include "opium/format.hpp" // IWYU pragma: export
 #include "opium/predicate_runtime.hpp"
 #include "opium/stl/vector.hpp"
-#include "opium/logging.hpp"
 
 #include <asm-generic/errno.h>
 #include <concepts>
@@ -129,6 +128,11 @@ class prolog {
             NTVHandler ntvhandler = NTVHandler {}) const;
 
   private:
+  template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
+  void
+  _make_if_true(predicate_runtime &ert, value cond, value thenbr, value elsebr,
+                Cont cont, NTVHandler ntvhandler) const;
+
   template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
   void
   _make_and_true(predicate_runtime &ert, value clauses, Cont cont,

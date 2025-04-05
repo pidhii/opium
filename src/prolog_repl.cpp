@@ -3,8 +3,10 @@
 #include "opium/predicate_runtime.hpp"
 #include "opium/value.hpp"
 #include "opium/pretty_print.hpp"
+#include "opium/lisp_parser.hpp"
 
 #include <iostream>
+#include <fstream>
 
 
 void
@@ -53,6 +55,35 @@ opi::prolog_repl::operator << (opi::value expr)
     return;
   }
 
+  // Handle imports
+  if (issym(car(expr), "ensure-loaded"))
+  {
+    namespace fs = std::filesystem;
+    const value x = car(cdr(expr));
+    const fs::path fullpath = fs::absolute(str_view(x));
+
+    if (not m_loaded_pathes.emplace(fullpath).second)
+      // File already loaded, thus do nothing
+      return;
+
+    // Open the file
+    if (std::ifstream infile {fullpath, std::ios::binary})
+    {
+      // Parse and process all expressions within the file
+      lisp_parser parser;
+      const auto tokens = parser.tokenize(infile, fullpath);
+      size_t cursor = 0;
+      while (cursor < tokens.size())
+        (*this) << parser.parse_tokens(tokens, cursor);
+    }
+    else
+    {
+      throw error {std::format("Failed to open file required by: {}", expr)};
+    }
+
+    return;
+  }
+
   throw error {std::format("Don't understand expression: {}", expr)};
 }
 
@@ -89,5 +120,5 @@ opi::prolog_repl::_query(opi::value expr)
       std::cout << prefix << val, prefix = prefix_after;
     std::cout << std::endl;
   }
-  std::cout << (summary ? "=> no" : "=> yes") << std::endl;
+  std::cout << (summary ? "=> yes" : "=> no") << std::endl;
 }

@@ -29,6 +29,7 @@ scheme_type_check(size_t gensym_counter, prolog &pl, value code)
 
   to_prolog.add_global("pair?", "pair?");
   to_prolog.add_global("cons", "cons");
+  to_prolog.add_global("none", list("cons-list", "_"));
   to_prolog.add_global("unpack-tuple/2", "unpack-tuple/2");
   to_prolog.add_global("unpack-pair", "unpack-pair");
   to_prolog.add_global("-", "-");

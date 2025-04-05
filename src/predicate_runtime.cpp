@@ -186,18 +186,22 @@ _is_cell(opi::value expr, opi::cell *&result)
 
 static bool
 _match_arguments(opi::predicate_runtime &prt, const opi::predicate_runtime &ert,
-                 opi::value pexpr, opi::value eexpr, opi::value mem,
-                 opi::value pmem)
+                 opi::value pexpr, opi::value eexpr, opi::value mem)
 {
   opi::cell *c1, *c2;
 
+  // Test if was already called with these arguments and return imediately if so
+  const opi::value argspair = cons(pexpr, eexpr);
+  if (member(argspair, mem))
+    return true;
+  // Otherwize, remember the argument pair
+  mem = cons(argspair, mem);
+
   // Expand variables whenever possible
   if (_is_cell(eexpr, c1) and opi::get_value(c1, eexpr))
-    return opi::memq(eexpr, mem) or
-           _match_arguments(prt, ert, pexpr, eexpr, opi::cons(eexpr, mem), pmem);
+    return _match_arguments(prt, ert, pexpr, eexpr, mem);
   if (_is_cell(pexpr, c1) and opi::get_value(c1, pexpr))
-    return opi::memq(pexpr, mem) or
-           _match_arguments(prt, ert, pexpr, eexpr, opi::cons(pexpr, mem), pmem);
+    return _match_arguments(prt, ert, pexpr, eexpr, mem);
 
   // Unify or assign variables
   if (_is_cell(eexpr, c1))
@@ -217,11 +221,8 @@ _match_arguments(opi::predicate_runtime &prt, const opi::predicate_runtime &ert,
   switch (pexpr->t)
   {
     case opi::tag::pair:
-      return opi::memq(pexpr, pmem) or
-             (_match_arguments(prt, ert, opi::car(pexpr), opi::car(eexpr), mem,
-                               opi::cons(pexpr, pmem)) and
-              _match_arguments(prt, ert, opi::cdr(pexpr), opi::cdr(eexpr), mem,
-                               opi::cons(pexpr, pmem)));
+      return _match_arguments(prt, ert, opi::car(pexpr), opi::car(eexpr), mem)
+         and _match_arguments(prt, ert, opi::cdr(pexpr), opi::cdr(eexpr), mem);
 
     default:
       return opi::equal(pexpr, eexpr);
@@ -233,7 +234,7 @@ bool
 opi::match_arguments(opi::predicate_runtime &prt,
                      const opi::predicate_runtime &ert, opi::value pexpr,
                      opi::value eexpr)
-{ return _match_arguments(prt, ert, pexpr, eexpr, opi::nil, opi::nil); }
+{ return _match_arguments(prt, ert, pexpr, eexpr, opi::nil); }
 
 
 static bool
