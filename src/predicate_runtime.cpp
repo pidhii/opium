@@ -184,6 +184,11 @@ _is_cell(opi::value expr, opi::cell *&result)
   return false;
 }
 
+
+static bool
+_is_tag(opi::value x)
+{ return opi::issym(x) and opi::sym_name(x)[0] == '#'; }
+
 static bool
 _match_arguments(opi::predicate_runtime &prt, const opi::predicate_runtime &ert,
                  opi::value pexpr, opi::value eexpr, opi::value mem)
@@ -209,10 +214,10 @@ _match_arguments(opi::predicate_runtime &prt, const opi::predicate_runtime &ert,
     if (_is_cell(pexpr, c2))
       return opi::unify(c2, c1);
     else
-      return opi::unify(c1, prt.make_term(pexpr));
+      return not _is_tag(pexpr) and opi::unify(c1, prt.make_term(pexpr));
   }
   else if (_is_cell(pexpr, c1))
-    return opi::unify(c1, prt.make_term(eexpr));
+    return not _is_tag(eexpr) and opi::unify(c1, prt.make_term(eexpr));
 
   // Structural equality
   if (pexpr->t != eexpr->t)
