@@ -18,7 +18,7 @@ static opi::stl::unordered_map<opi::object*, opi::source_location> g_value_locat
 // Implementation of location tracking functions
 // TODO: Move to a different file
 bool
-opi::lisp_parser::get_location(opi::value val, opi::source_location &location)
+opi::get_location(opi::value val, opi::source_location &location)
 {
   auto it = g_value_locations.find(&*val);
   if (it != g_value_locations.end()) {
@@ -41,11 +41,14 @@ opi::set_location(opi::value val, opi::source_location loc)
 bool
 opi::copy_location(opi::value from, opi::value to)
 {
+  if (is(to, nil) or is(to, True) or is(to, False) or has_location(to))
+    return false;
+
   if (is(from, to))
     return true;
 
   source_location location;
-  if (lisp_parser::get_location(from, location))
+  if (get_location(from, location))
   {
     set_location(to, location);
     return true;

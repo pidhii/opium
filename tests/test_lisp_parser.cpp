@@ -272,55 +272,55 @@ TEST(LispParserTest, LocationTracking) {
   
   // Check location for the entire expression
   opi::source_location loc;
-  ASSERT_TRUE(parser.get_location(result, loc));
+  ASSERT_TRUE(get_location(result, loc));
   ASSERT_EQ(loc.start, 0);
   ASSERT_EQ(loc.end, text.length());
   
   // Check location for 'define'
   opi::value define_sym = opi::car(result);
-  ASSERT_TRUE(parser.get_location(define_sym, loc));
+  ASSERT_TRUE(get_location(define_sym, loc));
   ASSERT_EQ(loc.start, 1);
   ASSERT_EQ(loc.end, 7); // "define" is 6 chars
   
   // Check location for the function signature (square x)
   opi::value signature = opi::car(opi::cdr(result));
-  ASSERT_TRUE(parser.get_location(signature, loc));
+  ASSERT_TRUE(get_location(signature, loc));
   ASSERT_EQ(loc.start, 8);
   ASSERT_EQ(loc.end, 18); // "(square x)" is 10 chars
   
   // Check location for 'square'
   opi::value square_sym = opi::car(signature);
-  ASSERT_TRUE(parser.get_location(square_sym, loc));
+  ASSERT_TRUE(get_location(square_sym, loc));
   ASSERT_EQ(loc.start, 9);
   ASSERT_EQ(loc.end, 15); // "square" is 6 chars
   
   // Check location for 'x' in the signature
   opi::value x_param = opi::car(opi::cdr(signature));
-  ASSERT_TRUE(parser.get_location(x_param, loc));
+  ASSERT_TRUE(get_location(x_param, loc));
   ASSERT_EQ(loc.start, 16);
   ASSERT_EQ(loc.end, 17); // "x" is 1 char
   
   // Check location for the function body (* x x)
   opi::value body = opi::car(opi::cdr(opi::cdr(result)));
-  ASSERT_TRUE(parser.get_location(body, loc));
+  ASSERT_TRUE(get_location(body, loc));
   ASSERT_EQ(loc.start, 19);
   ASSERT_EQ(loc.end, 26); // "(* x x)" is 7 chars
   
   // Check location for '*'
   opi::value multiply = opi::car(body);
-  ASSERT_TRUE(parser.get_location(multiply, loc));
+  ASSERT_TRUE(get_location(multiply, loc));
   ASSERT_EQ(loc.start, 20);
   ASSERT_EQ(loc.end, 21); // "*" is 1 char
   
   // Check location for first 'x' in the body
   opi::value x1 = opi::car(opi::cdr(body));
-  ASSERT_TRUE(parser.get_location(x1, loc));
+  ASSERT_TRUE(get_location(x1, loc));
   ASSERT_EQ(loc.start, 22);
   ASSERT_EQ(loc.end, 23); // "x" is 1 char
   
   // Check location for second 'x' in the body
   opi::value x2 = opi::car(opi::cdr(opi::cdr(body)));
-  ASSERT_TRUE(parser.get_location(x2, loc));
+  ASSERT_TRUE(get_location(x2, loc));
   ASSERT_EQ(loc.start, 24);
   ASSERT_EQ(loc.end, 25); // "x" is 1 char
 }
@@ -333,37 +333,37 @@ TEST(LispParserTest, NestedLocationTracking) {
   
   // Check location for the entire expression
   opi::source_location loc;
-  ASSERT_TRUE(parser.get_location(result, loc));
+  ASSERT_TRUE(get_location(result, loc));
   ASSERT_EQ(loc.start, 0);
   ASSERT_EQ(loc.end, text.length());
   
   // Check location for 'a'
   opi::value a_sym = opi::car(result);
-  ASSERT_TRUE(parser.get_location(a_sym, loc));
+  ASSERT_TRUE(get_location(a_sym, loc));
   ASSERT_EQ(loc.start, 1);
   ASSERT_EQ(loc.end, 2); // "a" is 1 char
   
   // Check location for '(b c)'
   opi::value bc_list = opi::car(opi::cdr(result));
-  ASSERT_TRUE(parser.get_location(bc_list, loc));
+  ASSERT_TRUE(get_location(bc_list, loc));
   ASSERT_EQ(loc.start, 3);
   ASSERT_EQ(loc.end, 8); // "(b c)" is 5 chars
   
   // Check location for 'b'
   opi::value b_sym = opi::car(bc_list);
-  ASSERT_TRUE(parser.get_location(b_sym, loc));
+  ASSERT_TRUE(get_location(b_sym, loc));
   ASSERT_EQ(loc.start, 4);
   ASSERT_EQ(loc.end, 5); // "b" is 1 char
   
   // Check location for 'c'
   opi::value c_sym = opi::car(opi::cdr(bc_list));
-  ASSERT_TRUE(parser.get_location(c_sym, loc));
+  ASSERT_TRUE(get_location(c_sym, loc));
   ASSERT_EQ(loc.start, 6);
   ASSERT_EQ(loc.end, 7); // "c" is 1 char
   
   // Check location for 'd'
   opi::value d_sym = opi::car(opi::cdr(opi::cdr(result)));
-  ASSERT_TRUE(parser.get_location(d_sym, loc));
+  ASSERT_TRUE(get_location(d_sym, loc));
   ASSERT_EQ(loc.start, 9);
   ASSERT_EQ(loc.end, 10); // "d" is 1 char
 }
@@ -376,7 +376,7 @@ TEST(LispParserTest, DisplayLocation) {
   
   // Get location for the entire expression
   opi::source_location loc;
-  ASSERT_TRUE(parser.get_location(result, loc));
+  ASSERT_TRUE(get_location(result, loc));
   
   // Test display_location with a string source
   std::string display = display_location(loc);
@@ -395,7 +395,7 @@ TEST(LispParserTest, DisplayLocation) {
   result = parser.parse(file, temp_filename);
   
   // Get location for the entire expression
-  ASSERT_TRUE(parser.get_location(result, loc));
+  ASSERT_TRUE(get_location(result, loc));
   
   // Test display_location with a file source
   display = display_location(loc);

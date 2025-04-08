@@ -5,7 +5,6 @@
 #include <vector>
 #include <stdexcept>
 #include <istream>
-#include <sstream>
 
 /**
  * \file lisp_parser.hpp
@@ -44,6 +43,19 @@ struct source_location {
 void
 set_location(value val, source_location loc);
 
+/**
+  * Get the source location for a value
+  * 
+  * \param val Value to get the location for
+  * \param[out] location Source location if available
+  * \return True if location for \p val is available
+  */
+[[nodiscard]] bool
+get_location(value val, source_location &location);
+
+[[nodiscard]] inline bool
+has_location(value val)
+{ source_location _; return get_location(val, _); }
 
 /**
  * Copy the source location to another value
@@ -90,16 +102,6 @@ class lisp_parser {
 
   value
   parse_all(std::istream &input, const std::string &source_name = "<stream>");
-
-  /**
-   * Get the source location for a value
-   * 
-   * \param val Value to get the location for
-   * \param[out] location Source location if available
-   * \return True if location for \p val is available
-   */
-  [[nodiscard]] static bool
-  get_location(value val, source_location &location);
 
   /**
    * Token representation for the lexical analyzer

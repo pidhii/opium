@@ -78,7 +78,7 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
     // Show source location whenever possible
     bool haslocation = false;
     source_location location;
-    if (lisp_parser::get_location(e, location))
+    if (get_location(e, location))
     {
       haslocation = true;
       message << display_location(location, 2, "\e[1m", "\e[2m");

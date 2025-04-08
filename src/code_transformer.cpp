@@ -1,5 +1,6 @@
 #include "opium/code_transformer.hpp"
 #include "opium/lisp_parser.hpp"
+#include "opium/logging.hpp"
 
 #include <format>
 
@@ -11,6 +12,22 @@ using namespace std::placeholders;
  * This file contains the implementation of the methods defined in code_transformer.hpp,
  * including rule management and expression transformation logic.
  */
+
+
+void
+opi::code_transformation_error::print() const noexcept
+{
+  std::ostringstream buf;
+
+  // Write basic error report
+  buf << what();
+  
+  source_location location;
+  if (get_location(m_code, location))
+    buf << "\n" << display_location(location);
+
+  error("{}", buf.str());
+}
 
 
 void
@@ -35,17 +52,15 @@ opi::code_transformer::operator () (value inexpr) const
     if (matcher(inexpr, matches))
     {
       const value result = transformer(matches, inexpr);
-      source_location location;
-      if (lisp_parser::get_location(inexpr, location))
-        set_location(result, location);
+      copy_location(inexpr, result);
       return result;
     }
     matches.clear(); // Clean up after unsuccessful match
   }
 
   // If we reach here, no rule matched the input expression
-  throw code_transformation_error {
-      std::format("no syntax rule matches the expression: {}", inexpr)};
+  throw code_transformation_error {"no syntax rule matches the expression",
+                                   inexpr};
 }
 
 

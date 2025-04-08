@@ -34,7 +34,19 @@ concept transformation = requires(const T t, value x)
  * \ingroup lisp
  */
 struct code_transformation_error: public std::runtime_error {
-  using std::runtime_error::runtime_error;
+  code_transformation_error(std::string_view what, value code)
+  : runtime_error(std::string(what)), m_code {code}
+  { }
+
+  value
+  code() const noexcept
+  { return m_code; }
+
+  void
+  print() const noexcept;
+
+  private:
+  value m_code;
 }; // struct opi::code_transformation_error
 
 
@@ -95,7 +107,7 @@ class code_transformer {
    * \param rule The transformation function to apply when pattern matches
    */
   template <typename RuleNoFM>
-    requires std::regular_invocable<RuleNoFM, const match_mapping&, value>
+    requires std::regular_invocable<RuleNoFM, const match_mapping&>
   void
   prepend_rule(const match &matcher, RuleNoFM rule)
   { prepend_rule(matcher, [=](const auto &ms, value) { return rule(ms); }); }
