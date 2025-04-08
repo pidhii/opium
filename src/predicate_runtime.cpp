@@ -26,22 +26,42 @@ _is_variable(opi::value x, bool &is_wildcard)
   return starts_with_capital or starts_with_underscore;
 }
 
-
-opi::value
-opi::insert_cells(predicate_runtime &prt, value expr)
+static opi::value
+_insert_cells(opi::predicate_runtime &prt, opi::value expr,
+              opi::stl::unordered_map<opi::value, opi::value> &mem)
 {
-  value result = nil;
+  opi::value result = opi::nil;
+
+  const auto it = mem.find(expr);
+  if (it != mem.end())
+    return it->second;
 
   bool iswild;
   if (_is_variable(expr, iswild))
     result = opi::cons("__cell", opi::ptr(iswild ? prt.make_var() : prt[expr]));
   else if (expr->t == opi::tag::pair)
-    result = opi::cons(insert_cells(prt, car(expr)), insert_cells(prt, cdr(expr)));
+  {
+    result = opi::cons(opi::nil, opi::nil);
+    mem.emplace(expr, result);
+    result->car = &*_insert_cells(prt, car(expr), mem);
+    result->cdr = &*_insert_cells(prt, cdr(expr), mem);
+    copy_location(expr, result);
+    return result;
+  }
   else
     result = expr;
 
   copy_location(expr, result);
+  mem.emplace(expr, result);
   return result;
+}
+
+
+opi::value
+opi::insert_cells(predicate_runtime &prt, value expr)
+{
+  opi::stl::unordered_map<value, value> mem;
+  return _insert_cells(prt, expr, mem);
 }
 
 
