@@ -8,11 +8,23 @@
 #include <ranges>
 #include <readline/readline.h>
 
+using namespace std::placeholders;
+
+
+inline opi::value
+opi::scheme_unique_identifiers::_T(value expr)
+{
+  utl::state_saver _ {m_is_toplevel};
+  m_is_toplevel = false;
+  return (*this)(expr);
+}
 
 opi::scheme_unique_identifiers::scheme_unique_identifiers(
-    symbol_generator &gensym)
-: m_gensym {gensym},
-  m_alist {nil}
+    symbol_generator &gensym, bool is_toplevel)
+: T {std::bind(&scheme_unique_identifiers::_T, this, _1)},
+  m_gensym {gensym},
+  m_alist {nil},
+  m_is_toplevel {is_toplevel}
 {
   flip_page();
 
@@ -26,7 +38,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     const value body = ms.contains("body") ? ms.at("body") : nil;
 
     // Replace identifiers with unique ones
-    const value newf = m_gensym();
+    const value newf = m_is_toplevel ? sym(sym_name(f)) : m_gensym();
     copy_location(f, newf);
     m_alist = cons(cons(f, newf), m_alist); // Leak function identifier
     utl::state_saver _ {m_alist}; // But will roll-back further changes to alist
@@ -41,8 +53,9 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
-    return list("define", cons(newf, newxs), dot, newbody);
+    const value newbody = list(range(body) | std::views::transform(T));
+    return list(m_is_toplevel ? "template" : "define", cons(newf, newxs), dot,
+                newbody);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
@@ -61,7 +74,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     copy_location(ident, newident);
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    const value newbody = list(range(body) | std::views::transform(T));
     return list("define", newident, dot, newbody);
   });
 
@@ -90,7 +103,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
       const value ident = car(idents);
       const value expr = car(exprs);
       const value newident = m_gensym();
-      newbinds = append(newbinds, list(list(newident, (*this)(expr))));
+      newbinds = append(newbinds, list(list(newident, T(expr))));
       newalist = cons(cons(ident, newident), newalist);
 
       // Copy original identifier location
@@ -101,7 +114,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     m_alist = newalist;
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    const value newbody = list(range(body) | std::views::transform(T));
     return list("let", newbinds, dot, newbody);
   });
 
@@ -118,7 +131,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
       const value ident = car(idents);
       const value expr = car(exprs);
       const value newident = m_gensym();
-      newbinds = append(newbinds, list(list(newident, (*this)(expr))));
+      newbinds = append(newbinds, list(list(newident, T(expr))));
       m_alist = cons(cons(ident, newident), m_alist);
 
       // Copy original identifier location
@@ -126,7 +139,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    const value newbody = list(range(body) | std::views::transform(T));
     return list("let*", newbinds, dot, newbody);
   });
 
@@ -151,11 +164,11 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     {
       const value ident = car(idents);
       const value expr = car(exprs);
-      newbinds = append(newbinds, list(list((*this)(ident), (*this)(expr))));
+      newbinds = append(newbinds, list(list(T(ident), T(expr))));
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    const value newbody = list(range(body) | std::views::transform(T));
     return list("letrec", newbinds, dot, newbody);
   });
 
@@ -173,14 +186,14 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
       const value expr = car(exprs);
       const value newident = m_gensym();
       m_alist = cons(cons(ident, newident), m_alist);
-      newbinds = append(newbinds, list(list(newident, (*this)(expr))));
+      newbinds = append(newbinds, list(list(newident, T(expr))));
 
       // Copy original identifier location
       copy_location(ident, newident);
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    const value newbody = list(range(body) | std::views::transform(T));
     return list("letrec*", newbinds, dot, newbody);
   });
 
@@ -208,14 +221,14 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
         // Copy original identifier location
         copy_location(ident, newident);
       }
-      newbinds = append(newbinds, list(list(newidentlist, (*this)(expr))));
+      newbinds = append(newbinds, list(list(newidentlist, T(expr))));
     }
 
     // Update alist with new identifiers
     m_alist = newalist;
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    const value newbody = list(range(body) | std::views::transform(T));
     return list("let-values", newbinds, dot, newbody);
   });
 
@@ -230,7 +243,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
       const value identlist = car(idents);
       const value expr = car(exprs);
 
-      const value newexpr = (*this)(expr);
+      const value newexpr = T(expr);
 
       value newidentlist = nil;
       for (const value ident : range(identlist))
@@ -246,7 +259,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    const value newbody = list(range(body) | std::views::transform(T));
     return list("let*-values", newbinds, dot, newbody);
   });
 
@@ -273,15 +286,17 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    const value newbody = list(range(body) | std::views::transform(T));
     return list("lambda", newargs, dot, newbody);
   });
 
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                form
   append_rule(match {nil, list("f", dot, "xs")}, [this](const auto &ms) {
     const value f = ms.at("f");
     const value xs = ms.at("xs");
     const value form = cons(f, xs);
-    return list(range(form) | std::views::transform(std::ref(*this)));
+    return list(range(form) | std::views::transform(T));
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
@@ -292,11 +307,12 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
       throw code_transformation_error {
           std::format("scheme_code_transformer rule [<ident> -> ...] - "
                       "expected atom, got {}; likely unmatched syntax",
-                      ident)};
+                      ident),
+          ident};
     // Lookup for identifier 
     value newident = nil;
     if (issym(ident) and assoc(ident, m_alist, newident))
-      return newident;
+      return sym(sym_name(newident)); // Copy it for pointer-based code tracking
     return ident;
   });
 }

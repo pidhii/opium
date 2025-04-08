@@ -1,32 +1,79 @@
-(define-variant-type (cons-list T)
-  (cons T (cons-list T))
-  ;; produces:
-  ;;   (predicate (result-of (cons T (cons-list T)) (cons-list T)))
-  ;; add global binding:
-  ;;   cons cons
-  none
-  ;; add global binding:
-  ;;   none (cons-list _)
-  )
+(define (unpack-pair x)
+  (values (car x) (cdr x)))
 
 
-(define (fold_map f z xs)
+(define (fold-left f z xs)
   (if (pair? xs)
     (let*-values (((x xs) (unpack-pair xs))
-                  ((x z) (unpack-tuple/2 (f z x))))
-      (cons x (fold_map f z xs)))
-    none))
-
-(define result (fold_map <f> <z> (<xs>)))
+                  ((z) (f z x)))
+      (fold-left f z xs))
+    z))
 
 
-(define (runThread thread timeout)
-    (let* ((starttime (real_time))
-           (mayberesult (poll thread))
-           (stoptime (real_time))
-           (exectime (- stoptime starttime)))
-      (if (and (some? mayberesult) (> exectime timeout))
-        (values mayberesult exectime)
-        (runThread thread (- timeout exectime)))))
 
-(define result (runThread <thread> 0))
+(define result
+  (define (add x y) (+ x y))
+  (fold-left add 0 (list 1 2 3 4 5)))
+
+
+
+
+;type list(T) = cons(T, list T) | none
+
+;fold_left(f, z, xs) =
+  ;match xs in
+  ;| cons(x, xs) -> fold_left(f, f(z, x), xs)
+  ;| none -> z
+
+  ;if cons(x, xs) = xs then
+    ;fold_left(f, f(z, x), xs)
+  ;else z
+
+;getTempColor(temp) =
+  ;cond
+  ;| temp < 45 -> "#66ff66"
+  ;| temp < 50 -> "#77ff00"
+  ;| temp < 55 -> "#88ff00"
+  ;| temp < 60 -> "#99ff00"
+  ;| temp < 65 -> "#aaff00"
+  ;| temp < 70 -> "#bbff00"
+  ;| temp < 75 -> "#cccc00"
+  ;| temp < 80 -> "#dd8800"
+  ;| temp < 90 -> "#ee5500"
+  ;| otherwize -> "#ff0000"
+
+;makeMarkup(temp, color) =
+  ;format(R"(<span color="%d">%dC</span>)", color, ...)
+
+;data = popen("sneosrs -j 2>/dev/null", READ).parse_json()
+;gpu_pci_name = list(data).map(first).find(\l -> l.match(/amdgpu-cpi-[0-9]{4}/))
+
+
+
+;type list T = cons T (list T) | none
+
+;def fold_left f z xs =
+  ;match xs in
+  ;| cons x xs -> fold_left f (f z x) xs
+  ;| none -> z
+
+
+;def getTempColor temp =
+  ;cond
+  ;| temp < 45 -> "#66ff66"
+  ;| temp < 50 -> "#77ff00"
+  ;| temp < 55 -> "#88ff00"
+  ;| temp < 60 -> "#99ff00"
+  ;| temp < 65 -> "#aaff00"
+  ;| temp < 70 -> "#bbff00"
+  ;| temp < 75 -> "#cccc00"
+  ;| temp < 80 -> "#dd8800"
+  ;| temp < 90 -> "#ee5500"
+  ;| otherwize -> "#ff0000"
+
+;def makeMarkup temp color =
+  ;format R"(<span color="%d">%dC</span>)" color ...
+
+;data = popen "sneosrs -j 2>/dev/null" READ |> parse_json()
+;gpu_pci_name = list data |> map first |> find (\l -> match /amdgpu-cpi-[0-9]{4}/ l)
+

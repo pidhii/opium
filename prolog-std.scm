@@ -93,3 +93,9 @@
       (set-union@ Set1 Set2 Set3)
       (set-union@ Set1 (X . Set2) Set3)))
 
+;;;;
+;; all X List
+;;;;
+(predicate (all _ ()))
+(predicate (all X (X . List))
+  (all X List))
