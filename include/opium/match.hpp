@@ -28,6 +28,10 @@ class match {
   : m_literals {literals}, m_pattern {pattern}
   { }
 
+  value
+  pattern() const noexcept
+  { return m_pattern; }
+
   template <value_mapping Mapping>
   bool
   operator () (value expr, Mapping &result) const
