@@ -66,6 +66,14 @@ class predicate {
   arguments() const noexcept
   { return m_args; }
 
+  value
+  argument(size_t i) const
+  { return m_args.at(i); }
+
+  value
+  signature() const noexcept
+  { return cons(sym(m_name), list(m_args)); }
+
   /**
    * Get predicate body/rule
    * 
