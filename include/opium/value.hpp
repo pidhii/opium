@@ -96,6 +96,8 @@ class value {
   [[nodiscard]] bool
   operator == (const char *symbol) const;
 
+  operator std::pair<value, value> () const;
+
   private:
   object *m_ptr; /**< Pointer to the object */
 }; // class opi::value
@@ -707,6 +709,10 @@ assoc(value k, value l, value &result)
   return false;
 }
 
+[[nodiscard]] inline bool
+assoc(value k, value l)
+{ value _ = nil; return assoc(k, l, _); }
+
 /**
  * Append a value to the end of a list
  * 
@@ -789,3 +795,7 @@ opi::value::operator == (opi::value other) const noexcept
 inline bool
 opi::value::operator == (const char *symbol) const
 { return opi::str_view(*this) == symbol; }
+
+inline
+opi::value::operator std::pair<value, value>() const
+{ return {opi::car(*this), opi::cdr(*this)}; }

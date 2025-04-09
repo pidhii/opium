@@ -103,5 +103,3 @@
                (return-type (even Tmp0) Return)))))
 
 
-
-; ((and (result-of (define T: T:) _) (result-of (define _Uid5 T:) _) (and (result-of (input prompt) _) (or (and (result-of (foo bar) _Uid6) (and (result-of (_Uid3 _Uid6) _))) (and (and (result-of (bar _Uid5) _Uid8) (and (result-of (foo _Uid8) _Uid7))) num (and (result-of (_Uid3 _Uid7) _)))))))

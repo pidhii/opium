@@ -9,4 +9,6 @@
 
 ; Malicious code 
 (predicate (loves X Y) (loves Y X))
-(query (loves X ivan))
+
+(query (loves ivan X))
+

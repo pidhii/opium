@@ -24,6 +24,8 @@
 (predicate (result-of (> num num) boolean))
 
 
+(predicate (result-of (string-append str str) str))
+
 
 ; real_time ()
 (predicate (result-of (real_time) num))

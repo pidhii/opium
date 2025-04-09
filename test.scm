@@ -10,13 +10,11 @@
     z))
 
 
+(define (add x y) (+ x y))
+(define (add s1 s2) (string-append s1 s2))
 
-(define result
-  (define (add x y) (+ x y))
-  (fold-left add 0 (list 1 2 3 4 5)))
-
-
-
+(define result1 (fold-left add 0 (list 1 2 3 4 5)))
+(define result2 (fold-left add "" (list "a" "b" "c" "d" "e")))
 
 ;type list(T) = cons(T, list T) | none
 

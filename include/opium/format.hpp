@@ -73,27 +73,38 @@ namespace std {
 template <>
 struct formatter<opi::value, char> {
   enum class style { write, display, print } style = style::print;
+  unsigned long n = -1;
 
   template <class ParseContext>
   constexpr ParseContext::iterator
   parse(ParseContext &ctx)
   {
     auto it = ctx.begin();
-    if (it == ctx.end())
-      return it;
-
-    if (*it == 'w')
+    while (it != ctx.end())
     {
-      style = style::write;
-      it++;
-    }
+      if (*it == 'w')
+      {
+        style = style::write;
+        it++;
+      }
 
-    if (*it == 'd')
-    {
-      style = style::display;
-      it++;
-    }
+      if (*it == 'd')
+      {
+        style = style::display;
+        it++;
+      }
+      
+      if (*it == '#')
+      {
+        it++;
+        std::string buf;
+        while (std::isdigit(*it))
+          buf.push_back(*it++);
+        n = std::stoul(buf);
+      }
 
+      break;
+    }
     if (it != ctx.end() and *it != '}')
       throw std::format_error {"Invalid format arguments for opi::value"};
 

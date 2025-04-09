@@ -36,7 +36,7 @@ struct scheme_emitter_context {
       "num", "nil", "str", "sym", "boolean",
 
       // FIXME
-      "+", "list", "car", "cdr", "values", "pair?"};
+      "+", "list", "car", "cdr", "values", "pair?", "string-append"};
 
   const prolog &pl; /**< Storage for predicates */
   const scheme_to_prolog &prolog_emitter; /**< Storage for type info */
@@ -385,6 +385,7 @@ scheme_type_check(size_t gensym_counter, prolog &pl, value code)
   to_prolog.add_global("pair?", "pair?");
   to_prolog.add_global("cons", "cons");
   to_prolog.add_global("list", "list");
+  to_prolog.add_global("string-append", "string-append");
   to_prolog.add_global("-", "-");
   to_prolog.add_global("+", "+");
   to_prolog.add_global(">", ">");
