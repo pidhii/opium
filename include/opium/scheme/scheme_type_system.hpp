@@ -9,6 +9,10 @@
 #include "opium/stl/unordered_set.hpp"
 #include "opium/pretty_print.hpp"
 
+#include "opium/scheme/scheme_emitter_context.hpp"
+#include "opium/value.hpp"
+
+#include <iterator>
 #include <ranges>
 
 
@@ -17,30 +21,6 @@ namespace opi {
 
 using query_result =
     opi::stl::unordered_map<value, opi::stl::unordered_set<value>>;
-
-using template_info = std::tuple<match, predicate, value>;
-
-template <std::output_iterator<value> Output>
-struct scheme_emitter_context {
-  scheme_emitter_context(const prolog &pl, const scheme_to_prolog &pl_emitter,
-                         Output output)
-  : global_output {output}, pl {pl}, prolog_emitter {pl_emitter}
-  { }
-
-  Output global_output; /**< Output tape for supplementary code */
-
-  opi::stl::deque<template_info> templates; /**< Template definitions */
-  opi::stl::unordered_map<value, value> specializations; /**< Cache for produced
-                                                              template specializations */
-  opi::stl::unordered_set<value> legal_types = {
-      "num", "nil", "str", "sym", "boolean",
-
-      // FIXME
-      "+", "list", "car", "cdr", "values", "pair?", "string-append"};
-
-  const prolog &pl; /**< Storage for predicates */
-  const scheme_to_prolog &prolog_emitter; /**< Storage for type info */
-}; // struct opi::scheme_emitter_context
 
 
 template <std::output_iterator<value> Output>
@@ -72,9 +52,12 @@ opi::scheme_emitter<Output>::emit(value expr, ExprOutput exproutput)
     *exproutput++ = result;
 }
 
+
+// TODO: remove first return, keep only the Scheme code itself
 template <std::output_iterator<value> Output>
 std::pair<query_result, value>
-_translate(scheme_emitter_context<Output> ctx, value plcode, value ppcode);
+emite_scheme(scheme_emitter_context<Output> ctx, value plcode, value ppcode);
+
 
 template <std::output_iterator<value> Output>
 value
@@ -88,13 +71,41 @@ _emit_specialized_function_body(scheme_emitter_context<Output> &ctx,
   const value bindclos = list("=", cdr(instantiation), cdr(clossignature));
   const value plcode = list("and", bindclos, pred.body());
   debug("emitting specialized function body for {}", instantiation);
-  return _translate(ctx, plcode, ppbody).second;
+  return emite_scheme(ctx, plcode, ppbody).second;
 }
 
 
 template <std::output_iterator<value> Output>
 value
-_instantiate(scheme_emitter_context<Output> &ctx, value type, value x)
+_instantiate_function_template(scheme_emitter_context<Output> &ctx,
+  value instantiation, const predicate &pred, value ppcode)
+{
+  assert(instantiation->t == tag::pair);
+
+  const value signature = car(cdr(ppcode));
+  const value paramlist = cdr(signature);
+  const value overloadname = car(instantiation);
+
+  static size_t counter = 0; // FIXME
+  const value specialident = sym(std::format("{}_{}", overloadname, counter++));
+  const value specialsignature = cons(specialident, paramlist);
+
+  // Save specialization with forward declaration
+  ctx.specializations.emplace(instantiation, specialident);
+  const value specialbody =
+      _emit_specialized_function_body(ctx, pred, cdr(cdr(ppcode)), instantiation);
+
+  const value define = list("define", specialsignature, dot, specialbody);
+  copy_location(ppcode, define);
+  *ctx.global_output++ = define;
+
+  return specialident;
+}
+
+
+template <std::output_iterator<value> Output>
+value
+instantiate(scheme_emitter_context<Output> &ctx, value type, value x)
 {
   // Primitives
   if (ctx.legal_types.contains(type))
@@ -121,30 +132,9 @@ _instantiate(scheme_emitter_context<Output> &ctx, value type, value x)
   assert(templates.size() <= 1);
 
   if (templates.size() == 1)
-  {
-    assert(type->t == tag::pair);
-
-     // Generate new specialization
+  { // Generate new specialization
     const auto &[_, pred, ppcode] = templates.front();
-
-    const value signature = car(cdr(ppcode));
-    const value paramlist = cdr(signature);
-    const value overloadname = car(type);
-
-    static size_t counter = 0; // FIXME
-    const value specialident = sym(std::format("{}_{}", overloadname, counter++));
-    const value specialsignature = cons(specialident, paramlist);
-
-    // Save specialization with forward declaration
-    ctx.specializations.emplace(type, specialident);
-    const value specialbody =
-        _emit_specialized_function_body(ctx, pred, cdr(cdr(ppcode)), type);
-
-    const value define = list("define", specialsignature, dot, specialbody);
-    copy_location(ppcode, define);
-    *ctx.global_output++ = define;
-
-    return specialident;
+    return _instantiate_function_template(ctx, type, pred, ppcode);
   }
 
   throw code_transformation_error {
@@ -154,7 +144,7 @@ _instantiate(scheme_emitter_context<Output> &ctx, value type, value x)
 
 template <std::output_iterator<value> Output>
 std::pair<query_result, value>
-_translate(scheme_emitter_context<Output> ctx, value plcode, value ppcode)
+emite_scheme(scheme_emitter_context<Output> ctx, value plcode, value ppcode)
 {
   predicate_runtime prt;
 
@@ -205,36 +195,6 @@ _translate(scheme_emitter_context<Output> ctx, value plcode, value ppcode)
 }
 
 
-// NOTE: making effort to ensure there is only a single predicate matching
-template <std::output_iterator<value> Output>
-predicate
-_find_predicate_for_template(const scheme_emitter_context<Output> &ctx,
-                             value template_name)
-{
-  // Matcher to match suiting predicate based on predicate signature
-  const match m {
-      list("result-of", template_name),
-      list("result-of", cons(cons(template_name, "_"), "args"), "result")};
-
-  // Find suiting predicate
-  const auto f = [&](const auto &pred) { return m(pred.signature()); };
-  opi::stl::list<predicate> preds;
-  std::ranges::copy(ctx.prolog_emitter.predicates() | std::views::filter(f),
-                    std::back_inserter(preds));
-
-  assert(preds.size() == 1);
-  return preds.front();
-}
-
-
-template <std::output_iterator<value> Output>
-void
-_register_forwarding_type(scheme_emitter_context<Output> &ctx, value type)
-{
-  const bool ok = ctx.legal_types.insert(type).second;
-  assert(ok && "Lambda instance type already exists");
-}
-
 template <std::output_iterator<value> Output>
 scheme_emitter<Output>::scheme_emitter(scheme_emitter_context<Output> &ctx,
                                        query_result &query)
@@ -249,7 +209,7 @@ scheme_emitter<Output>::scheme_emitter(scheme_emitter_context<Output> &ctx,
     const value body = ms.at("body");
 
     const value ident = m_ctx.prolog_emitter.find_overload_name(templatename);
-    const predicate pred = _find_predicate_for_template(m_ctx, ident);
+    const predicate pred = find_predicate_for_template(m_ctx, ident);
     const value code = list("define", cons(ident, params), dot, body);
     copy_location(fm, code);
     const match tempmatch {list(ident), cons(ident, "_")};
@@ -269,12 +229,12 @@ scheme_emitter<Output>::scheme_emitter(scheme_emitter_context<Output> &ctx,
 
     const value templatename = m_ctx.prolog_emitter.find_overload_name(ident);
     const value type = _find_code_type(ident); // Get template instantiation
-    const predicate pred = _find_predicate_for_template(m_ctx, templatename);
+    const predicate pred = find_predicate_for_template(m_ctx, templatename);
 
     // Declaration of the new type
     // NOTE: has to be a forward-declaration to allow for self-referencing
     // NOTE: template instantiation should be forwarded by instantiator
-    _register_forwarding_type(m_ctx, type);
+    register_forwarding_type(m_ctx, type);
 
     // Generate lambda body
     const value specialbody =
@@ -294,12 +254,12 @@ scheme_emitter<Output>::scheme_emitter(scheme_emitter_context<Output> &ctx,
 
     const value ident = m_ctx.prolog_emitter.find_overload_name(fm);
     const value type = _find_code_type(fm); // Get template instantiation
-    const predicate pred = _find_predicate_for_template(m_ctx, ident);
+    const predicate pred = find_predicate_for_template(m_ctx, ident);
 
     // Declaration of the new type
     // NOTE: it is a forward-declaration just in case the lambda is self-referencing
     // NOTE: lambda instantiation should be forwarded by instantiator
-    _register_forwarding_type(m_ctx, type);
+    register_forwarding_type(m_ctx, type);
 
     // Generate lambda body
     const value specialbody =
@@ -341,7 +301,7 @@ scheme_emitter<Output>::scheme_emitter(scheme_emitter_context<Output> &ctx,
     }
 
     // instantiate
-    return _instantiate(m_ctx, type, x);
+    return instantiate(m_ctx, type, x);
   });
 }
 
@@ -436,7 +396,7 @@ scheme_type_check(size_t gensym_counter, prolog &pl, value code)
   // Translate the code to proper scheme
   std::deque<value> main_tape;
   scheme_emitter_context ctx {pl, to_prolog, std::back_inserter(main_tape)};
-  auto [result, main] = _translate(ctx, plcode, ppcode);
+  auto [result, main] = emite_scheme(ctx, plcode, ppcode);
 
   const value globals = list(main_tape);
   const value resultcode = append(globals, main);
