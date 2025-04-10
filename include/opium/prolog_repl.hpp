@@ -4,7 +4,6 @@
 #include "opium/value.hpp"
 #include "opium/exceptions.hpp"
 
-#include <stdexcept>
 #include <filesystem>
 
 /**

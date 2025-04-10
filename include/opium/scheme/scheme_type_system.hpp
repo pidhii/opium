@@ -1,7 +1,7 @@
 #pragma once
 
 #include "opium/code_transform_utils.hpp"
-#include "opium/lisp_parser.hpp"
+#include "opium/source_location.hpp"
 #include "opium/logging.hpp"
 #include "opium/scheme/scheme_code_transformer.hpp"
 #include "opium/scheme/scheme_transformations.hpp"

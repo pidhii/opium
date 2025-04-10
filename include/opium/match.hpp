@@ -6,7 +6,6 @@
 #include "opium/format.hpp" // IWYU pragma: export
 
 #include <concepts>
-#include <stdexcept>
 
 
 namespace opi {

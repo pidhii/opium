@@ -1,6 +1,5 @@
 #include "opium/code_transform_utils.hpp"
 #include "opium/code_transformer.hpp"
-#include "opium/lisp_parser.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
 #include "opium/utilities/state_saver.hpp"
 #include "opium/value.hpp"
