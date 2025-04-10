@@ -117,8 +117,10 @@ info(std::format_string<Args...> fmt, Args &&...args)
 {
   if (loglevel >= loglevel::info)
   {
-    std::cerr << "opium " << add_indent(logging_indent);
-    std::cerr << std::format(fmt, std::forward<Args>(args)...) << std::endl;
+    const std::string message = std::format(fmt, std::forward<Args>(args)...);
+    const auto indent = add_indent(logging_indent + 4 /* for log name */);
+    const std::string indented_message = indent_lines(indent, message);
+    std::cerr << "opium " << indented_message.substr(33, std::string::npos);
   }
 }
 
