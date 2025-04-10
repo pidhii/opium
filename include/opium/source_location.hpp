@@ -1,0 +1,82 @@
+#pragma once
+
+#include "opium/value.hpp"
+#include <string>
+#include <string_view>
+
+/**
+ * \file source_location.hpp
+ * Source location tracking for Lisp values
+ * 
+ * This file defines utilities for tracking and displaying source locations
+ * of parsed Lisp expressions.
+ * 
+ * \ingroup lisp
+ */
+
+namespace opi {
+
+/**
+ * Structure representing a location in the input stream
+ * 
+ * \ingroup lisp
+ */
+struct source_location {
+  std::string source; ///< Source name (filepath or "<string>")
+  size_t start;       ///< Start offset in the input stream
+  size_t end;         ///< End offset in the input stream
+};
+
+/**
+ * Set the source location for a value
+ * 
+ * \param val Value to set the location for
+ * \param loc Source location
+ */
+void
+set_location(value val, source_location loc);
+
+/**
+ * Get the source location for a value
+ * 
+ * \param val Value to get the location for
+ * \param[out] location Source location if available
+ * \return True if location for \p val is available
+ */
+[[nodiscard]] bool
+get_location(value val, source_location &location);
+
+/**
+ * Check if a value has a source location
+ * 
+ * \param val Value to check
+ * \return True if \p val has a source location
+ */
+[[nodiscard]] inline bool
+has_location(value val)
+{ source_location _; return get_location(val, _); }
+
+/**
+ * Copy the source location to another value
+ *
+ * \param from Value to copy the location from
+ * \param to Value to copy the location to
+ * \return True if location was copied or if \p from and \p to is the same object
+ */
+bool
+copy_location(opi::value from, opi::value to);
+
+/**
+ * Display a fragment of a file according to location with surrounding context
+ * and highlighting of the location region
+ * 
+ * \param location Source location to display
+ * \param context_lines Number of context lines to show before and after the location
+ * \return Formatted string with the file fragment and highlighting
+ */
+[[nodiscard]] std::string
+display_location(const source_location &location, size_t context_lines = 2,
+                 std::string_view hlstyle = "\e[38;5;1;1m",
+                 std::string_view ctxstyle = "");
+
+} // namespace opi
