@@ -326,7 +326,7 @@ opi::scheme_emitter<Output>::_find_code_type(value code) const
 
 
 static std::pair<query_result, value>
-scheme_type_check(size_t gensym_counter, prolog &pl, value code)
+translate_to_scheme(size_t &counter, prolog &pl, value code)
 {
   const prolog_formatter plfmt;
   pretty_printer pprint_pl {plfmt};
@@ -335,27 +335,29 @@ scheme_type_check(size_t gensym_counter, prolog &pl, value code)
   pretty_printer pprint_scm {scmfmt};
 
   // Compose translator from Scheme to Prolog
-  symbol_generator genuid {gensym_counter};
+  symbol_generator genuid {counter, "uid{}"};
   scheme_code_flattener flatten {genuid};
   scheme_unique_identifiers insert_uids {genuid};
-  scheme_to_prolog to_prolog {gensym_counter};
+  scheme_to_prolog to_prolog {counter};
   prolog_cleaner pl_cleaner;
 
-  // FIXME
-  to_prolog.add_global("pair?", "pair?");
-  to_prolog.add_global("cons", "cons");
-  to_prolog.add_global("list", "list");
-  to_prolog.add_global("string-append", "string-append");
-  to_prolog.add_global("-", "-");
-  to_prolog.add_global("+", "+");
-  to_prolog.add_global(">", ">");
-  to_prolog.add_global("some?", "some?");
-  to_prolog.add_global("real_time", "real_time");
-  to_prolog.add_global("poll", "poll");
-  to_prolog.add_global("values", "values");
-  to_prolog.add_global("car", "car");
-  to_prolog.add_global("cdr", "cdr");
-  to_prolog.add_global("<thread>", "<thread>");
+  // TODO: find a better way
+  int warned = false;
+  for (const auto &[predicatename, predicate] : pl.predicates())
+  {
+    if (predicatename == "result-of")
+    {
+      const value signature = predicate.argument(0);
+      if (signature->t == tag::pair and issym(car(signature)))
+      {
+        const value identifier = car(signature);
+
+        if (not warned++)
+          warning("extracting forward-types from support predicates");
+        to_prolog.add_global(identifier, identifier);
+      }
+    }
+  }
 
   // Translate the input expression
   const value ppcode = list(range(code)
@@ -384,11 +386,8 @@ scheme_type_check(size_t gensym_counter, prolog &pl, value code)
   {
     if (loglevel >= loglevel::info)
     {
-      info("add generated predicate:");
-      std::cerr << std::format("{}{} :-\n  ", pred.name(),
-                               list(pred.arguments()));
-      pprint_pl(std::cout, pl_cleaner(pred.body()), 2);
-      std::cerr << std::endl;
+      debug("add generated predicate:\n{}{} :-\n  {}", pred.name(),
+            list(pred.arguments()), pprint_pl(pl_cleaner(pred.body()), 2));
     }
     pl.add_predicate(pred);
   }

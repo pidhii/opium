@@ -128,6 +128,10 @@ class prolog {
   std::ranges::view auto
   predicate_branches(const std::string &name) const;
 
+  std::ranges::range auto
+  predicates() const noexcept
+  { return m_db; }
+
   template <
     prolog_continuation Cont,
     nonterminal_variable_handler NTVHandler = ignore_nonterminal_variables>

@@ -30,7 +30,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               define (function-syntax)
-  // Note: leaks alist to the surrounding context
+  // NOTE: leaks alist to the surrounding context
   const value fndefpat = list("define", list("f", "xs", "..."), "body", "...");
   append_rule({list("define"), fndefpat}, [this](const auto &ms) {
     const value f = ms.at("f");
@@ -60,7 +60,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               define
-  // Note: leaks alist to the surrounding context
+  // NOTE: leaks alist to the surrounding context
   const value defpat = list("define", "ident", "body", "...");
   append_rule({list("define"), defpat}, [this](const auto &ms) {
     const value ident = ms.at("ident");
