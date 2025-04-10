@@ -3,6 +3,7 @@
 #include <gc.h>
 
 #include <utility>
+#include <type_traits>
 
 /**
  * \file memory.hpp
@@ -129,6 +130,16 @@ struct gc_allocator_base {
   using value_type = T;
   using size_type = size_t;
   using difference_type = ptrdiff_t;
+  
+  // Rebind structure for allocator compatibility
+  template <typename U>
+  struct rebind {
+    using other = gc_allocator_base<U, RawAllocator>;
+  };
+  
+  // Allocator traits for C++17/C++20 compatibility
+  using propagate_on_container_move_assignment = std::true_type;
+  using is_always_equal = std::true_type;
 
   gc_allocator_base(const RawAllocator &rawalloc = RawAllocator { })
   : m_rawalloc {rawalloc}
@@ -137,6 +148,24 @@ struct gc_allocator_base {
   gc_allocator_base(const gc_allocator_base &other)
   : m_rawalloc {other.m_rawalloc}
   { }
+
+  gc_allocator_base(gc_allocator_base &&other) noexcept
+  : m_rawalloc {std::move(other.m_rawalloc)}
+  { }
+
+  gc_allocator_base &
+  operator = (const gc_allocator_base &other)
+  {
+    m_rawalloc = other.m_rawalloc;
+    return *this;
+  }
+
+  gc_allocator_base &
+  operator = (gc_allocator_base &&other) noexcept
+  {
+    m_rawalloc = std::move(other.m_rawalloc);
+    return *this;
+  }
 
   template <typename U>
   gc_allocator_base(const gc_allocator_base<U, RawAllocator> &other)
@@ -154,6 +183,15 @@ struct gc_allocator_base {
   void
   deallocate(pointer p, [[maybe_unused]] size_type n)
   { GC_free(p); }
+
+  // Equality comparison operators
+  bool
+  operator == (const gc_allocator_base &) const noexcept
+  { return true; }
+
+  bool
+  operator != (const gc_allocator_base &) const noexcept
+  { return false; }
 
   private:
   RawAllocator m_rawalloc;
