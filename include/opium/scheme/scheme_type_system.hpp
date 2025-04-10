@@ -76,6 +76,58 @@ _emit_specialized_function_body(scheme_emitter_context<Output> &ctx,
 }
 
 
+/**
+ * Generate a distinctive name for a template instance using parameter types for
+ * unique identification
+ *
+ * This function creates a string representation of a template instance in the format
+ * `identifier<param1,param2,...>` with recursive handling of parameter types.
+ * 
+ * \param type The template instance type value
+ * \param os The output stream to write the formatted name to
+ */
+static void
+_generate_template_instance_name(value type, std::ostream &os)
+{
+  if (type->t != tag::pair)
+  {
+    // Not a template instance, return as is
+    os << type;
+    return;
+  }
+
+  value identifier = car(type);
+  const value params = cdr(type);
+
+  assert(issym(identifier));
+
+  // Remove syntax-related prefix inserted by Prolog emitter
+  if (sym_name(identifier).starts_with("template:"))
+    identifier = sym(sym_name(identifier).substr(sizeof("template:") - 1));
+
+  if (nil == params)
+  {
+    // No parameters, just return the identifier
+    os << identifier;
+    return;
+  }
+
+  // Write the identifier and opening bracket
+  os << identifier << "<";
+
+  // Add parameters with recursive handling
+  for (std::string prefix = ""; const value param : range(params))
+  {
+    os << prefix;
+    prefix = ",";
+
+    // Recursively format parameter if it's a template instance
+    _generate_template_instance_name(param, os);
+  }
+
+  os << ">";
+}
+
 template <std::output_iterator<value> Output>
 value
 _instantiate_function_template(scheme_emitter_context<Output> &ctx,
@@ -85,10 +137,10 @@ _instantiate_function_template(scheme_emitter_context<Output> &ctx,
 
   const value signature = car(cdr(ppcode));
   const value paramlist = cdr(signature);
-  const value overloadname = car(instantiation);
 
-  static size_t counter = 0; // FIXME
-  const value specialident = sym(std::format("{}_{}", overloadname, counter++));
+  std::ostringstream identbuf;
+  _generate_template_instance_name(instantiation, identbuf);
+  const value specialident = sym(identbuf.str());
   const value specialsignature = cons(specialident, paramlist);
 
   // Save specialization with forward declaration
@@ -344,6 +396,7 @@ translate_to_scheme(size_t &counter, prolog &pl, value code)
 
   // TODO: find a better way
   int warned = false;
+  opi::stl::vector<value> extforwardtypes;
   for (const auto &[predicatename, predicate] : pl.predicates())
   {
     if (predicatename == "result-of")
@@ -356,6 +409,7 @@ translate_to_scheme(size_t &counter, prolog &pl, value code)
         if (not warned++)
           warning("extracting forward-types from support predicates");
         to_prolog.add_global(identifier, identifier);
+        extforwardtypes.push_back(identifier);
       }
     }
   }
@@ -396,6 +450,7 @@ translate_to_scheme(size_t &counter, prolog &pl, value code)
   // Translate the code to proper scheme
   std::deque<value> main_tape;
   scheme_emitter_context ctx {pl, to_prolog, std::back_inserter(main_tape)};
+  ctx.legal_types.insert(extforwardtypes.begin(), extforwardtypes.end());
   auto [result, main] = emite_scheme(ctx, plcode, ppcode);
 
   const value globals = list(main_tape);

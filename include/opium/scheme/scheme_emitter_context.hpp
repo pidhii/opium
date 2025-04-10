@@ -21,11 +21,8 @@ struct scheme_emitter_context {
   opi::stl::deque<template_info> templates; /**< Template definitions */
   opi::stl::unordered_map<value, value> specializations; /**< Cache for produced
                                                               template specializations */
-  opi::stl::unordered_set<value> legal_types = {
-      "num", "nil", "str", "sym", "boolean",
-
-      // FIXME
-      "+", "list", "car", "cdr", "values", "pair?", "string-append"};
+  opi::stl::unordered_set<value> legal_types = {"num", "nil", "str", "sym",
+                                                "boolean"};
 
   const prolog &pl; /**< Storage for predicates */
   const scheme_to_prolog &prolog_emitter; /**< Storage for type info */
