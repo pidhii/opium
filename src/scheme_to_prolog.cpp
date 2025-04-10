@@ -365,8 +365,8 @@ opi::scheme_to_prolog::find_code_type(opi::value code) const
   value result = nil;
   if (find_code_type(code, result))
     return result;
-  throw std::runtime_error {
-      std::format("No type associated to code object")};
+  throw bad_code {
+      std::format("No type associated to code object"), code};
 }
 
 
@@ -392,8 +392,8 @@ opi::scheme_to_prolog::find_overload_name(opi::value code) const
   value result = nil;
   if (find_overload_name(code, result))
     return result;
-  throw std::runtime_error {
-      std::format("No overload name associated to code object")};
+  throw bad_code {
+      std::format("No overload name associated to code object"), code};
 }
 
 

@@ -4,6 +4,7 @@
 #include "opium/format.hpp" // IWYU pragma: export
 #include "opium/predicate_runtime.hpp"
 #include "opium/stl/vector.hpp"
+#include "opium/exceptions.hpp"
 
 #include <asm-generic/errno.h>
 #include <concepts>
@@ -106,8 +107,8 @@ concept prolog_continuation = std::regular_invocable<Cont>;
  */
 class prolog {
   public:
-  struct error: public std::runtime_error {
-    using std::runtime_error::runtime_error;
+  struct error: public bad_code {
+    using bad_code::bad_code;
   };
 
   /**

@@ -1,8 +1,5 @@
 #include "opium/code_transformer.hpp"
-#include "opium/lisp_parser.hpp"
-#include "opium/logging.hpp"
-
-#include <format>
+#include "opium/source_location.hpp"
 
 using namespace std::placeholders;
 
@@ -12,22 +9,6 @@ using namespace std::placeholders;
  * This file contains the implementation of the methods defined in code_transformer.hpp,
  * including rule management and expression transformation logic.
  */
-
-
-void
-opi::code_transformation_error::print() const noexcept
-{
-  std::ostringstream buf;
-
-  // Write basic error report
-  buf << what();
-  
-  source_location location;
-  if (get_location(m_code, location))
-    buf << "\n" << display_location(location);
-
-  error("{}", buf.str());
-}
 
 
 void

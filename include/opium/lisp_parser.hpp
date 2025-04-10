@@ -2,10 +2,10 @@
 
 #include "opium/value.hpp"
 #include "opium/source_location.hpp"
+#include "opium/exceptions.hpp"
 
 #include <string>
 #include <vector>
-#include <stdexcept>
 #include <istream>
 
 /**
@@ -105,8 +105,8 @@ class lisp_parser {
  * 
  * \ingroup lisp
  */
-struct parse_error: public std::runtime_error {
-  explicit parse_error(const std::string& what) : std::runtime_error(what) {}
+struct parse_error: public bad_code {
+  using bad_code::bad_code;
 };
 
 } // namespace opi

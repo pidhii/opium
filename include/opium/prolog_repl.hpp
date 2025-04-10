@@ -2,6 +2,7 @@
 
 #include "opium/prolog.hpp"
 #include "opium/value.hpp"
+#include "opium/exceptions.hpp"
 
 #include <stdexcept>
 #include <filesystem>
@@ -33,8 +34,8 @@ class prolog_repl: public prolog {
    * 
    * \ingroup prolog
    */
-  struct error: public std::runtime_error {
-    using std::runtime_error::runtime_error;
+  struct error: public bad_code {
+    using bad_code::bad_code;
   };
 
   /**

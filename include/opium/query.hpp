@@ -5,6 +5,7 @@
 #include "opium/hash.hpp" // IWYU pragma: export
 #include "opium/stl/unordered_set.hpp"
 #include "opium/value.hpp"
+#include "opium/exceptions.hpp"
 
 #include <stdexcept>
 #include <cstring>
@@ -24,14 +25,14 @@ struct _compare_symbols {
    * \param a First symbol
    * \param b Second symbol
    * \return True if a is lexicographically less than b
-   * \throws std::runtime_error If either a or b is not a symbol
+   * \throws bad_code If either a or b is not a symbol
    */
   bool
   operator () (const value &a, const value &b) const
   {
     if (a->t != opi::tag::sym or b->t != opi::tag::sym)
-      throw std::runtime_error {
-          std::format("expected symbols, got {} < {}", a, b)};
+      throw bad_code {
+          std::format("expected symbols, got {} < {}", a, b), a};
     return std::strcmp(a->sym.data, b->sym.data) < 0;
   }
 }; // class opi::detail::_compare

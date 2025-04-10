@@ -341,7 +341,7 @@ main(int argc, char **argv)
   }
   catch (const code_transformation_error &exn)
   {
-    exn.print();
+    error("{}", exn.display());
     exit(EXIT_FAILURE);
   }
   catch (const std::runtime_error &exn)

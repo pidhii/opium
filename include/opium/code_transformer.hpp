@@ -1,13 +1,13 @@
 #pragma once
 
+#include "opium/exceptions.hpp"
 #include "opium/match.hpp"
-#include "opium/value.hpp"
 #include "opium/stl/deque.hpp"
 #include "opium/stl/list.hpp"
+#include "opium/value.hpp"
 
 #include <concepts>
 #include <functional>
-#include <stdexcept>
 
 /**
  * \file code_transformer.hpp
@@ -33,20 +33,8 @@ concept transformation = requires(const T t, value x)
  * 
  * \ingroup lisp
  */
-struct code_transformation_error: public std::runtime_error {
-  code_transformation_error(std::string_view what, value code)
-  : runtime_error(std::string(what)), m_code {code}
-  { }
-
-  value
-  code() const noexcept
-  { return m_code; }
-
-  void
-  print() const noexcept;
-
-  private:
-  value m_code;
+struct code_transformation_error: public bad_code {
+  using bad_code::bad_code;
 }; // struct opi::code_transformation_error
 
 

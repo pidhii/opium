@@ -8,6 +8,7 @@
 #include "opium/prolog.hpp"
 #include "opium/stl/unordered_set.hpp"
 #include "opium/pretty_print.hpp"
+#include "opium/exceptions.hpp"
 
 #include "opium/scheme/scheme_emitter_context.hpp"
 #include "opium/value.hpp"
@@ -183,7 +184,7 @@ emite_scheme(scheme_emitter_context<Output> ctx, value plcode, value ppcode)
   ctx.pl.make_true(prt, cellularized, save_results, trace_nonterminals);
 
   if (not success)
-    throw std::runtime_error {"Prolog query failed"};
+    throw bad_code {"Prolog query failed", plcode};
 
   // Emit proper (standard) scheme code
   stl::deque<value> tape;
@@ -378,7 +379,7 @@ translate_to_scheme(size_t &counter, prolog &pl, value code)
       if (get_location(symbol, location))
         std::cerr << display_location(location, 0, "\e[38;5;1;1m") << std::endl;
     }
-    throw std::runtime_error {"unresolved symbols"};
+    throw bad_code {"unresolved symbols", unresolved};
   }
 
   // Collect predicates generated during translation

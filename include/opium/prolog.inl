@@ -167,7 +167,7 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
       {
         const value l = reconstruct(car(cdr(e)), ignore_unbound_variables);
         if (l->t == tag::pair and issym(car(l), "__cell"))
-          throw error("Can't invoke `elements-of` with unbound variable");
+          throw error {"Can't invoke `elements-of` with unbound variable", l};
         const value result = car(cdr(cdr(e)));
         const value elements = prolog_impl::elements_of(l);
         return make_true(ert, list("=", result, elements), cont, ntvhandler);
@@ -264,8 +264,7 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
     default:;
   }
 
-  // TODO: add location to the exception if available
-  throw error {std::format("Invalid expression: {}", e)};
+  throw error {std::format("Invalid expression: {}", e), e};
 }
 
 template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>

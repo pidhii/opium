@@ -5,6 +5,7 @@
 #pragma once
 
 #include "opium/match.hpp"
+#include "opium/exceptions.hpp"
 
 
 template <opi::value_mapping Mapping>
@@ -27,8 +28,8 @@ opi::match::_match(value pat, value expr, Mapping &result) const
     case tag::pair: {
       // Validate pattern-list
       if (issym(car(pat), "..."))
-        throw std::runtime_error {std::format(
-            "Ellipsis at the beginning of pattern-list: {}", pat)};
+        throw bad_code {std::format(
+            "Ellipsis at the beginning of pattern-list: {}", pat), pat};
 
       value pit = pat, eit = expr;
       for (; pit->t == tag::pair; pit = cdr(pit))

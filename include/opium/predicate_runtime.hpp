@@ -6,10 +6,9 @@
 #include "opium/stl/unordered_map.hpp"
 #include "opium/stl/vector.hpp"
 #include "opium/format.hpp" // IWYU pragma: export
+#include "opium/exceptions.hpp"
 
 #include <concepts>
-#include <stdexcept>
-#include <stdexcept>
 
 /**
  * \file predicate_runtime.hpp
@@ -75,7 +74,7 @@ find(cell *x);
  * \param x Left-hand side cell
  * \param y Right-hand side cell
  * \return True if unification succeeded, false otherwise
- * \throws std::runtime_error On attempt to unify two bound cells
+ * \throws bad_code On attempt to unify two bound cells
  * 
  * \ingroup prolog
  */
@@ -100,8 +99,8 @@ concept unbound_variable_handler = requires(T &f)
  * 
  * \ingroup prolog
  */
-struct reconstruction_error: public std::runtime_error {
-  using std::runtime_error::runtime_error;
+struct reconstruction_error: public bad_code {
+  using bad_code::bad_code;
 }; // strcut opi::reconstruction_error
 
 
@@ -244,8 +243,8 @@ static_assert(nonterminal_variable_handler<assign_nonterminal_to>);
  */
 class predicate_runtime {
   public:
-  struct error: public std::runtime_error {
-    using std::runtime_error::runtime_error;
+  struct error: public bad_code {
+    using bad_code::bad_code;
   };
 
   predicate_runtime()
