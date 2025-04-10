@@ -5,7 +5,7 @@
 
 #include "opium/predicate_runtime.hpp"
 #include "opium/prolog.hpp"
-#include "opium/lisp_parser.hpp"
+#include "opium/source_location.hpp"
 #include "opium/pretty_print.hpp"
 #include "opium/logging.hpp"
 
@@ -52,6 +52,7 @@ elements_of(value l);
 
 } // namespace opi::prolog_impl
 
+
 inline std::ranges::view auto
 prolog::predicate_branches(const std::string &name) const
 {
@@ -62,6 +63,19 @@ prolog::predicate_branches(const std::string &name) const
   return std::ranges::subrange(it, m_db.end()) |
          std::views::take(m_db.count(name)) |
          std::views::values;
+}
+
+
+static predicate_runtime
+_create_derived_prt(predicate_runtime &parent)
+{
+  predicate_runtime derived {&parent};
+  for (const value var : parent.variables())
+  {
+    const bool ok = unify(parent[var], derived[var]);
+    assert(ok and "Failed to create variable in or-clause");
+  }
+  return derived;
 }
 
 
@@ -159,23 +173,15 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
         return make_true(ert, list("=", result, elements), cont, ntvhandler);
       }
       else if (issym(car(e), "query"))
-      { // TODO Move to a separate function
-        // TODO Auxialry PRT below is a recurring pattern that should be somehow
-        // handled to prevent code duplication
+      { // FIXME: there seem to be bugs related to preservation of bindings
+        // TODO: move to a separate function
 
         // Gather arguments
         value goal = car(cdr(e));
         const value result = car(cdr(cdr(e)));
 
-        // Create auxiliary predicate_runtime with parent reference to the
-        // current frame
-        predicate_runtime crt {&ert};
-        // Unify variables from parent frame with ones in the current frame
-        for (const value var : ert.variables())
-        {
-          const bool ok = unify(ert[var], crt[var]);
-          assert(ok and "Failed to create variable in or-clause");
-        }
+        // Create auxiliary derived predicate_runtime
+        predicate_runtime crt = _create_derived_prt(ert);
 
         // Prepare continuation that will be accumulating query results
         cell *tmp = crt.make_var();
@@ -267,16 +273,8 @@ void
 prolog::_make_if_true(predicate_runtime &ert, value cond, value thenbr,
                       value elsebr, Cont cont, NTVHandler ntvhandler) const
 {
-  // Create auxiliary predicate_runtime with parent reference to the
-  // current frame
-  predicate_runtime crt {&ert};
-
-  // Unify variables from parent frame with ones in the current frame
-  for (const value var : ert.variables())
-  {
-    const bool ok = unify(ert[var], crt[var]);
-    assert(ok and "Failed to create variable in or-clause");
-  }
+  // Create auxiliary derived predicate_runtime
+  predicate_runtime crt = _create_derived_prt(ert);
 
   // Try <cond> -> <then>
   bool isthen = false;
@@ -321,16 +319,9 @@ prolog::_make_or_true(predicate_runtime &ert, value clauses, Cont cont,
 {
   for (const value clause : range(clauses))
   {
-    // Create auxiliary predicate_runtime with parent reference to the current frame
-    predicate_runtime crt {&ert};
-    
-    // Unify variables from parent frame with ones in the current frame
-    for (const value var : ert.variables())
-    {
-      const bool ok = unify(ert[var], crt[var]);
-      assert(ok and "Failed to create variable in or-clause");
-    }
-    
+    // Create auxiliary derived predicate_runtime
+    predicate_runtime crt = _create_derived_prt(ert);
+
     make_true(crt, clause, cont, ntvhandler);
     crt.mark_dead();
   }

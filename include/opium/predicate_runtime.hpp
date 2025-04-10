@@ -272,6 +272,50 @@ class predicate_runtime {
   void operator = (const predicate_runtime&) = delete;
 
   /**
+   * Move constructor
+   * 
+   * \param other Predicate runtime to move from
+   */
+  predicate_runtime(predicate_runtime &&other) noexcept
+  : m_varmap(std::move(other.m_varmap)),
+    m_terms(std::move(other.m_terms)),
+    m_parent(other.m_parent),
+    m_preduid(other.m_preduid),
+    m_signature(other.m_signature),
+    m_prev_frame(other.m_prev_frame)
+  {
+    // NOTE: it is an undefined behaviour if there will be any further operations
+    // made to the `other`
+  }
+
+  /**
+   * Move assignment operator
+   * 
+   * \param other Predicate runtime to move from
+   * \return Reference to this object
+   */
+  predicate_runtime &
+  operator = (predicate_runtime &&other) noexcept
+  {
+    if (this != &other) {
+      // First mark this object as dead to clean up any resources
+      mark_dead();
+      
+      // Move resources from other
+      m_varmap = std::move(other.m_varmap);
+      m_terms = std::move(other.m_terms);
+      m_parent = other.m_parent;
+      m_preduid = other.m_preduid;
+      m_signature = other.m_signature;
+      m_prev_frame = other.m_prev_frame;
+      
+      // NOTE: it is an undefined behaviour if there will be any further
+      // operations made to the `other`
+    }
+    return *this;
+  }
+
+  /**
    * Will mark this frame with `preduid` and `signature` if unique and return true;
    * otherwise -- when non-unique -- do nothing and return false.
    * 
