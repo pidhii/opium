@@ -109,8 +109,6 @@ translate_to_scheme(size_t &counter, prolog &pl, value code)
   const value plcode = list(range(to_prolog.transform_block(ppcode)) |
                             std::views::transform(std::ref(pl_cleaner)));
 
-  debug("type-check Prolog code:\n{}", pprint_pl(plcode));
-
   const value unresolved = list(to_prolog.unresolved());
   if (length(unresolved) > 0)
   {
@@ -125,15 +123,19 @@ translate_to_scheme(size_t &counter, prolog &pl, value code)
   }
 
   // Collect predicates generated during translation
+  debug("\e[1mType Check predicates:\e[0m");
   for (const predicate &pred : to_prolog.predicates())
   {
-    if (loglevel >= loglevel::info)
+    if (loglevel >= loglevel::debug)
     {
-      debug("add generated predicate:\n{}{} :-\n  {}", pred.name(),
-            list(pred.arguments()), pprint_pl(pl_cleaner(pred.body()), 2));
+      debug("```\n(predicate {}\n  {}\n```",
+            cons(sym(pred.name()), list(pred.arguments())),
+            pprint_pl(pl_cleaner(pred.body()), 2));
     }
     pl.add_predicate(pred);
   }
+
+  debug("\e[1mType Check Prolog code:\e[0m\n```\n{}```", pprint_pl(plcode));
 
   // Translate the code to proper scheme
   std::deque<value> main_tape;
