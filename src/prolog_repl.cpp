@@ -12,9 +12,6 @@
 void
 opi::prolog_repl::operator << (opi::value expr)
 {
-  const prolog_formatter plfmt;
-  pretty_printer pprint {plfmt};
-
   // Handle a new predicate definition
   if (issym(car(expr), "predicate"))
   {
@@ -39,10 +36,10 @@ opi::prolog_repl::operator << (opi::value expr)
     if (length(pred.body()) > 1)
     {
       std::cout << "\n  ";
-      pprint(std::cout, pred.body(), 2);
+      pprint_pl(std::cout, pred.body(), 2);
     }
     else
-      pprint(std::cout, pred.body());
+      pprint_pl(std::cout, pred.body());
     std::cout << "\n" << std::endl;
     return;
   }
@@ -92,11 +89,8 @@ opi::prolog_repl::operator << (opi::value expr)
 void
 opi::prolog_repl::_query(opi::value expr)
 {
-  const prolog_formatter plfmt;
-  pretty_printer pprint {plfmt};
-
   std::cout << "?- ";
-  pprint(std::cout, expr, 3);
+  pprint_pl(std::cout, expr, 3);
   std::cout << std::endl;
 
   /**
@@ -108,7 +102,7 @@ opi::prolog_repl::_query(opi::value expr)
   make_true(prt, insert_cells(prt, expr), std::ref(summary),
             [&nonterminals](const auto &, cell *x) {
               nonterminals.insert(x);
-              return cons("__cell", ptr(x));
+              return cons(CELL, ptr(x));
             });
 
   for (const auto &[var, vals] : summary)

@@ -66,7 +66,7 @@ prolog::predicate_branches(const std::string &name) const
 }
 
 
-static predicate_runtime
+inline predicate_runtime
 _create_derived_prt(predicate_runtime &parent)
 {
   predicate_runtime derived {&parent};
@@ -166,7 +166,7 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
       else if (issym(car(e), "elements-of"))
       {
         const value l = reconstruct(car(cdr(e)), ignore_unbound_variables);
-        if (l->t == tag::pair and issym(car(l), "__cell"))
+        if (l->t == tag::pair and issym(car(l), CELL))
           throw error {"Can't invoke `elements-of` with unbound variable", l};
         const value result = car(cdr(cdr(e)));
         const value elements = prolog_impl::elements_of(l);
@@ -185,13 +185,13 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
 
         // Prepare continuation that will be accumulating query results
         cell *tmp = crt.make_var();
-        const value tmpvar = cons("__cell", ptr(tmp));
+        const value tmpvar = cons(CELL, ptr(tmp));
         value acc = nil;
         std::function<void()> query = [&]() {
           const value tmpval = reconstruct(tmp, [&](cell *c) {
             cell *newcell = ert.make_var();
             unify(c, newcell);
-            return cons("__cell", ptr(newcell));
+            return cons(CELL, ptr(newcell));
           });
           acc = cons(tmpval, acc);
         };

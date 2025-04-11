@@ -1,6 +1,5 @@
 #pragma once
 
-#include "opium/scheme/scheme_emitter_context.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
 #include "opium/source_location.hpp"
 #include "opium/stl/unordered_map.hpp"

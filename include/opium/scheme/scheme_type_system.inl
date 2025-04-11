@@ -6,8 +6,8 @@
 namespace opi {
 
 template <std::output_iterator<value> Output>
-std::tuple<query_result, value, scheme_type_location_map>
-emite_scheme(scheme_emitter_context<Output> ctx, value plcode, value ppcode)
+std::pair<value, scheme_type_location_map>
+emit_scheme(scheme_emitter_context<Output> &ctx, value plcode, value ppcode)
 {
   predicate_runtime prt;
 
@@ -59,7 +59,7 @@ emite_scheme(scheme_emitter_context<Output> ctx, value plcode, value ppcode)
       build_type_location_map(ctx.prolog_emitter, ppcode);
   type_map.substitute_type_aliases(results);
 
-  return {results, list(tape), type_map};
+  return {list(tape), type_map};
 }
 
 
@@ -75,7 +75,7 @@ _emit_specialized_function_body(scheme_emitter_context<Output> &ctx,
   const value bindclos = list("=", cdr(instantiation), cdr(clossignature));
   const value plcode = list("and", bindclos, pred.body());
   debug("emitting specialized function body for {}", instantiation);
-  return std::get<1>(emite_scheme(ctx, plcode, ppbody));
+  return emit_scheme(ctx, plcode, ppbody).first;
 }
 
 

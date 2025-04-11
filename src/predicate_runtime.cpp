@@ -27,21 +27,21 @@ _is_variable(opi::value x, bool &is_wildcard)
 
 static opi::value
 _insert_cells(opi::predicate_runtime &prt, opi::value expr,
-              opi::stl::unordered_map<opi::value, opi::value> &mem)
+              opi::stl::unordered_map<opi::object *, opi::value> &mem)
 {
   opi::value result = opi::nil;
 
-  const auto it = mem.find(expr);
+  const auto it = mem.find(&*expr);
   if (it != mem.end())
     return it->second;
 
   bool iswild;
   if (_is_variable(expr, iswild))
-    result = opi::cons("__cell", opi::ptr(iswild ? prt.make_var() : prt[expr]));
+    result = opi::cons(opi::CELL, opi::ptr(iswild ? prt.make_var() : prt[expr]));
   else if (expr->t == opi::tag::pair)
   {
     result = opi::cons(opi::nil, opi::nil);
-    mem.emplace(expr, result);
+    mem.emplace(&*expr, result);
     result->car = &*_insert_cells(prt, car(expr), mem);
     result->cdr = &*_insert_cells(prt, cdr(expr), mem);
     copy_location(expr, result);
@@ -51,7 +51,7 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
     result = expr;
 
   copy_location(expr, result);
-  mem.emplace(expr, result);
+  mem.emplace(&*expr, result);
   return result;
 }
 
@@ -59,7 +59,7 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
 opi::value
 opi::insert_cells(predicate_runtime &prt, value expr)
 {
-  opi::stl::unordered_map<value, value> mem;
+  opi::stl::unordered_map<object *, value> mem;
   return _insert_cells(prt, expr, mem);
 }
 
@@ -184,7 +184,7 @@ opi::predicate_runtime::mark_dead()
 
 
 /**
- * Check if expression represents a cell (i.e. `(__cell . <pointer>)`) and
+ * Check if expression represents a cell (i.e. `(CELL . <pointer>)`) and
  * return the cell pointer if it is
  * 
  * \param expr Expression to check
@@ -194,7 +194,7 @@ opi::predicate_runtime::mark_dead()
 static inline bool
 _is_cell(opi::value expr, opi::cell *&result)
 {
-  if (expr->t == opi::tag::pair and opi::issym(opi::car(expr), "__cell") and
+  if (expr->t == opi::tag::pair and opi::issym(opi::car(expr), opi::CELL) and
       opi::cdr(expr)->t == opi::tag::ptr)
   {
     result = static_cast<opi::cell*>(opi::cdr(expr)->ptr);

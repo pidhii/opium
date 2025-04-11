@@ -70,6 +70,7 @@ struct code_transformation_error: public bad_code {
 class code_transformer {
   public:
   using match_mapping = opi::stl::unordered_map<value, value>;
+  // TODO: implement std::function equivalent but with gc_allocator
   using transformation = std::function<value(const match_mapping&, value)>;
   using transformation_nofm = std::function<value(const match_mapping&)>;
 

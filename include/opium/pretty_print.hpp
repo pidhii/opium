@@ -57,16 +57,22 @@ pprint_scm(Args&& ...args)
 
 }
 
-struct prolog_formatter: public code_transformer {
-  prolog_formatter();
+struct prolog_indenter: public code_transformer {
+  prolog_indenter();
 };
 
 template <typename ...Args>
 inline auto
 pprint_pl(Args&& ...args)
 {
-  prolog_formatter plfmt;
-  pretty_printer pprint {plfmt};
+  prolog_cleaner cleaner;
+  prolog_indenter indenter;
+
+  code_transformer fmt;
+  fmt.append_rule({nil, "x"}, [&](const auto &ms) {
+    return indenter(cleaner(ms.at("x")));
+  });
+  pretty_printer pprint {fmt};
   return pprint(std::forward<Args>(args)...);
 }
 

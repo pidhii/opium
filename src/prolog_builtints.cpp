@@ -5,7 +5,7 @@ bool
 opi::prolog_impl::var(value x)
 {
   value _ = nil;
-  if (x->t == tag::pair and issym(car(x), "__cell"))
+  if (x->t == tag::pair and issym(car(x), CELL))
     return not get_value(static_cast<cell*>(cdr(x)->ptr), _);
   return false;
 }

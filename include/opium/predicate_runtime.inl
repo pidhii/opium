@@ -42,7 +42,7 @@ struct _reconstructor {
   {
     if (x->t == opi::tag::pair)
     {
-      if (opi::issym(car(x), "__cell"))
+      if (opi::issym(car(x), CELL))
         return _reconstruct(static_cast<opi::cell *>(x->cdr->ptr));
       else
       {

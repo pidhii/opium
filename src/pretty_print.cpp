@@ -136,34 +136,28 @@ _flatten_clauses(std::string_view tag, opi::value expr, opi::value &result)
     result = append(result, list(expr));
 }
 
-// TODO Use prolog prolog_cleaner
-opi::prolog_formatter::prolog_formatter()
+
+opi::prolog_indenter::prolog_indenter()
 {
-  append_rule({list("and"), cons("and", "clauses")}, [this](const auto &ms) {
-    value clauses = ms.at("clauses");
-
-    // Flatten clauses w.r.t. nested AND statements
-    value newclauses = nil;
-    for (const value clause : range(clauses))
-      _flatten_clauses("and", clause, newclauses);
-    clauses = newclauses;
-
-    if (length(clauses) == 1)
-      return (*this)(car(clauses));
-    else
-      return pretty_printer::format_block(true, 5, cons("and", clauses));
+  const match andmatch {list("and"), cons("and", "clauses")};
+  append_rule(andmatch, [](const auto &ms) {
+    const value clauses = ms.at("clauses");
+    return pretty_printer::format_block(true, 5, cons("and", clauses));
   });
 
-  append_rule({list("or"), cons("or", "clauses")}, [](const auto &ms) {
+  const match ormatch = {list("or"), cons("or", "clauses")};
+  append_rule(ormatch, [](const auto &ms) {
     const value clauses = ms.at("clauses");
     return pretty_printer::format_block(true, 4, cons("or", clauses));
   });
 
-  append_rule({list("if"), list("if", "cond", "then", "else")}, [](const auto &ms) {
+  const match ifmatch {list("if"), list("if", "cond", "then", "else")};
+  append_rule(ifmatch, [](const auto &ms) {
     const value cond = ms.at("cond");
     const value thenbr = ms.at("then");
     const value elsebr = ms.at("else");
-    return pretty_printer::format_block(true, 4, list("if", cond, thenbr, elsebr));
+    return pretty_printer::format_block(true, 4,
+                                        list("if", cond, thenbr, elsebr));
   });
 
   append_rule({nil, "x"}, [](const auto &ms) { return ms.at("x"); });

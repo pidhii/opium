@@ -45,12 +45,6 @@ struct scheme_emitter {
 }; // class opi::scheme_emitter
 
 
-// TODO: remove first return, keep only the Scheme code itself
-template <std::output_iterator<value> Output>
-std::tuple<query_result, value, scheme_type_location_map>
-emite_scheme(scheme_emitter_context<Output> ctx, value plcode, value ppcode);
-
-
 template <std::output_iterator<value> Output>
 value
 _emit_specialized_function_body(scheme_emitter_context<Output> &ctx,
@@ -70,23 +64,17 @@ instantiate(scheme_emitter_context<Output> &ctx, value type, value x);
 
 
 template <std::output_iterator<value> Output>
-std::tuple<query_result, value, scheme_type_location_map>
-emite_scheme(scheme_emitter_context<Output> ctx, value plcode, value ppcode);
+std::pair<value, scheme_type_location_map>
+emit_scheme(scheme_emitter_context<Output> &ctx, value plcode, value ppcode);
 
 
 void
 pretty_template_instance_name(value type, std::ostream &os);
 
 
-inline std::tuple<query_result, value, scheme_type_location_map>
+inline std::pair<value, scheme_type_location_map>
 translate_to_scheme(size_t &counter, prolog &pl, value code)
 {
-  const prolog_formatter plfmt;
-  pretty_printer pprint_pl {plfmt};
-
-  const scheme_formatter scmfmt;
-  pretty_printer pprint_scm {scmfmt};
-
   // Compose translator from Scheme to Prolog
   symbol_generator genuid {counter, "uid{}"};
   scheme_code_flattener flatten {genuid};
@@ -151,15 +139,15 @@ translate_to_scheme(size_t &counter, prolog &pl, value code)
   std::deque<value> main_tape;
   scheme_emitter_context ctx {pl, to_prolog, std::back_inserter(main_tape)};
   ctx.legal_types.insert(extforwardtypes.begin(), extforwardtypes.end());
-  auto [result, main, type_map] = emite_scheme(ctx, plcode, ppcode);
+  auto [main, type_map] = emit_scheme(ctx, plcode, ppcode);
 
   const value globals = list(main_tape);
   const value resultcode = append(globals, main);
-  return {result, resultcode, type_map};
+  return {resultcode, type_map};
 }
 
 
 } // namespace opi
 
 #include "opium/scheme/scheme_emitter.inl" // IWYU pragma: export
-#include "opium/scheme/scheme_type_system.inl"
+#include "opium/scheme/scheme_type_system.inl" // IWYU pragma: export

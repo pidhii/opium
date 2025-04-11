@@ -23,6 +23,7 @@
 
 namespace opi {
 
+constexpr char CELL[] = "#__Cell";
 
 /**
  * Cell representing a variable that can be identified with other variables or
@@ -131,7 +132,7 @@ constexpr stringify_unbound_variables_t stringify_unbound_variables;
 struct ignore_unbound_variables_t {
   value
   operator () (cell *x) const
-  { return cons("__cell", ptr(x)); }
+  { return cons(CELL, ptr(x)); }
 }; // struct opi::throw_on_unbound_variable
 static_assert(unbound_variable_handler<ignore_unbound_variables_t>);
 constexpr ignore_unbound_variables_t ignore_unbound_variables;
