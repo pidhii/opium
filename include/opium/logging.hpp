@@ -106,7 +106,7 @@ debug([[maybe_unused]] std::format_string<Args...> fmt, [[maybe_unused]] Args &&
     const auto indent = add_indent(logging_indent + 7 /* for log name */);
     const std::string indented_message = indent_lines(indent, message);
     std::cerr << "opium \e[7;1mdebug\e[0m"
-              << indented_message.substr(60, std::string::npos);
+              << indented_message.substr(65, std::string::npos);
   }
 #endif
 }
@@ -148,7 +148,7 @@ error(std::format_string<Args...> fmt, Args &&...args)
     const auto indent = add_indent(logging_indent + 7 /* for log name */);
     const std::string indented_message = indent_lines(indent, message);
     std::cerr << "opium \e[38;5;1;1merror\e[0m"
-              << indented_message.substr(60, std::string::npos);
+              << indented_message.substr(65, std::string::npos);
   }
 }
 
