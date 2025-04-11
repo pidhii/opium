@@ -25,42 +25,118 @@ _is_variable(opi::value x, bool &is_wildcard)
   return starts_with_capital or starts_with_underscore;
 }
 
+/**
+ * Check if a value is a quotation form
+ * 
+ * \param x Value to check
+ * \return True if the value is a quotation form (quote, quasiquote, unquote, unquote-splicing)
+ */
+static inline bool
+_is_quotation_form(opi::value x, const char* form_name)
+{
+  return x->t == opi::tag::pair && opi::issym(opi::car(x), form_name);
+}
+
 static opi::value
 _insert_cells(opi::predicate_runtime &prt, opi::value expr,
-              opi::stl::unordered_map<opi::object *, opi::value> &mem)
+              opi::stl::unordered_map<opi::object *, opi::value> &mem,
+              int quasiquote_level = 0)
 {
-  opi::value result = opi::nil;
-
   const auto it = mem.find(&*expr);
   if (it != mem.end())
     return it->second;
 
+  if (_is_quotation_form(expr, "quasiquote"))
+  {
+    // Validate expression
+    if (length(cdr(expr)) != 1)
+      throw opi::bad_code {
+          std::format("Invalid quasiquote expression: {}", expr), expr};
+
+    if (quasiquote_level == 0)
+    {
+      const opi::value result = _insert_cells(prt, car(cdr(expr)), mem, 1);
+      mem.emplace(&*expr, result);
+      copy_location(expr, result);
+      return result;
+    }
+    else
+    {
+      opi::value result = cons("quasiquote", opi::nil);
+      mem.emplace(&*expr, result);
+      result->cdr = &*_insert_cells(prt, cdr(expr), mem, quasiquote_level + 1);
+      copy_location(expr, result);
+      return result;
+    }
+  }
+
+  if (_is_quotation_form(expr, "unquote"))
+  {
+    // Validate expression
+    if (length(cdr(expr)) != 1)
+      throw opi::bad_code {
+          std::format("Invalid unquote expression: {}", expr), expr};
+    if (quasiquote_level == 0)
+      throw opi::bad_code {
+          std::format("Invalid unquote outside quasiquote: {}", expr), expr};
+
+    if (quasiquote_level == 1)
+    { // Fully evaluate the argument
+      const opi::value result = _insert_cells(prt, car(cdr(expr)), mem, 0);
+      mem.emplace(&*expr, result);
+      return result;
+    }
+    else
+    { // Drop one quasiquote level but otherwize preserve the datum
+      opi::value result = cons("unquote", opi::nil);
+      mem.emplace(&*expr, result);
+      result->cdr = &*_insert_cells(prt, cdr(expr), mem, quasiquote_level - 1);
+      copy_location(expr, result);
+      return result;
+    }
+  }
+
+  if (_is_quotation_form(expr, "unquote-splicing"))
+    throw opi::bad_code {std::format("Unimplemented syntax: {}", expr), expr};
+
+  if (_is_quotation_form(expr, "quote"))
+  {
+    // Validate expression
+    if (length(cdr(expr)) != 1)
+      throw opi::bad_code {
+          std::format("Invalid quasiquote expression: {}", expr), expr};
+
+    if (quasiquote_level == 0)
+      return car(cdr(expr));
+    else
+      return expr;
+  }
+
+  opi::value result = opi::nil;
   bool iswild;
-  if (_is_variable(expr, iswild))
+  if (quasiquote_level == 0 and _is_variable(expr, iswild))
     result = opi::cons(opi::CELL, opi::ptr(iswild ? prt.make_var() : prt[expr]));
   else if (expr->t == opi::tag::pair)
   {
-    result = opi::cons(opi::nil, opi::nil);
+    result = cons(opi::nil, opi::nil);
     mem.emplace(&*expr, result);
-    result->car = &*_insert_cells(prt, car(expr), mem);
-    result->cdr = &*_insert_cells(prt, cdr(expr), mem);
+    result->car = &*_insert_cells(prt, car(expr), mem, quasiquote_level);
+    result->cdr = &*_insert_cells(prt, cdr(expr), mem, quasiquote_level);
     copy_location(expr, result);
-    return result;
   }
   else
     result = expr;
-
+    
   copy_location(expr, result);
   mem.emplace(&*expr, result);
   return result;
 }
 
-
 opi::value
 opi::insert_cells(predicate_runtime &prt, value expr)
 {
   opi::stl::unordered_map<object *, value> mem;
-  return _insert_cells(prt, expr, mem);
+  return _insert_cells(prt, expr, mem, 0);
 }
 
 

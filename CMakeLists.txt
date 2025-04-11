@@ -88,6 +88,11 @@ add_executable (test_scheme_unique_identifiers tests/test_scheme_unique_identifi
 target_include_directories (test_scheme_unique_identifiers PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries (test_scheme_unique_identifiers PUBLIC -lgc GTest::gtest_main)
 
+# Quotation Tests
+add_executable (test_quotation tests/test_quotation.cpp ${src})
+target_include_directories (test_quotation PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries (test_quotation PUBLIC -lgc GTest::gtest_main)
+
 # Register tests with CTest
 include (GoogleTest)
 gtest_discover_tests (test_predicate_runtime)
@@ -97,3 +102,4 @@ gtest_discover_tests (test_lisp_reader)
 gtest_discover_tests (test_equality)
 gtest_discover_tests (test_match)
 gtest_discover_tests (test_scheme_unique_identifiers)
+gtest_discover_tests (test_quotation)
