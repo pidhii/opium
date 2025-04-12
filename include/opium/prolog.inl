@@ -128,6 +128,33 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
         const value elsebr = car(cdr(cdr(cdr(e))));
         return _make_if_true(ert, cond, thenbr, elsebr, cont, ntvhandler);
       }
+      else if (issym(car(e), "insert-cells"))
+      {
+        // Validate the form
+        if (length(cdr(e)) != 2)
+          throw bad_code {std::format("Invalid expression: {}", e), e};
+
+        // Get the arguments
+        const value expr = car(cdr(e));
+        const value result = car(cdr(cdr(e)));
+
+        // Reconstruct expr before inserting cells because `insert_cells()` does
+        // not follow cell-binds itself
+        const value recoexpr = reconstruct(expr, ignore_unbound_variables);
+
+        // Insert cells
+        // NOTE: use separate runtime to separate variable names scope
+        predicate_runtime tmpprt {&ert};
+        const value resultexpr = insert_cells(tmpprt, recoexpr);
+
+        // Bind result and continue
+        make_true(tmpprt, list("=", resultexpr, result), cont, ntvhandler);
+
+        // Clean up the temporary runtime
+        tmpprt.mark_dead();
+
+        return;
+      }
       else if (issym(car(e), "debug"))
       {
         prolog_impl::debug(e, cdr(e));

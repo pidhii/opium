@@ -15,6 +15,7 @@ class PrologTest: public ::testing::Test {
   SetUp() override
   {
     // Common setup code
+    pl.add_predicate(opi::list("=", "X", "X"), opi::True);
   }
 
   void
@@ -245,7 +246,73 @@ TEST_F(PrologTest, WildcardVariables)
   EXPECT_TRUE(query_succeeds(mixed_query));
 }
 
-// Test
+// Test insert-cells predicate
+TEST_F(PrologTest, InsertCellsPredicate)
+{
+  // Create a query using insert-cells with a quoted expression
+  // We use quote to prevent automatic cell insertion during query processing
+  opi::value quoted_expr = opi::cons(opi::sym("quote"), 
+                                    opi::cons(opi::list("f", "X", "Y"), opi::nil));
+  opi::value query = opi::list("insert-cells", quoted_expr, "Result");
+  
+  // Run the query and get the bindings for Result
+  auto [success, bindings] = query_with_bindings(query, opi::sym("Result"));
+  
+  // The query should succeed
+  EXPECT_TRUE(success);
+  
+  // There should be exactly one result
+  EXPECT_EQ(bindings.size(), 1);
+  
+  // Get the result
+  opi::value result = *bindings.begin();
+  
+  // The result should be a list
+  EXPECT_EQ(result->t, opi::tag::pair);
+  
+  // The first element should be 'f'
+  EXPECT_TRUE(opi::issym(opi::car(result), "f"));
+  
+  // The second and third elements should be cells
+  opi::value second = opi::car(opi::cdr(result));
+  opi::value third = opi::car(opi::cdr(opi::cdr(result)));
+  
+  EXPECT_EQ(second->t, opi::tag::pair);
+  EXPECT_TRUE(opi::issym(opi::car(second), opi::CELL));
+  EXPECT_EQ(second->cdr->t, opi::tag::ptr);
+  
+  EXPECT_EQ(third->t, opi::tag::pair);
+  EXPECT_TRUE(opi::issym(opi::car(third), opi::CELL));
+  EXPECT_EQ(third->cdr->t, opi::tag::ptr);
+}
+
+// Test insert-cells with evaluation
+TEST_F(PrologTest, InsertCellsWithEvaluation)
+{
+  // Add a simple fact
+  pl.add_predicate(opi::list("test", "value"), opi::True);
+  
+  // Create a quoted expression with a variable
+  opi::value quoted_expr = opi::cons(opi::sym("quote"), 
+                                    opi::cons(opi::list("test", "X"), opi::nil));
+  
+  // Create a query that:
+  // 1. Uses insert-cells to insert cells into the quoted expression
+  // 2. Then uses the resulting expression as a query
+  opi::value query = opi::list("and", 
+                              opi::list("insert-cells", quoted_expr, "Result"),
+                              opi::list("call", "Result"));
+  
+  // Run the query and get the bindings for X
+  auto [success, bindings] = query_with_bindings(query, opi::sym("X"));
+  
+  // The query should succeed
+  EXPECT_TRUE(success);
+  
+  // X is a local variable so the bindings must be empty
+  EXPECT_EQ(bindings.size(), 0);
+}
+
 // Test predicate with multiple branches
 TEST_F(PrologTest, MultiplePredicateBranches)
 {

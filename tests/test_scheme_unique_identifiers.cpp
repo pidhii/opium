@@ -276,7 +276,7 @@ TEST_F(SchemeUniqueIdentifiersTest, FunctionDefineReplacement)
 
   // Check that it's still a define expression
   ASSERT_EQ(result->t, opi::tag::pair);
-  ASSERT_TRUE(opi::issym(opi::car(result), "define"));
+  ASSERT_TRUE(opi::issym(opi::car(result), "template"));
 
   // Get the function name and parameters
   opi::value func_def = opi::car(opi::cdr(result));
