@@ -4,12 +4,12 @@
 #include "opium/code_transformer.hpp"
 #include "opium/prolog.hpp"
 #include "opium/scheme/scheme_code_transformer.hpp"
-#include "opium/stl/list.hpp"
 #include "opium/value.hpp"
+
 
 namespace opi {
 
-class scheme_unique_identifiers: public scheme_code_transformer {
+class scheme_unique_identifiers: public ext_scheme_code_transformer {
   public:
   scheme_unique_identifiers(symbol_generator &gensym, bool is_toplevel = true);
 
@@ -26,7 +26,7 @@ class scheme_unique_identifiers: public scheme_code_transformer {
 }; // class opi::scheme_unique_identifiers
 
 
-class scheme_code_flattener: public scheme_code_transformer {
+class scheme_code_flattener: public ext_scheme_code_transformer {
   public:
   scheme_code_flattener(symbol_generator &gensym);
 

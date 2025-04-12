@@ -172,3 +172,27 @@ opi::scheme_code_transformer::scheme_code_transformer()
     return list("quote", dot, ms.at("x"));
   });
 }
+
+
+opi::ext_scheme_code_transformer::ext_scheme_code_transformer()
+{
+  /**
+   * Rule for define statements (T-agnostic extended-scheme syntax)
+   * 
+   * Propagates transformation to all contained expressions:
+   * (define-overload <ident> <body> ...) ->
+   * (define-overload <ident> T[<body>] ...)
+   * 
+   * This ensures that all expressions within a define statement
+   * are also transformed according to the rules.
+   */
+  const match defineovlmatch {list("define-overload"),
+                              list("define-overload", "ident", dot, "body")};
+  prepend_rule(defineovlmatch, [this](const auto &ms) {
+    const value ident = ms.at("ident");
+    const value body = ms.at("body");
+    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    return list("define-overload", ident, dot, newbody);
+  });
+
+}

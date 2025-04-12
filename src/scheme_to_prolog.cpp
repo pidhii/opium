@@ -156,35 +156,6 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
-  //                         define (function syntax)
-  // NOTE: leaks a-list
-  const value deffnpat = list("define", cons("ident", "params"), dot, "body");
-  append_rule({list("define"), deffnpat}, [this](const auto &ms) {
-    const value ident = ms.at("ident");
-    const value params = ms.at("params");
-    const value body = ms.at("body");
-
-    const std::string templatename = std::format("template:{}", ident);
-    _link_code_to_overload_name(ident, sym(templatename));
-
-    opi::stl::vector<value> code;
-    const value typetemplate = _create_template(templatename, params, body);
-    const value instance =
-        _instantiate_template(typetemplate, std::back_inserter(code));
-
-    const value type = _generate_type_and_copy_location(ident);
-    m_alist = cons(cons(ident, type), m_alist);
-    code.push_back(list("=", type, instance));
-    _link_code_to_type(ident, type);
-
-    assert(code.size() >= 1);
-    if (code.size() == 1)
-      return code.front();
-    else
-      return cons("and", list(code));
-  });
-
-  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               define
   // NOTE: leaks a-list
   const value defpat = list("define", "ident", dot, "body");

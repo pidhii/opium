@@ -28,16 +28,44 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
   flip_page();
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
-  //                               define (function-syntax)
+  //                  define-overload (function-syntax)
   // NOTE: leaks alist to the surrounding context
-  const value fndefpat = list("define", list("f", "xs", "..."), "body", "...");
+  const value fndefovldpat = list("define-overload", cons("f", "xs"), dot, "body");
+  append_rule({list("define-overload"), fndefovldpat}, [this](const auto &ms) {
+    const value f = ms.at("f");
+    const value xs = ms.at("xs");
+    const value body = ms.at("body");
+
+    // Replace identifiers with unique ones
+    m_alist = cons(cons(f, f), m_alist); // Leak function identifier
+    utl::state_saver _ {m_alist}; // But will roll-back further changes to alist
+    value newxs = nil;
+    for (const value ident : range(xs))
+    {
+      const value newident = m_gensym();
+      newxs = append(newxs, list(newident));
+      m_alist = cons(cons(ident, newident), m_alist);
+      // Copy original identifier location
+      copy_location(ident, newident);
+    }
+
+    // Transform body with new alist
+    const value newbody = list(range(body) | std::views::transform(T));
+    return list("template", cons(f, newxs), dot, newbody);
+  });
+
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                      define (function-syntax)
+  // NOTE: leaks alist to the surrounding context
+  const value fndefpat = list("define", cons("f", "xs"), "body", "...");
   append_rule({list("define"), fndefpat}, [this](const auto &ms) {
     const value f = ms.at("f");
     const value xs= ms.contains("xs") ? ms.at("xs") : nil;
     const value body = ms.contains("body") ? ms.at("body") : nil;
 
     // Replace identifiers with unique ones
-    const value newf = m_is_toplevel ? sym(sym_name(f)) : m_gensym();
+    const value newf = m_gensym();
     copy_location(f, newf);
     m_alist = cons(cons(f, newf), m_alist); // Leak function identifier
     utl::state_saver _ {m_alist}; // But will roll-back further changes to alist
@@ -53,8 +81,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
 
     // Transform body with new alist
     const value newbody = list(range(body) | std::views::transform(T));
-    return list(m_is_toplevel ? "template" : "define", cons(newf, newxs), dot,
-                newbody);
+    return list("template", cons(newf, newxs), dot, newbody);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>

@@ -69,4 +69,10 @@ struct scheme_code_transformer: public code_transformer {
 }; // struct opi::scheme_code_transformer
 static_assert(transformation<scheme_code_transformer>);
 
+
+struct ext_scheme_code_transformer: public scheme_code_transformer {
+  ext_scheme_code_transformer();
+}; // struct opi::ext_scheme_code_transformer;
+static_assert(transformation<ext_scheme_code_transformer>);
+
 } // namespace opi
