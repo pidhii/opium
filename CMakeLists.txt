@@ -33,16 +33,6 @@ if (DOXYGEN_FOUND)
     VERBATIM)
 endif ()
 
-# Download and configure Google Test
-FetchContent_Declare(
-  googletest
-  GIT_REPOSITORY https://github.com/google/googletest.git
-  GIT_TAG v1.16.0
-)
-# For Windows: Prevent overriding the parent project's compiler/linker settings
-set (gtest_force_shared_crt ON CACHE BOOL "" FORCE)
-FetchContent_MakeAvailable(googletest)
-
 # Main executable
 file (GLOB src src/*.cpp)
 add_executable (opium main.cpp ${src})
@@ -53,53 +43,66 @@ target_compile_options(opium PUBLIC ${READLINE_CFLAGS_OTHER})
 
 install (TARGETS opium DESTINATION bin)
 
-# Tests
-add_executable (test_predicate_runtime tests/test_predicate_runtime.cpp ${src})
-target_include_directories (test_predicate_runtime PUBLIC ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries (test_predicate_runtime PUBLIC -lgc GTest::gtest_main)
+option (OPIUM_UNIT_TESTS "Enable unit tests for opium components" ON)
+if (OPIUM_UNIT_TESTS)
+  # Download and configure Google Test
+  FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG v1.16.0
+  )
+  # For Windows: Prevent overriding the parent project's compiler/linker settings
+  set (gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+  FetchContent_MakeAvailable(googletest)
 
-# LISP Parser Tests
-add_executable (test_lisp_parser tests/test_lisp_parser.cpp ${src})
-target_include_directories (test_lisp_parser PUBLIC ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries (test_lisp_parser PUBLIC -lgc GTest::gtest_main)
+  # Tests
+  add_executable (test_predicate_runtime tests/test_predicate_runtime.cpp ${src})
+  target_include_directories (test_predicate_runtime PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_link_libraries (test_predicate_runtime PUBLIC -lgc GTest::gtest_main)
 
-# Prolog Tests
-add_executable (test_prolog tests/test_prolog.cpp ${src})
-target_include_directories (test_prolog PUBLIC ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries (test_prolog PUBLIC -lgc GTest::gtest_main)
+  # LISP Parser Tests
+  add_executable (test_lisp_parser tests/test_lisp_parser.cpp ${src})
+  target_include_directories (test_lisp_parser PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_link_libraries (test_lisp_parser PUBLIC -lgc GTest::gtest_main)
 
-# LISP Reader Tests
-add_executable (test_lisp_reader tests/test_lisp_reader.cpp ${src})
-target_include_directories (test_lisp_reader PUBLIC ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries (test_lisp_reader PUBLIC -lgc GTest::gtest_main)
+  # Prolog Tests
+  add_executable (test_prolog tests/test_prolog.cpp ${src})
+  target_include_directories (test_prolog PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_link_libraries (test_prolog PUBLIC -lgc GTest::gtest_main)
 
-# Equality Tests
-add_executable (test_equality tests/test_equality.cpp ${src})
-target_include_directories (test_equality PUBLIC ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries (test_equality PUBLIC -lgc GTest::gtest_main)
+  # LISP Reader Tests
+  add_executable (test_lisp_reader tests/test_lisp_reader.cpp ${src})
+  target_include_directories (test_lisp_reader PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_link_libraries (test_lisp_reader PUBLIC -lgc GTest::gtest_main)
 
-# Match Tests
-add_executable (test_match tests/test_match.cpp ${src})
-target_include_directories (test_match PUBLIC ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries (test_match PUBLIC -lgc GTest::gtest_main)
+  # Equality Tests
+  add_executable (test_equality tests/test_equality.cpp ${src})
+  target_include_directories (test_equality PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_link_libraries (test_equality PUBLIC -lgc GTest::gtest_main)
 
-# Scheme Unique Identifiers Tests
-add_executable (test_scheme_unique_identifiers tests/test_scheme_unique_identifiers.cpp ${src})
-target_include_directories (test_scheme_unique_identifiers PUBLIC ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries (test_scheme_unique_identifiers PUBLIC -lgc GTest::gtest_main)
+  # Match Tests
+  add_executable (test_match tests/test_match.cpp ${src})
+  target_include_directories (test_match PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_link_libraries (test_match PUBLIC -lgc GTest::gtest_main)
 
-# Quotation Tests
-add_executable (test_quotation tests/test_quotation.cpp ${src})
-target_include_directories (test_quotation PUBLIC ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries (test_quotation PUBLIC -lgc GTest::gtest_main)
+  # Scheme Unique Identifiers Tests
+  add_executable (test_scheme_unique_identifiers tests/test_scheme_unique_identifiers.cpp ${src})
+  target_include_directories (test_scheme_unique_identifiers PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_link_libraries (test_scheme_unique_identifiers PUBLIC -lgc GTest::gtest_main)
 
-# Register tests with CTest
-include (GoogleTest)
-gtest_discover_tests (test_predicate_runtime)
-gtest_discover_tests (test_lisp_parser)
-gtest_discover_tests (test_prolog)
-gtest_discover_tests (test_lisp_reader)
-gtest_discover_tests (test_equality)
-gtest_discover_tests (test_match)
-gtest_discover_tests (test_scheme_unique_identifiers)
-gtest_discover_tests (test_quotation)
+  # Quotation Tests
+  add_executable (test_quotation tests/test_quotation.cpp ${src})
+  target_include_directories (test_quotation PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_link_libraries (test_quotation PUBLIC -lgc GTest::gtest_main)
+
+  # Register tests with CTest
+  include (GoogleTest)
+  gtest_discover_tests (test_predicate_runtime)
+  gtest_discover_tests (test_lisp_parser)
+  gtest_discover_tests (test_prolog)
+  gtest_discover_tests (test_lisp_reader)
+  gtest_discover_tests (test_equality)
+  gtest_discover_tests (test_match)
+  gtest_discover_tests (test_scheme_unique_identifiers)
+  gtest_discover_tests (test_quotation)
+endif (OPIUM_UNIT_TESTS)
