@@ -3,6 +3,27 @@
 
 (predicate (result-of (pair? _) boolean))
 
+;; ==========================
+;;  create function template
+;; ==========================
+;; [Args, Result, Body]
+;; -> (= Template (#dynamic-function-dispatch 'Args 'Result `Body))
+;; -> reference the template via this variable (Template)
+
+;; ===============================
+;;  instantiate function template
+;; ===============================
+;; [Template]
+;; -> (insert-cells Template <Specialization>)
+
+;; =============================
+;;  invoking the specialization
+;; =============================
+(predicate (result-of ((#dynamic-function-dispatch _ BindArgs BindResult Body) . Args) Result)
+  (= BindArgs Args)
+  (= BindResult Result)
+  (call Body))
+
 
 ;(predicate (result-of (cons X Y) (cons X Y)))
 (predicate (result-of (cons T (cons-list T)) (cons-list T)))
@@ -14,6 +35,10 @@
 
 (predicate (result-of (list . Ts) (cons-list T))
   (all T Ts))
+
+(predicate (result-of (unpack-pair (cons-list T)) (T (cons-list T))))
+
+(predicate (result-of (print _) nil))
 
 
 ; x - y
