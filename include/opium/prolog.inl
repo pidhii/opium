@@ -244,6 +244,7 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
       {
         // Reconstruct "Goal" as much as possible
         const value goal = reconstruct(car(cdr(e)), ignore_unbound_variables);
+        debug("call Goal: {}", goal);
 
         if (goal->t == tag::pair)
           e = append(goal, cdr(cdr(e)));
