@@ -48,7 +48,7 @@ struct hash<opi::value> {
         if (not mem.emplace(&*x).second)
           return 0;
         size_t hash = _hash(opi::value {x->car}, mem);
-        opi::hash_combine(hash, _hash(opi::value {x->cdr}, mem));
+        hash ^= _hash(car<false>(x), mem) + 0x9e3779b9 + (hash<<6) + (hash>>2);
         return hash;
       }
       default:
