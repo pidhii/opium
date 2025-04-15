@@ -89,13 +89,15 @@ opi::scheme_formatter::scheme_formatter()
                 return pretty_printer::format_block(true, 4, expr);
               });
 
-  const match defmatch {list("define"), list("define", "ident", dot, "body")};
-  append_rule(defmatch, [](const auto &ms) {
+  const auto defrule = [](const auto &ms, value fm) {
     const value ident = ms.at("ident");
     const value body = ms.at("body");
-    const value expr = list("define", ident, dot, body);
+    const value expr = list(car(fm), ident, dot, body);
     return pretty_printer::format_block(true, 2, expr);
-  });
+  };
+  append_rule({list("define"), list("define", "ident", dot, "body")}, defrule);
+  append_rule({list("define-overload"), list("define-overload", "ident", dot, "body")}, defrule);
+  append_rule({list("template"), list("template", "ident", dot, "body")}, defrule);
 
   const value let_pat = list(list(list("ident", "expr"), "..."), "body", "...");
   auto let_rule = [&](const std::string &let, const auto &ms) {
