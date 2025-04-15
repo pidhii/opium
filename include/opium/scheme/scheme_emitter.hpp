@@ -38,11 +38,4 @@ struct scheme_emitter {
 }; // class opi::scheme_emitter
 
 
-template <std::output_iterator<value> Output>
-value
-_emit_specialized_function_body(scheme_emitter_context &ctx,
-                                const predicate &pred, value ppbody,
-                                value instantiation);
-
-
 } // namespace opi

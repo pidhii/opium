@@ -1,18 +1,18 @@
-#pragma once
-
 #include "opium/scheme/scheme_type_system.hpp"
 #include "opium/scheme/scheme_emitter_context.hpp"
+#include "opium/scheme/scheme_emitter.hpp"
 #include "opium/source_location.hpp"
+#include "opium/match.hpp"
 
 
-namespace opi {
-
-// TODO: move to cpp file
-inline value
-_instantiate_function_template(scheme_emitter_context &ctx, value instantiation,
-                               value typetemplate, value ppdefinition,
-                               scheme_emitter_context &template_ctx)
+opi::value
+_instantiate_function_template(opi::scheme_emitter_context &ctx,
+                               opi::value instantiation,
+                               opi::value typetemplate, opi::value ppdefinition,
+                               opi::scheme_emitter_context &template_ctx)
 {
+  using namespace opi;
+
   assert(instantiation->t == tag::pair);
   assert(issym(car(instantiation), "#dynamic-function-dispatch"));
 
@@ -60,9 +60,9 @@ _instantiate_function_template(scheme_emitter_context &ctx, value instantiation,
   return specialident;
 }
 
-// TODO: move to cpp file
-inline value
-instantiate(scheme_emitter_context &ctx, value type, value x)
+
+opi::value
+opi::instantiate(scheme_emitter_context &ctx, value type, value x)
 {
   // Primitives
   if (ctx.legal_types.contains(type))
@@ -98,9 +98,9 @@ instantiate(scheme_emitter_context &ctx, value type, value x)
       std::format("Don't know how to instantiate type {}", type), x};
 }
 
-// TODO: move to cpp file
-inline std::pair<value, scheme_type_location_map>
-emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
+
+std::pair<opi::value, opi::scheme_type_location_map>
+opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
 {
   predicate_runtime prt;
 
@@ -156,20 +156,8 @@ emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
 }
 
 
-/**
- * Generate a distinctive name for a template instance using parameter types for
- * unique identification
- *
- * This function creates a string representation of a template instance in the format
- * `identifier<param1,param2,...>` with recursive handling of parameter types.
- * 
- * \param type The template instance type value
- * \param os The output stream to write the formatted name to
- */
-// TODO: move to cpp file
-// TODO: come up with better format
-inline void
-pretty_template_instance_name(value type, std::ostream &os)
+void
+opi::pretty_template_instance_name(value type, std::ostream &os)
 {
   if (type->t != tag::pair)
   {
@@ -202,6 +190,3 @@ pretty_template_instance_name(value type, std::ostream &os)
     pretty_template_instance_name(x, os);
   }
 }
-
-
-} // namespace opi

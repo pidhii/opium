@@ -9,7 +9,6 @@
 #include "opium/pretty_print.hpp"
 
 #include "opium/scheme/scheme_emitter_context.hpp"
-#include "opium/scheme/scheme_emitter.hpp"
 #include "opium/value.hpp"
 
 #include <ranges>
@@ -23,18 +22,22 @@ std::pair<value, scheme_type_location_map>
 emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode);
 
 
-void
-pretty_template_instance_name(value type, std::ostream &os);
-
-
 value
 instantiate(scheme_emitter_context &ctx, value type, value x);
 
 
-value
-_instantiate_function_template(scheme_emitter_context &ctx, value instantiation,
-                               value typetemplate, value ppdefinition,
-                               scheme_emitter_context &template_ctx);
+/**
+ * Generate a distinctive name for a template instance using parameter types for
+ * unique identification
+ *
+ * This function creates a string representation of a template instance in the format
+ * `identifier<param1,param2,...>` with recursive handling of parameter types.
+ * 
+ * \param type The template instance type value
+ * \param os The output stream to write the formatted name to
+ */
+void
+pretty_template_instance_name(value type, std::ostream &os);
 
 
 inline std::pair<value, scheme_type_location_map>
@@ -105,6 +108,3 @@ translate_to_scheme(size_t &counter, prolog &pl, value code)
 }
 
 } // namespace opi
-
-#include "opium/scheme/scheme_emitter.inl" // IWYU pragma: export
-#include "opium/scheme/scheme_type_system.inl" // IWYU pragma: export
