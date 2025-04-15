@@ -25,54 +25,23 @@ struct function_template {
 
 struct scheme_emitter_context {
   scheme_emitter_context(const prolog &pl, const scheme_to_prolog &pl_emitter,
-                         code_tape &output)
-  : output {std::back_inserter(output)},
-    pl {pl},
-    prolog_emitter {pl_emitter},
-    parent {*this}
-  { }
+                         code_tape &output);
 
-  scheme_emitter_context(scheme_emitter_context &parent, code_tape &output)
-  : output {std::back_inserter(output)},
-    legal_types {parent.legal_types},
-    pl {parent.pl},
-    prolog_emitter {parent.prolog_emitter},
-    parent {parent}
-  { }
+  scheme_emitter_context(scheme_emitter_context &parent, code_tape &output);
 
   bool
   has_parent() const noexcept
-  { return &parent != this; }
+  { return &m_parent != this; }
 
   bool
-  has_template(value tag) const noexcept
-  {
-    if (templates.contains(tag))
-      return true;
-    return has_parent() and parent.has_template(tag);
-  }
-
-  // TODO: move to cpp file
+  has_template(value tag) const noexcept;
+  
   const function_template
-  find_template(value tag) const
-  {
-    const auto it = templates.find(tag);
-    if (it != templates.end())
-      return it->second;
-    if (has_parent())
-      return parent.find_template(tag);
-    throw std::range_error {std::format("No template with tag {}", tag)};
-  }
-
-  // TODO: move to cpp file
+  find_template(value tag) const;
+  
   void
-  register_template(value tag, const function_template &functemplate)
-  {
-    if (has_template(tag))
-      throw std::invalid_argument {
-          std::format("Duplica template definition (tag: {})", tag)};
-    templates.emplace(tag, functemplate);
-  }
+  register_template(value tag, const function_template &functemplate);
+  
 
   /**
    * Reigster specialization of a function template for future reuse
@@ -83,40 +52,56 @@ struct scheme_emitter_context {
    */
   void
   register_function_template_specialization(value tag, value type,
-                                            value identifier)
-  {
-    if (not has_template(tag))
-      throw std::invalid_argument {std::format(
-          "Register specialization for non-existent template {}", tag)};
-    assert(templates.contains(tag) and
-           "Template and its specialization must belong to the same context");
-    const bool ok = specializations.emplace(type, identifier).second;
-    assert(ok and "Failed to reigster template function specialization");
-  }
+                                            value identifier);
+  
+  bool
+  find_function_template_speciailization(value type,
+                                         value &identifier) const noexcept;
 
   bool
-  find_function_template_speciailization(value type, value &identifier)
-  {
-    const auto it = specializations.find(type);
-    if (it == specializations.end())
-      return false;
-    identifier = it->second;
-    return true;
-  }
+  identifier_refers_to_function_template(value identifier) const noexcept;
 
-  code_tape_output output; /**< Output tape for supplementary code */
+  void
+  register_identifier_for_function_template(value identifier);
 
-  opi::stl::unordered_map<value /* code tag */, function_template>
-      templates; /**< Template definitions */
+  /**
+   * Get output tape for supplementary code
+   */
+  code_tape_output &
+  output()
+  { return m_output; }
+
+  /**
+   * Get reference to the prolog instance
+   */
+  const prolog &
+  pl() const
+  { return m_pl; }
+
+  /**
+   * Get reference to the prolog emitter
+   */
+  const scheme_to_prolog &
+  prolog_emitter() const
+  { return m_prolog_emitter; }
+
+private:
+  code_tape_output m_output; /**< Output tape for supplementary code */
+
+  /** Identifiers to be treated as references to function templates */
+  opi::stl::unordered_set<value> m_function_template_identifiers;
+
+  /** Definitions of function templates */
+  opi::stl::unordered_map<value /* code tag */, function_template> m_templates;
+
+  /** Cache for produced template specializations */
   opi::stl::unordered_map<value /* type */, value /* function identifier */>
-      specializations; /**< Cache for produced template specializations */
-  opi::stl::unordered_set<value> legal_types = {"num", "nil", "str", "sym",
-                                                "boolean"};
+      m_specializations;
 
-  const prolog &pl; /**< Storage for predicates */
-  const scheme_to_prolog &prolog_emitter; /**< Storage for type info */
+  const prolog &m_pl; /**< Storage for predicates */
+  const scheme_to_prolog &m_prolog_emitter; /**< Storage for type info */
 
-  scheme_emitter_context &parent;
+  scheme_emitter_context &m_parent;
 }; // struct opi::scheme_emitter_context
 
 

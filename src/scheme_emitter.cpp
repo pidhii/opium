@@ -1,8 +1,8 @@
 #include "opium/scheme/scheme_emitter.hpp"
 #include "opium/scheme/scheme_emitter_context.hpp"
 #include "opium/scheme/scheme_type_system.hpp"
-#include "opium/source_location.hpp"
 #include "opium/value.hpp"
+#include <asm-generic/errno.h>
 
 
 opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &query)
@@ -11,15 +11,22 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 template
   const value temppat = list("template", cons("ident", "parms"), dot, "body");
-  const auto temprule = [this](const auto &, value fm) {
-    debug("register template (tag: '{}')", m_ctx.prolog_emitter.find_code_tag(fm));
-    source_location location;
-    if (get_location(fm, location))
-      debug("{}", display_location(location, 1, "\e[38;5;2m", "\e[2m"));
+  const auto temprule = [this](const auto &ms, value fm) {
+    const value identifier = ms.at("ident");
+
+    // Register this identifier as a reference to a function template 
+    // NOTE: concrete overload referenced by the identifier is subject to be
+    // be determined by the TypeCheck; this registration needed just to remember
+    // to substitute this particular identifier with another identifier refering
+    // to an apropriate specialization
+    m_ctx.register_identifier_for_function_template(identifier);
+
+    // Register all the pieces of information need for generation of function
+    // template specializations in future
     const value typetemplate = _find_code_type(fm);
-    debug("with Prolog code: {}", typetemplate);
-    m_ctx.register_template(m_ctx.prolog_emitter.find_code_tag(fm),
+    m_ctx.register_template(m_ctx.prolog_emitter().find_code_tag(fm),
                             {fm, typetemplate, m_ctx});
+
     return m_dont_emit_symbol;
   };
   m_transformer.prepend_rule({list("template"), temppat}, temprule);
@@ -32,7 +39,7 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
     const value parms = ms.at("parms");
     const value body = ms.at("body");
 
-    const value ident = m_ctx.prolog_emitter.find_overload_name(fm);
+    const value ident = m_ctx.prolog_emitter().find_overload_name(fm);
     const value type = _find_code_type(fm); // Get template instantiation
     const predicate pred = find_predicate_for_template(m_ctx, ident);
 
@@ -66,7 +73,7 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
 
     // Get type of this atom
     value type = nil;
-    if (not m_ctx.prolog_emitter.find_code_type(x, type))
+    if (not m_ctx.prolog_emitter().find_code_type(x, type))
       throw code_transformation_error {
           std::format("Don't know what type to use for {}", x), x};
 
@@ -82,14 +89,19 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
     }
 
     // instantiate
-    return instantiate(m_ctx, type, x);
+    if (m_ctx.identifier_refers_to_function_template(x))
+      return instantiate_function_template(m_ctx, type);
+    else
+      return x;
+
+    return x;
   });
 }
 
 opi::value
 opi::scheme_emitter::_find_code_type(value code) const
 {
-  const value type = m_ctx.prolog_emitter.find_code_type(code);
+  const value type = m_ctx.prolog_emitter().find_code_type(code);
   const auto it = m_query_result.find(type);
   if (it != m_query_result.end())
   {

@@ -2,14 +2,23 @@
 #include "opium/scheme/scheme_emitter_context.hpp"
 #include "opium/scheme/scheme_emitter.hpp"
 #include "opium/source_location.hpp"
-#include "opium/match.hpp"
 
 
-opi::value
-_instantiate_function_template(opi::scheme_emitter_context &ctx,
-                               opi::value instantiation,
-                               opi::value typetemplate, opi::value ppdefinition,
-                               opi::scheme_emitter_context &template_ctx)
+/**
+ * Generate implementation of a function template specialization
+ *
+ * \param ctx Current emitter-context
+ * \param instantiation Function template instantiation from the TypeChecker
+ * \param typetemplate Function template from the TypeChecker
+ * \param ppdefinition Actual template-form from the (preprocessed) input code
+ * \param template_ctx Native context of the function template
+ */
+static opi::value
+_instantiate_function_template_impl(opi::scheme_emitter_context &ctx,
+                                    opi::value instantiation,
+                                    opi::value type_template,
+                                    opi::value ppdefinition,
+                                    opi::scheme_emitter_context &template_ctx)
 {
   using namespace opi;
 
@@ -20,9 +29,9 @@ _instantiate_function_template(opi::scheme_emitter_context &ctx,
   const value paramtypes = car(cdr(cdr(instantiation)));
   const value resulttype = car(cdr(cdr(cdr(instantiation))));
 
-  const value paramsymbols = car(cdr(cdr(typetemplate)));
-  const value resultsymbol = car(cdr(cdr(cdr(typetemplate))));
-  const value plbody       = car(cdr(cdr(cdr(cdr(typetemplate)))));
+  const value paramsymbols = car(cdr(cdr(type_template)));
+  const value resultsymbol = car(cdr(cdr(cdr(type_template))));
+  const value plbody       = car(cdr(cdr(cdr(cdr(type_template)))));
 
   value specialident = nil;
   if (template_ctx.find_function_template_speciailization(instantiation,
@@ -55,47 +64,24 @@ _instantiate_function_template(opi::scheme_emitter_context &ctx,
   
   const value define = list("define", specialsignature, dot, specialbody);
   copy_location(ppdefinition, define);
-  *template_ctx.output++ = define;
+  *template_ctx.output()++ = define;
 
   return specialident;
 }
 
 
 opi::value
-opi::instantiate(scheme_emitter_context &ctx, value type, value x)
+opi::instantiate_function_template(scheme_emitter_context &ctx, value type)
 {
-  // Primitives
-  if (ctx.legal_types.contains(type))
-    return x;
+  assert(type->t == tag::pair);
+  assert(issym(car(type), "#dynamic-function-dispatch"));
 
-  // FIXME
-  if (match(list("cons-list"), cons("cons-list", "_"))(type))
-    return x;
-
-  // Check if suitable specialization already exists
-  for (const auto &[instancetype, instance] : ctx.specializations)
-  {
-    if (type == instancetype)
-      return instance;
-  }
-
-  // Handle function tempalte instantiations
-  if (type->t == tag::pair and issym(car(type), "#dynamic-function-dispatch"))
-  {
-    debug("instantiating {} from {}", x, type);
-    assert(type->t == tag::pair);
-    assert(issym(car(type), "#dynamic-function-dispatch"));
-
-    const value tag = car(cdr(type));
-    const function_template &functemplate = ctx.find_template(tag);
-    const value typetemplate = functemplate.typetemplate;
-    const value ppdefinition = functemplate.ppdefinition;
-    return _instantiate_function_template(ctx, type, typetemplate, ppdefinition,
-                                          functemplate.context);
-  }
-
-  throw code_transformation_error {
-      std::format("Don't know how to instantiate type {}", type), x};
+  const value tag = car(cdr(type));
+  const function_template &functemplate = ctx.find_template(tag);
+  const value typetemplate = functemplate.typetemplate;
+  const value ppdefinition = functemplate.ppdefinition;
+  return _instantiate_function_template_impl(
+      ctx, type, typetemplate, ppdefinition, functemplate.context);
 }
 
 
@@ -136,7 +122,7 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
 
   // Run the query
   const value cellularized = insert_cells(prt, plcode);
-  ctx.pl.make_true(prt, cellularized, save_results, trace_nonterminals);
+  ctx.pl().make_true(prt, cellularized, save_results, trace_nonterminals);
 
   if (not success)
     throw bad_code {"Prolog query failed", plcode};
@@ -149,7 +135,7 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
 
   // Build the type location map
   scheme_type_location_map type_map =
-      build_type_location_map(ctx.prolog_emitter, ppcode);
+      build_type_location_map(ctx.prolog_emitter(), ppcode);
   type_map.substitute_type_aliases(results);
 
   return {list(tape), type_map};

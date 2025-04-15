@@ -5,7 +5,6 @@
 #include "opium/scheme/scheme_transformations.hpp"
 #include "opium/scheme/scheme_type_location_map.hpp"
 #include "opium/prolog.hpp"
-#include "opium/stl/unordered_set.hpp"
 #include "opium/pretty_print.hpp"
 
 #include "opium/scheme/scheme_emitter_context.hpp"
@@ -23,7 +22,7 @@ emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode);
 
 
 value
-instantiate(scheme_emitter_context &ctx, value type, value x);
+instantiate_function_template(scheme_emitter_context &ctx, value type);
 
 
 /**
@@ -52,7 +51,6 @@ translate_to_scheme(size_t &counter, prolog &pl, value code)
 
   // TODO: find a better way
   int warned = false;
-  opi::stl::vector<value> extforwardtypes;
   for (const auto &[predicatename, predicate] : pl.predicates())
   {
     if (predicatename == "result-of")
@@ -65,7 +63,6 @@ translate_to_scheme(size_t &counter, prolog &pl, value code)
         if (not warned++)
           warning("extracting forward-types from support predicates");
         to_prolog.add_global(identifier, identifier);
-        extforwardtypes.push_back(identifier);
       }
     }
   }
@@ -99,7 +96,6 @@ translate_to_scheme(size_t &counter, prolog &pl, value code)
   // Translate the code to proper scheme
   opi::stl::vector<value> main_tape;
   scheme_emitter_context ctx {pl, to_prolog, main_tape};
-  ctx.legal_types.insert(extforwardtypes.begin(), extforwardtypes.end());
   auto [main, type_map] = emit_scheme(ctx, plcode, ppcode);
 
   const value globals = list(main_tape);
