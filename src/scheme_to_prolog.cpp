@@ -14,7 +14,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   m_target {"_"},
   m_alist {nil},
   m_global_alist {nil},
-  m_lambda_gensym {counter, "lambda{}"}
+  m_lambda_gensym {counter, "Lambda{}"}
 {
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 if
@@ -186,6 +186,55 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                               lambda
+  const match lambdamatch {list("lambda"), list("lambda", "params", dot, "body")};
+  append_rule(lambdamatch, [this, &counter](const auto &ms, value fm) {
+    const value params = ms.at("params");
+    const value body = ms.at("body");
+
+    // Save current target
+    const value target = m_target;
+
+    // Will revert a-list from any changes after this point
+    utl::state_saver _ {m_alist, m_target};
+
+    // Mark beginning of the nesting by inserting a NIL value into the alist
+    m_alist = cons(nil, m_alist);
+
+    // Translate function parameters into (local) type variables
+    value plparams = nil;
+    for (const value x : range(params))
+    {
+      const value xtype = _generate_type_and_copy_location(x);
+      plparams = cons(xtype, plparams);
+      m_alist = cons(cons(x, xtype), m_alist);
+    }
+    plparams = reverse(plparams); // We were inserting at front, so now reverse
+
+    // (local) Type variable to hold function return type
+    // FIXME: why does it have to generate different identifiers?
+    const value plresult = sym(std::format("Result_{}", counter++));
+
+
+    // Translate the body with apropriate target
+    m_target = plresult;
+    const value plbody = transform_block(body);
+
+    const value type_template =
+        list("quasiquote", list("#dynamic-function-dispatch", "anonymous-lambda",
+                                plparams, plresult, plbody));
+
+    const value proxyvar = m_lambda_gensym();
+
+    // TODO: this is ugly
+    _link_code_to_type(fm, proxyvar);
+    _link_code_to_type(car(fm), target);
+
+    return list("and", list("=", proxyvar, type_template),
+                list("insert-cells", proxyvar, target));
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               define
   // NOTE: leaks a-list
   const value defpat = list("define", "ident", dot, "body");
@@ -202,33 +251,6 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     m_target = type;
     return transform_block(body);
   });
-
-  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
-  //                               lambda
-#if 0
-  const match lambdamatch {list("lambda"), list("lambda", "params", dot, "body")};
-  append_rule(lambdamatch, [this](const auto &ms, value fm) {
-    const value params = ms.at("params");
-    const value body = ms.at("body");
-
-    const value name = m_lambda_gensym();
-
-    opi::stl::vector<value> code;
-    const value typetemplate = _create_template(sym_name(name), params, body);
-    const value instance =
-        _instantiate_template(typetemplate, std::back_inserter(code));
-    code.push_back(list("=", m_target, instance));
-
-    _link_code_to_overload_name(fm, name);
-    _link_code_to_type(fm, m_target);
-
-    assert(code.size() >= 1);
-    if (code.size() == 1)
-      return code.front();
-    else
-      return cons("and", list(code));
-  });
-#endif
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                begin

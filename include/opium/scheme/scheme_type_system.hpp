@@ -16,14 +16,27 @@
 namespace opi {
 
 
-
 std::pair<value, scheme_type_location_map>
 emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode);
 
 
+/**
+ * Generate implementation of a function template specialization
+ *
+ * \param ctx Current emitter-context
+ * \param instantiation Function template instantiation from the TypeChecker
+ * \param typetemplate Function template from the TypeChecker
+ * \param ppbody Actual function body form the (preprocessed) input code
+ * \param template_ctx Native context of the function template
+ */
+value
+generate_function_template_body(scheme_emitter_context &ctx,
+                                value instantiation, value type_template,
+                                value ppbody);
+
+
 value
 instantiate_function_template(scheme_emitter_context &ctx, value type);
-
 
 /**
  * Generate a distinctive name for a template instance using parameter types for

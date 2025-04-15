@@ -33,29 +33,22 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               lambda
-#if 0
   const match lambdamatch {list("lambda"), list("lambda", "parms", dot, "body")};
   m_transformer.prepend_rule(lambdamatch, [this](const auto &ms, value fm) {
     const value parms = ms.at("parms");
     const value body = ms.at("body");
 
-    const value ident = m_ctx.prolog_emitter().find_overload_name(fm);
-    const value type = _find_code_type(fm); // Get template instantiation
-    const predicate pred = find_predicate_for_template(m_ctx, ident);
+    const value type_template = _find_code_type(fm);
+    const value type = _find_code_type(car(fm));
+    warning("lambda type_template: {}", type_template);
+    warning("lambda type: {}", type);
 
-    // Declaration of the new type
-    // NOTE: it is a forward-declaration just in case the lambda is self-referencing
-    // NOTE: lambda instantiation should be forwarded by instantiator
-    register_forwarding_type(m_ctx, type);
-
-    // Generate lambda body
-    const value specialbody =
-        _emit_specialized_function_body(m_ctx, pred, body, type);
+    const value specialbody = generate_function_template_body(
+        m_ctx, type, type_template, body);
 
     // Return normal Scheme lambda expression but with specialized body
-    return list("lambda", parms, specialbody);
+    return list("lambda", parms, dot, specialbody);
   });
-#endif
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                form

@@ -22,8 +22,6 @@
     (fold-left-instance add 0 (list 1 2 3 4 5))))
 
 
-
-
-(define (add3 x y z) (add x (add y z)))
-(define result_add3 (add3 1 2 3))
-
+(define result_add3
+  (let ((add3 (lambda (x y z) (add x (add y z)))))
+    (add3 1 2 3)))
