@@ -40,8 +40,6 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
 
     const value type_template = _find_code_type(fm);
     const value type = _find_code_type(car(fm));
-    warning("lambda type_template: {}", type_template);
-    warning("lambda type: {}", type);
 
     const value specialbody = generate_function_template_body(
         m_ctx, type, type_template, body);

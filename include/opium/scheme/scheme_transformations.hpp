@@ -9,6 +9,9 @@
 
 namespace opi {
 
+
+// TODO: this guy transforms `define` and `define-overload` into `template`;
+//       it has to be done by a separate transformer
 class scheme_unique_identifiers: public ext_scheme_code_transformer {
   public:
   scheme_unique_identifiers(symbol_generator &gensym, bool is_toplevel = true);
@@ -33,6 +36,33 @@ class scheme_code_flattener: public ext_scheme_code_transformer {
   private:
   symbol_generator &m_gensym;
 }; // class opi::scheme_code_flattener
+
+
+class scheme_preprocessor {
+  public:
+  scheme_preprocessor(symbol_generator &gensym)
+  : m_flattener {gensym},
+    m_unique_identifiers {gensym}
+  { }
+
+  scheme_preprocessor()
+  : m_default_counter {0},
+    m_default_symbol_generator {{m_default_counter.value(), "uid{}"}},
+    m_flattener {m_default_symbol_generator.value()},
+    m_unique_identifiers {m_default_symbol_generator.value()}
+  { }
+
+  value
+  operator () (value expr) const
+  { return m_unique_identifiers(m_flattener(expr)); }
+
+  private:
+  std::optional<size_t> m_default_counter;
+  std::optional<symbol_generator> m_default_symbol_generator;
+  scheme_code_flattener m_flattener;
+  scheme_unique_identifiers m_unique_identifiers;
+}; // class opi::scheme_preprocessor
+static_assert(transformation<scheme_preprocessor>);
 
 
 class scheme_to_prolog: public code_transformer {

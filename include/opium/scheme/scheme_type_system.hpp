@@ -1,11 +1,11 @@
 #pragma once
 
-#include "opium/code_transform_utils.hpp"
 #include "opium/logging.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
 #include "opium/scheme/scheme_type_location_map.hpp"
 #include "opium/prolog.hpp"
 #include "opium/pretty_print.hpp"
+#include "opium/utilities/execution_timer.hpp"
 
 #include "opium/scheme/scheme_emitter_context.hpp"
 #include "opium/value.hpp"
@@ -53,16 +53,14 @@ pretty_template_instance_name(value type, std::ostream &os);
 
 
 inline std::pair<value, scheme_type_location_map>
-translate_to_scheme(size_t &counter, prolog &pl, value code)
+translate_to_scheme(size_t &counter, prolog &pl, value ppcode)
 {
   // Compose translator from Scheme to Prolog
-  symbol_generator genuid {counter, "uid{}"};
-  scheme_code_flattener flatten {genuid};
-  scheme_unique_identifiers insert_uids {genuid};
   scheme_to_prolog to_prolog {counter};
   prolog_cleaner pl_cleaner;
 
   // TODO: find a better way
+  execution_timer extract_timer {"type extraction from support predicates"};
   int warned = false;
   for (const auto &[predicatename, predicate] : pl.predicates())
   {
@@ -74,42 +72,30 @@ translate_to_scheme(size_t &counter, prolog &pl, value code)
         const value identifier = car(signature);
 
         if (not warned++)
-          warning("extracting forward-types from support predicates");
+          warning("extracting types from support predicates");
         to_prolog.add_global(identifier, identifier);
       }
     }
   }
+  extract_timer.stop();
 
-  // Translate the input expression
-  const value ppcode = list(range(code)
-                     | std::views::transform(std::ref(flatten))
-                     | std::views::transform(std::ref(insert_uids)));
-  debug("\e[1mPre-Processor output:\e[0m");
-  for (const value x : range(ppcode))
-    debug("{}\n\n", pprint_scm(x));
-
+  execution_timer prolog_generation_timer {"Prolog generation"};
   const value plcode = list(range(to_prolog.transform_block(ppcode)) |
                             std::views::transform(std::ref(pl_cleaner)));
+  prolog_generation_timer.stop();
 
   // Collect predicates generated during translation
-  debug("\e[1mType Check predicates:\e[0m");
   for (const predicate &pred : to_prolog.predicates())
-  {
-    if (loglevel >= loglevel::debug)
-    {
-      debug("```\n(predicate {}\n  {}\n```",
-            cons(sym(pred.name()), list(pred.arguments())),
-            pprint_pl(pl_cleaner(pred.body()), 2));
-    }
     pl.add_predicate(pred);
-  }
 
-  debug("\e[1mType Check Prolog code:\e[0m\n```\n{}```", pprint_pl(plcode));
+  debug("\e[1mType Check Prolog code:\e[0m\n```\n{}\n```", pprint_pl(plcode));
 
   // Translate the code to proper scheme
   opi::stl::vector<value> main_tape;
   scheme_emitter_context ctx {pl, to_prolog, main_tape};
+  execution_timer emit_timer {"Scheme emitter"};
   auto [main, type_map] = emit_scheme(ctx, plcode, ppcode);
+  emit_timer.stop();
 
   const value globals = list(main_tape);
   const value resultcode = append(globals, main);

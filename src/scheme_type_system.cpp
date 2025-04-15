@@ -2,6 +2,7 @@
 #include "opium/scheme/scheme_emitter_context.hpp"
 #include "opium/scheme/scheme_emitter.hpp"
 #include "opium/source_location.hpp"
+#include "opium/utilities/execution_timer.hpp"
 
 
 opi::value
@@ -111,8 +112,10 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
   };
 
   // Run the query
+  execution_timer query_timer {"Prolog query"};
   const value cellularized = insert_cells(prt, plcode);
   ctx.pl().make_true(prt, cellularized, save_results, trace_nonterminals);
+  query_timer.stop();
 
   if (not success)
     throw bad_code {"Prolog query failed", plcode};

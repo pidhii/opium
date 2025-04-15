@@ -22,6 +22,7 @@
 namespace opi {
 
 
+// TODO: rename
 template <typename T>
 concept transformation = requires(const T t, value x)
 {
@@ -176,6 +177,13 @@ compose(const Lhs &lhs, const Rhs &rhs)
 { return {lhs, rhs}; }
 
 
+template <transformation Transformer>
+value
+transform_block(const Transformer &transformer, value block)
+{ return list(range(block) | std::views::transform(std::ref(transformer))); }
+
+
+// TODO: move to a separate file
 struct prolog_cleaner: public code_transformer {
   prolog_cleaner();
 }; // struct opi::prolog_cleaner
