@@ -1,0 +1,104 @@
+#include "opium/scheme/scheme_emitter.hpp"
+#include "opium/scheme/scheme_emitter_context.hpp"
+#include "opium/scheme/scheme_type_system.hpp"
+#include "opium/source_location.hpp"
+#include "opium/value.hpp"
+
+
+opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &query)
+: m_dont_emit_symbol {"<dont-emit>"}, m_query_result {query}, m_ctx {ctx}
+{
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                 template
+  const value temppat = list("template", cons("ident", "parms"), dot, "body");
+  const auto temprule = [this](const auto &, value fm) {
+    debug("register template (tag: '{}')", m_ctx.prolog_emitter.find_code_tag(fm));
+    source_location location;
+    if (get_location(fm, location))
+      debug("{}", display_location(location, 1, "\e[38;5;2m", "\e[2m"));
+    const value typetemplate = _find_code_type(fm);
+    debug("with Prolog code: {}", typetemplate);
+    m_ctx.register_template(m_ctx.prolog_emitter.find_code_tag(fm),
+                            {fm, typetemplate, m_ctx});
+    return m_dont_emit_symbol;
+  };
+  m_transformer.prepend_rule({list("template"), temppat}, temprule);
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                               lambda
+#if 0
+  const match lambdamatch {list("lambda"), list("lambda", "parms", dot, "body")};
+  m_transformer.prepend_rule(lambdamatch, [this](const auto &ms, value fm) {
+    const value parms = ms.at("parms");
+    const value body = ms.at("body");
+
+    const value ident = m_ctx.prolog_emitter.find_overload_name(fm);
+    const value type = _find_code_type(fm); // Get template instantiation
+    const predicate pred = find_predicate_for_template(m_ctx, ident);
+
+    // Declaration of the new type
+    // NOTE: it is a forward-declaration just in case the lambda is self-referencing
+    // NOTE: lambda instantiation should be forwarded by instantiator
+    register_forwarding_type(m_ctx, type);
+
+    // Generate lambda body
+    const value specialbody =
+        _emit_specialized_function_body(m_ctx, pred, body, type);
+
+    // Return normal Scheme lambda expression but with specialized body
+    return list("lambda", parms, specialbody);
+  });
+#endif
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                form
+  m_transformer.append_rule({nil, list("f", dot, "xs")}, [this](const auto &ms) {
+    const value f = ms.at("f");
+    const value xs = ms.at("xs");
+    const value form = cons(f, xs);
+    return list(range(form) | std::views::transform(std::ref(m_transformer)));
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                atom
+  m_transformer.append_rule({nil, "x"}, [this](const auto &ms) {
+    const value x = ms.at("x");
+
+    // Get type of this atom
+    value type = nil;
+    if (not m_ctx.prolog_emitter.find_code_type(x, type))
+      throw code_transformation_error {
+          std::format("Don't know what type to use for {}", x), x};
+
+    // Get deduced type if it is not given explicitly
+    const auto it = m_query_result.find(type);
+    if (it != m_query_result.end())
+    {
+      const auto &possibilities = it->second;
+      if (possibilities.size() != 1)
+        throw code_transformation_error {
+            std::format("Ambiguous type for {}: {}", x, list(possibilities)), x};
+      type = *possibilities.begin();
+    }
+
+    // instantiate
+    return instantiate(m_ctx, type, x);
+  });
+}
+
+opi::value
+opi::scheme_emitter::_find_code_type(value code) const
+{
+  const value type = m_ctx.prolog_emitter.find_code_type(code);
+  const auto it = m_query_result.find(type);
+  if (it != m_query_result.end())
+  {
+    const auto &possibilities = it->second;
+    if (possibilities.size() != 1)
+      throw code_transformation_error {
+          std::format("Ambiguous type: {}", list(possibilities)), code};
+    return *possibilities.begin();
+  }
+  else
+    return type;
+}

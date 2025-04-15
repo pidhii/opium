@@ -1,13 +1,106 @@
 #pragma once
 
 #include "opium/scheme/scheme_type_system.hpp"
+#include "opium/scheme/scheme_emitter_context.hpp"
+#include "opium/source_location.hpp"
 
 
 namespace opi {
 
-template <std::output_iterator<value> Output>
-std::pair<value, scheme_type_location_map>
-emit_scheme(scheme_emitter_context<Output> &ctx, value plcode, value ppcode)
+// TODO: move to cpp file
+inline value
+_instantiate_function_template(scheme_emitter_context &ctx, value instantiation,
+                               value typetemplate, value ppdefinition,
+                               scheme_emitter_context &template_ctx)
+{
+  assert(instantiation->t == tag::pair);
+  assert(issym(car(instantiation), "#dynamic-function-dispatch"));
+
+  const value template_tag = car(cdr(instantiation));
+  const value paramtypes = car(cdr(cdr(instantiation)));
+  const value resulttype = car(cdr(cdr(cdr(instantiation))));
+
+  const value paramsymbols = car(cdr(cdr(typetemplate)));
+  const value resultsymbol = car(cdr(cdr(cdr(typetemplate))));
+  const value plbody       = car(cdr(cdr(cdr(cdr(typetemplate)))));
+
+  value specialident = nil;
+  if (template_ctx.find_function_template_speciailization(instantiation,
+                                                          specialident))
+    return specialident;
+
+  const value ppsignature = car(cdr(ppdefinition));
+  const value ppbody = cdr(cdr(ppdefinition));
+
+  const value parambind = list("=", paramsymbols, paramtypes);
+  const value resultbind = list("=", resultsymbol, resulttype);
+  const value expr = list("and", parambind, resultbind, plbody);
+
+  std::ostringstream identbuf;
+  pretty_template_instance_name(instantiation, identbuf);
+  specialident = sym(identbuf.str());
+  const value specialsignature = cons(specialident, cdr(ppsignature));
+
+  // Save specialization with forward declaration
+  template_ctx.register_function_template_specialization(
+      template_tag, instantiation, specialident);
+
+  // Emit body within a nested context
+  code_tape localtape;
+  scheme_emitter_context localctx {ctx, localtape};
+  value specialbody = emit_scheme(localctx, expr, ppbody).first;
+
+  // Merge any accompanying code into the body
+  specialbody = append(list(localtape), specialbody);
+  
+  const value define = list("define", specialsignature, dot, specialbody);
+  copy_location(ppdefinition, define);
+  *template_ctx.output++ = define;
+
+  return specialident;
+}
+
+// TODO: move to cpp file
+inline value
+instantiate(scheme_emitter_context &ctx, value type, value x)
+{
+  // Primitives
+  if (ctx.legal_types.contains(type))
+    return x;
+
+  // FIXME
+  if (match(list("cons-list"), cons("cons-list", "_"))(type))
+    return x;
+
+  // Check if suitable specialization already exists
+  for (const auto &[instancetype, instance] : ctx.specializations)
+  {
+    if (type == instancetype)
+      return instance;
+  }
+
+  // Handle function tempalte instantiations
+  if (type->t == tag::pair and issym(car(type), "#dynamic-function-dispatch"))
+  {
+    debug("instantiating {} from {}", x, type);
+    assert(type->t == tag::pair);
+    assert(issym(car(type), "#dynamic-function-dispatch"));
+
+    const value tag = car(cdr(type));
+    const function_template &functemplate = ctx.find_template(tag);
+    const value typetemplate = functemplate.typetemplate;
+    const value ppdefinition = functemplate.ppdefinition;
+    return _instantiate_function_template(ctx, type, typetemplate, ppdefinition,
+                                          functemplate.context);
+  }
+
+  throw code_transformation_error {
+      std::format("Don't know how to instantiate type {}", type), x};
+}
+
+// TODO: move to cpp file
+inline std::pair<value, scheme_type_location_map>
+emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
 {
   predicate_runtime prt;
 
@@ -50,7 +143,7 @@ emit_scheme(scheme_emitter_context<Output> &ctx, value plcode, value ppcode)
 
   // Emit proper (standard) scheme code
   stl::deque<value> tape;
-  scheme_emitter<Output> emitter {ctx, results};
+  scheme_emitter emitter {ctx, results};
   for (const value expr : range(ppcode))
     emitter.emit(expr, std::back_inserter(tape));
 
@@ -60,22 +153,6 @@ emit_scheme(scheme_emitter_context<Output> &ctx, value plcode, value ppcode)
   type_map.substitute_type_aliases(results);
 
   return {list(tape), type_map};
-}
-
-
-template <std::output_iterator<value> Output>
-value
-_emit_specialized_function_body(scheme_emitter_context<Output> &ctx,
-                                const predicate &pred, value ppbody,
-                                value instantiation)
-{
-  // Formulate Prolog code to be run for the body
-  const value predsignature = pred.argument(0);
-  const value clossignature = car(predsignature);
-  const value bindclos = list("=", cdr(instantiation), cdr(clossignature));
-  const value plcode = list("and", bindclos, pred.body());
-  debug("emitting specialized function body for {}", instantiation);
-  return emit_scheme(ctx, plcode, ppbody).first;
 }
 
 
@@ -90,6 +167,7 @@ _emit_specialized_function_body(scheme_emitter_context<Output> &ctx,
  * \param os The output stream to write the formatted name to
  */
 // TODO: move to cpp file
+// TODO: come up with better format
 inline void
 pretty_template_instance_name(value type, std::ostream &os)
 {
@@ -100,102 +178,29 @@ pretty_template_instance_name(value type, std::ostream &os)
     return;
   }
 
-  value identifier = car(type);
-  const value params = cdr(type);
-
-  assert(issym(identifier));
-
-  // Remove syntax-related prefix inserted by Prolog emitter
-  if (sym_name(identifier).starts_with("template:"))
-    identifier = sym(sym_name(identifier).substr(sizeof("template:") - 1));
-
-  if (nil == params)
+  if (issym(car(type), "#dynamic-function-dispatch"))
   {
-    // No parameters, just return the identifier
-    os << identifier;
+    const value tag = car(cdr(type));
+    const value typeparams = car(cdr(cdr((type))));
+    const value resulttype = car(cdr(cdr(cdr(type))));
+    os << tag << "<";
+    for (std::string prefix = ""; const value type : range(typeparams))
+    {
+      os << prefix;
+      prefix = ",";
+      pretty_template_instance_name(type, os);
+    }
+    os << ">->";
+    pretty_template_instance_name(resulttype, os);
     return;
   }
 
-  // Write the identifier and opening bracket
-  os << identifier << "<";
-
-  // Add parameters with recursive handling
-  for (std::string prefix = ""; const value param : range(params))
+  for (std::string prefix = ""; const value x : range(type))
   {
     os << prefix;
-    prefix = ",";
-
-    // Recursively format parameter if it's a template instance
-    pretty_template_instance_name(param, os);
+    prefix = "_";
+    pretty_template_instance_name(x, os);
   }
-
-  os << ">";
-}
-
-
-template <std::output_iterator<value> Output>
-value
-_instantiate_function_template(scheme_emitter_context<Output> &ctx,
-  value instantiation, const predicate &pred, value ppcode)
-{
-  assert(instantiation->t == tag::pair);
-
-  const value signature = car(cdr(ppcode));
-  const value paramlist = cdr(signature);
-
-  std::ostringstream identbuf;
-  pretty_template_instance_name(instantiation, identbuf);
-  const value specialident = sym(identbuf.str());
-  const value specialsignature = cons(specialident, paramlist);
-
-  // Save specialization with forward declaration
-  ctx.specializations.emplace(instantiation, specialident);
-  const value specialbody =
-      _emit_specialized_function_body(ctx, pred, cdr(cdr(ppcode)), instantiation);
-
-  const value define = list("define", specialsignature, dot, specialbody);
-  copy_location(ppcode, define);
-  *ctx.global_output++ = define;
-
-  return specialident;
-}
-
-template <std::output_iterator<value> Output>
-value
-instantiate(scheme_emitter_context<Output> &ctx, value type, value x)
-{
-  // Primitives
-  if (ctx.legal_types.contains(type))
-    return x;
-
-  // FIXME
-  if (match(list("cons-list"), cons("cons-list", "_"))(type))
-    return x;
-
-  // Check if suitable specialization already exists
-  for (const auto &[instancetype, instance] : ctx.specializations)
-  {
-    if (type == instancetype)
-      return instance;
-  }
-
-  // Find matching function template
-  stl::vector<template_info> templates;
-  std::ranges::copy(ctx.templates | std::views::filter([&](const auto &x) {
-                      return std::get<0>(x)(type);
-                    }),
-                    std::back_inserter(templates));
-  // There must be only one match
-  assert(templates.size() <= 1);
-
-  if (templates.size() == 1)
-  { // Generate new specialization
-    const auto &[_, pred, ppcode] = templates.front();
-    return _instantiate_function_template(ctx, type, pred, ppcode);
-  }
-
-  throw code_transformation_error {
-      std::format("Don't know how to instantiate type {}", type), x};
 }
 
 

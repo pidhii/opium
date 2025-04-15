@@ -60,10 +60,6 @@ class scheme_to_prolog: public code_transformer {
   predicates() const
   { return std::views::all(m_predicates); }
 
-  std::ranges::range auto
-  unresolved() const
-  { return range(m_unresolved) | std::views::transform(car<false>); }
-
   bool
   find_code_type(value code, value &type) const noexcept;
 
@@ -71,13 +67,10 @@ class scheme_to_prolog: public code_transformer {
   find_code_type(value code) const;
 
   bool
-  find_overload_name(value code, value &name) const noexcept;
+  find_code_tag(value code, value &name) const noexcept;
 
   value
-  find_overload_name(value code) const;
-
-  bool
-  is_overload_name(value name) const noexcept;
+  find_code_tag(value code) const;
 
   protected:
   /**
@@ -87,10 +80,10 @@ class scheme_to_prolog: public code_transformer {
   _link_code_to_type(value code, value type);
 
   void
-  _link_code_to_overload_name(value code_identifier, value name);
+  _put_code_tag(value code, value tag);
 
   value
-  _create_template(std::string_view name, value parmlist, value body);
+  _create_template(value param_symbols, value resul_symbolt, value body);
 
   std::string
   _type_name_for(value ident) const;
@@ -106,27 +99,17 @@ class scheme_to_prolog: public code_transformer {
   value
   _to_type(value atom, bool resolve_symbols, CodeOutput code_output);
 
-  template <std::output_iterator<value> CodeOutput>
-  value
-  _instantiate_template(value ident, value closure, size_t arity,
-                        CodeOutput out);
-
-  template <std::output_iterator<value> CodeOutput>
-  value
-  _instantiate_template(value type_template, CodeOutput out);
-
   private:
   type_format_string m_type_format;
   value m_target;
   value m_alist;
   value m_global_alist;
-  value m_unresolved;
   stl::deque<predicate> m_predicates;
   symbol_generator m_lambda_gensym;
   stl::unordered_map<void *, value> m_type_map; /**< Associations between input
                                                      symbols and generated
                                                      typenames */
-  stl::unordered_map<void *, value> m_overloads;
+  stl::unordered_map<void *, value> m_code_tags;
 }; // class opi::scheme_to_prolog
 
 } // namespace opi

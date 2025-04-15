@@ -3,6 +3,7 @@
 #include "opium/scheme/scheme_transformations.hpp"
 #include "opium/utilities/state_saver.hpp"
 #include "opium/logging.hpp"
+#include "opium/value.hpp"
 
 
 using namespace std::placeholders;
@@ -13,7 +14,6 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   m_target {"_"},
   m_alist {nil},
   m_global_alist {nil},
-  m_unresolved {nil},
   m_lambda_gensym {counter, "lambda{}"}
 {
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
@@ -131,28 +131,58 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   //                               template
   // NOTE: leaks a-list
   const value temppat = list("template", cons("ident", "params"), dot, "body");
-  append_rule({list("template"), temppat}, [this, &counter](const auto &ms) {
+  append_rule({list("template"), temppat}, [this, &counter](const auto &ms, value fm) {
     const value ident = ms.at("ident");
     const value params = ms.at("params");
     const value body = ms.at("body");
 
+
     // TODO: make safe name generation
-    const std::string templatename =
-        std::format("template:{}_{}", ident, counter++);
+    const value tag = sym(std::format("template:{}_{}", ident, counter));
+    const value proxyvar = sym(std::format("Template:{}_{}", ident, counter));
+    counter++;
 
-    // Forward declaration of the identifier
-    const value typetemplate =
-        list("#template", sym(templatename), nil, length(params));
-    m_global_alist = cons(cons(ident, typetemplate), m_global_alist);
+    _link_code_to_type(fm, proxyvar);
+    _put_code_tag(fm, tag);
 
-    // Build lambda associating it with a new unique type
-    const value lambdatype = _create_template(templatename, params, body);
-    assert(lambdatype == typetemplate);
+    // Declare a type-variable that will bound to the template
+    // NOTE: this is a forward-declaration
+    m_alist = cons(cons(ident, cons("#template", proxyvar)), m_alist);
 
-    // Link identifier (as a code object) with the unique type generated above
-    _link_code_to_overload_name(ident, sym(templatename));
+    // Will revert a-list from any changes after this point
+    utl::state_saver _ {m_alist, m_target};
 
-    return list("and");
+    // Mark beginning of the nesting by inserting a NIL value into the alist
+    m_alist = cons(nil, m_alist);
+
+    // Translate function parameters into (local) type variables
+    value plparams = nil;
+    for (const value x : range(params))
+    {
+      const value xtype = _generate_type_and_copy_location(x);
+      plparams = cons(xtype, plparams);
+      m_alist = cons(cons(x, xtype), m_alist);
+    }
+    plparams = reverse(plparams); // We were inserting at front, so now reverse
+
+    // (local) Type variable to hold function return type
+    // FIXME: why does it have to generate different identifiers?
+    const value plresult = sym(std::format("Result_{}", counter++));
+
+    // Translate the body with apropriate target
+    m_target = plresult;
+    const value plbody = transform_block(body);
+
+    // Wrapp it up. Instances of this template can now be created by simple
+    // calling `insert-cells` on the structure below
+    // NOTE:
+    // - quasiquote to prevent evaluation of all the type variables straight away
+    // - variables from the higher level(s) will be captured via quasiquote(s)
+    const value function_template =
+        list("quasiquote", list("#dynamic-function-dispatch", tag, plparams,
+                                plresult, plbody));
+
+    return list("=", proxyvar, function_template);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
@@ -175,6 +205,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               lambda
+#if 0
   const match lambdamatch {list("lambda"), list("lambda", "params", dot, "body")};
   append_rule(lambdamatch, [this](const auto &ms, value fm) {
     const value params = ms.at("params");
@@ -197,6 +228,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     else
       return cons("and", list(code));
   });
+#endif
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                begin
@@ -340,43 +372,29 @@ opi::scheme_to_prolog::find_code_type(opi::value code) const
       std::format("No type associated to code object"), code};
 }
 
-
 bool
-opi::scheme_to_prolog::find_overload_name(value code,
-                                          value &name) const noexcept
+opi::scheme_to_prolog::find_code_tag(value code, value &tag) const noexcept
 {
-  const auto it = m_overloads.find(&*code);
+  const auto it = m_code_tags.find(&*code);
 
   // Check if code object is present in the map
-  if (it == m_overloads.end())
+  if (it == m_code_tags.end())
     return false;
 
   // Return associated name
-  name = it->second;
+  tag = it->second;
   return true;
 }
 
 
 opi::value
-opi::scheme_to_prolog::find_overload_name(opi::value code) const
+opi::scheme_to_prolog::find_code_tag(opi::value code) const
 {
   value result = nil;
-  if (find_overload_name(code, result))
+  if (find_code_tag(code, result))
     return result;
   throw bad_code {
-      std::format("No overload name associated to code object"), code};
-}
-
-
-bool
-opi::scheme_to_prolog::is_overload_name(value name) const noexcept
-{
-  for (const auto &[_, overloadname] : m_overloads)
-  {
-    if (name == overloadname)
-      return true;
-  }
-  return false;
+      std::format("No tag associated to code object"), code};
 }
 
 
@@ -400,10 +418,10 @@ opi::scheme_to_prolog::_link_code_to_type(value code, value type)
 
 
 void
-opi::scheme_to_prolog::_link_code_to_overload_name(value code, value name)
+opi::scheme_to_prolog::_put_code_tag(value code, value tag)
 {
-  if (not m_overloads.emplace(&*code, name).second)
-    throw duplicate_code_objects {"Can't link overload (duplicate code object)",
+  if (not m_code_tags.emplace(&*code, tag).second)
+    throw duplicate_code_objects {"Can't put a tag (duplicate code object)",
                                   code};
 }
 
@@ -423,51 +441,65 @@ opi::scheme_to_prolog::_generate_type_and_copy_location(value ident)
 }
 
 
+static opi::value
+_unquote_times(opi::value x, size_t n)
+{
+  for (size_t i = 0; i < n; ++i)
+    x = list("unquote", x);
+  return x;
+}
+
+
 template <std::output_iterator<opi::value> CodeOutput>
 opi::value
 opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out)
 {
   // Check for mapped types in the a-list
   std::vector<value> variants;
-  const auto filter = [&](value x) { return car(x) == ident; };
-  std::ranges::copy(range(m_alist)
-                    | std::views::filter(filter)
-                    | std::views::transform(cdr<false>),
-                    std::back_inserter(variants));
-  std::ranges::copy(range(m_global_alist)
-                    | std::views::filter(filter)
-                    | std::views::transform(cdr<false>),
-                    std::back_inserter(variants));
-
-  // Instantiate templates
-  for (value &variant : variants)
+  size_t nlevelsabove = 0;
+  for (const value x : range(m_alist))
   {
-    if (variant->t == tag::pair and issym(car(variant), "#template"))
+    // NIL is marking beginning of a nesting
+    if (x == nil)
     {
-      static size_t counter = 0; // FIXME
-      const value proxy = sym(std::format("TemplateInstantiation_{}", counter++));
-      copy_location(ident, proxy);
-      const value instantiation = _instantiate_template(variant, out);
-      *out++ = list("=", proxy, instantiation);
-      variant = proxy;
+      nlevelsabove += 1;
+      continue;
     }
+    assert(x->t == tag::pair);
+
+    // Fish for a correct identifier
+    if (car(x) != ident)
+      continue;
+
+    value type = cdr(x);
+
+    // Instantiate templates
+    if (type->t == tag::pair and issym(car(type), "#template"))
+    {
+      const value functemplate = _unquote_times(cdr(type), nlevelsabove);
+      static size_t counter = 0; // FIXME
+      const value proxy = sym(std::format("Instance_{}", counter++));
+      copy_location(ident, proxy);
+      *out++ = list("insert-cells", functemplate, proxy);
+      type = proxy;
+    }
+    else
+      type = _unquote_times(cdr(x), nlevelsabove);
+
+    variants.push_back(type);
+  }
+
+  // Also check in globals
+  for (const value x : range(m_global_alist))
+  {
+    if (car(x) == ident)
+      variants.push_back(cdr(x));
   }
 
   switch (variants.size())
   {
-    case 0: {
-      // If not found, create new associated type for this symbol
-      const value type = _generate_type_and_copy_location(ident);
-      m_alist = cons(cons(ident, type), m_alist);
-
-      // Add it to the list of unresolved symbols that will be handled by closure
-      // NOTE: in a way we are generating code here, thus must copy symbols to avoid
-      // clashes of code objects
-      m_unresolved = cons(cons(sym(sym_name(ident)), type), m_unresolved);
-
-      // Return the new associated type
-      return type;
-    }
+    case 0:
+      throw bad_code {std::format("No such symbol, {}", ident), ident};
 
     case 1:
       _link_code_to_type(ident, variants[0]);
@@ -489,7 +521,6 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out)
       return tmpvar;
     }
   }
-
 }
 
 
@@ -520,91 +551,4 @@ opi::scheme_to_prolog::_to_type(value atom, bool resolve_symbols, CodeOutput out
   copy_location(atom, result);
   _link_code_to_type(atom, result);
   return result;
-}
-
-
-opi::value
-opi::scheme_to_prolog::_create_template(std::string_view name, value params,
-                                        value body)
-{
-  value plparams = nil;
-  value predbody = nil;
-  value unresolved = nil;
-  {
-    // Reset a-list, target, and unresolved symbols for new closure
-    utl::state_saver _ {m_alist, m_unresolved, m_target};
-    m_alist = nil;
-    m_unresolved = nil;
-    m_target = "Result";
-
-    // Process function parameters adding them to a-list and saving list of
-    // associated types for further cration of predicate
-    for (const value x : range(params))
-    {
-      const value xtype = _generate_type_and_copy_location(x);
-      plparams = cons(xtype, plparams);
-      m_alist = cons(cons(x, xtype), m_alist);
-    }
-    // Reverese `plparams` because we were accumulating them from the front
-    plparams = reverse(plparams);
-
-    // Evaluate function body
-    predbody = transform_block(body);
-
-    // Save unresolved symbols (before before undone by `state_saver`) for
-    // further resolution in surrounding context
-    unresolved = m_unresolved;
-  }
-
-  const value closure_idents =
-      list(range(unresolved) | std::views::transform(car<true>));
-  const value closure_types =
-      list(range(unresolved) | std::views::transform(cdr<true>));
-
-  // Create predicate for type-deduction on this function
-  // Note: signature with implicit closure bindings
-  const value typeparams = append(closure_types, plparams);
-  const value funcsig = list(cons(sym(name), typeparams), dot, plparams);
-  const value predsig = list("result-of", funcsig, "Result");
-  m_predicates.emplace_back(predsig, predbody);
-
-  // Create type template
-  return list("#template", sym(name), closure_idents, length(params));
-}
-
-
-template <std::output_iterator<opi::value> CodeOutput>
-opi::value
-opi::scheme_to_prolog::_instantiate_template(value ident, value closure,
-                                             size_t arity, CodeOutput out)
-{
-  // Resolve closure symbols
-  // NOTE: will also trigger propagation from higher closures if necessary
-  auto require_symbol = [&](value ident) {
-    return _require_symbol(ident, out);
-  };
-  const value resolved_closure =
-      list(range(closure) | std::views::transform(require_symbol));
-
-  value parmanchors = nil;
-  static size_t counter = 0; // FIXME
-  for (size_t i = 0; i < arity; ++i)
-    parmanchors =
-        cons(sym(std::format("T_{}_Parm{}_Uid{}", ident, i, counter++)),
-             parmanchors);
-
-  const value typeparams = append(resolved_closure, parmanchors);
-  return cons(ident, typeparams);
-}
-
-
-template <std::output_iterator<opi::value> CodeOutput>
-opi::value
-opi::scheme_to_prolog::_instantiate_template(value type_template, CodeOutput out)
-{
-  type_template = cdr(type_template);
-  const value ident = car(type_template);
-  const value closure = car(cdr(type_template));
-  const size_t arity = num_val(car(cdr(cdr(type_template))));
-  return _instantiate_template(ident, closure, arity, out);
 }
