@@ -50,6 +50,7 @@ class scheme_unique_identifiers: public ext_scheme_code_transformer {
   private:
   symbol_generator &m_gensym;
   mutable value m_alist;
+  mutable value m_overload_alist;
 }; // class opi::scheme_unique_identifiers
 
 
@@ -127,21 +128,12 @@ class scheme_to_prolog: public code_transformer {
   value
   find_code_type(value code) const;
 
-  bool
-  find_code_tag(value code, value &name) const noexcept;
-
-  value
-  find_code_tag(value code) const;
-
   protected:
   /**
    * Link a code-object (usually identifier) with generated type identifier
    */
   void
   _link_code_to_type(value code, value type);
-
-  void
-  _put_code_tag(value code, value tag);
 
   value
   _create_template(value param_symbols, value resul_symbolt, value body);
@@ -170,7 +162,6 @@ class scheme_to_prolog: public code_transformer {
   stl::unordered_map<void *, value> m_type_map; /**< Associations between input
                                                      symbols and generated
                                                      typenames */
-  stl::unordered_map<void *, value> m_code_tags;
 }; // class opi::scheme_to_prolog
 
 } // namespace opi

@@ -28,6 +28,19 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
 : m_dont_emit_symbol {"<dont-emit>"}, m_query_result {query}, m_ctx {ctx}
 {
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                        declare-template-overload
+  m_transformer.prepend_rule(
+      {list("declare-template-overload"),
+       list("declare-template-overload", "_", "_")},
+      [this](const auto &) { return m_dont_emit_symbol; });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                           declare-template
+  m_transformer.prepend_rule(
+      {list("declare-template"), list("declare-template", "_")},
+      [this](const auto &) { return m_dont_emit_symbol; });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 template
   const value temppat = list("template", cons("ident", "parms"), dot, "body");
   const auto temprule = [this](const auto &ms, value fm) {
@@ -43,8 +56,7 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
     // Register all the pieces of information need for generation of function
     // template specializations in future
     const value typetemplate = _find_code_type(fm);
-    m_ctx.register_template(m_ctx.prolog_emitter().find_code_tag(fm),
-                            {fm, typetemplate, m_ctx});
+    m_ctx.register_template(identifier, {fm, typetemplate, m_ctx});
 
     return m_dont_emit_symbol;
   };

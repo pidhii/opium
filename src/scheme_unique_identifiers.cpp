@@ -20,11 +20,13 @@
 #include "opium/code_transform_utils.hpp"
 #include "opium/code_transformer.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
+#include "opium/stl/unordered_set.hpp"
 #include "opium/utilities/state_saver.hpp"
 #include "opium/value.hpp"
 
 #include <ranges>
 #include <readline/readline.h>
+#include <utility>
 
 using namespace std::placeholders;
 
@@ -37,7 +39,8 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     symbol_generator &gensym)
 : T {std::bind(&scheme_unique_identifiers::_T, this, _1)},
   m_gensym {gensym},
-  m_alist {nil}
+  m_alist {nil},
+  m_overload_alist {nil}
 {
   flip_page();
 
@@ -51,7 +54,9 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     const value body = ms.at("body");
 
     // Get the mapped identifier created during forward-declaration
-    const value newidentifier = _copy_mapped_identifier(identifier);
+    value newidentifier = nil;
+    const bool ok = assq(identifier, m_overload_alist, newidentifier);
+    assert(ok && "Missing overload identifier");
     copy_location(identifier, newidentifier);
 
     // Roll-back further changes to alist
@@ -410,7 +415,21 @@ opi::scheme_unique_identifiers::transform_block(value block) const
   };
 
   // Recover a-list after the block is processed
-  utl::state_saver _ {m_alist};
+  utl::state_saver _ {m_alist, m_overload_alist};
+
+  // Each overloaded identifier must belong to an overload-group. Definitions
+  // of overloaded functions use unique identifiers as all other functions.
+  // However, any references to the overloaded identifiers are to be done via
+  // a special identifier of the corresponding overload group.
+  struct overload_group {
+    overload_group(): group_identifier {nil} { }
+    value group_identifier;
+    opi::stl::unordered_set<value> templates;
+  };
+  opi::stl::unordered_map<value, overload_group> ovgroups;
+
+  // Storage for identifiers of (non-overloaded) templates for forward declaration
+  opi::stl::unordered_set<value> templates;
 
   // Forward-declarations for all define-family syntaxes
   for (const value expr : range(block))
@@ -418,16 +437,62 @@ opi::scheme_unique_identifiers::transform_block(value block) const
     value identifier = nil;
     if (try_match(expr, define_overload, identifier))
     {
-      m_alist = cons(cons(identifier, identifier), m_alist);
+      // Check if apropriate overload group exists and crate it if not.
+      auto it = ovgroups.find(identifier);
+      if (it == ovgroups.end())
+      { // Create new overload group
+        it = ovgroups.emplace(std::piecewise_construct,
+                              std::forward_as_tuple(identifier),
+                              std::forward_as_tuple())
+                     .first;
+        const value groupidentifier = m_gensym();
+        it->second.group_identifier = groupidentifier;
+        m_alist = cons(cons(identifier, groupidentifier), m_alist);
+      }
+
+      // Generate unique identifier for this definition
+      const value newidentifier = m_gensym();
+      m_overload_alist = cons(cons(identifier, newidentifier), m_overload_alist);
+
+      // Add `newidentifier` to the overload group.
+      overload_group &group = it->second;
+      const bool ok = group.templates.emplace(newidentifier).second;
+      assert(ok && "Failed to add identifier to an overload group");
     }
     else if (try_match(expr, define_function, identifier) or
              try_match(expr, define_identifier, identifier))
     {
       const value newidentifier = m_gensym();
       m_alist = cons(cons(identifier, newidentifier), m_alist);
+
+      // Add `newidentifier` to a list of templates
+      templates.emplace(newidentifier);
     }
   }
 
+  value header = nil;
+
+  // Declare overloads
+  for (const overload_group &group : ovgroups | std::views::values)
+  {
+    for (const value templateident : group.templates)
+    {
+      const value decl = list("declare-template-overload",
+                              group.group_identifier, templateident);
+      header = cons(decl, header);
+    }
+  }
+
+  // Declare other templates
+  for (const value templateident : templates)
+  {
+    const value decl = list("declare-template", templateident);
+    header = cons(decl, header);
+  }
+
   // Once forward-declarations are handled do the actual transformation
-  return list(range(block) | std::views::transform(std::ref(*this)));
+  const value newblock =
+      list(range(block) | std::views::transform(std::ref(*this)));
+
+  return append(header, newblock);
 }

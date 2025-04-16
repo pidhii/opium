@@ -17,6 +17,7 @@
  */
 
 
+#include "opium/code_transform_utils.hpp"
 #include "opium/code_transformer.hpp"
 #include "opium/source_location.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
@@ -147,7 +148,36 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   append_rule({list("let*-values"), cons("let*-values", letpat)}, letvalsrule);
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
-  //                               template
+  //                        declare-template-overload
+  // NOTE: leaks a-list
+  const value ovdeclpat = list("declare-template-overload", "ovident", "ident");
+  append_rule({list("declare-template-overload"), ovdeclpat}, [this](const auto &ms) {
+    const value ovident = ms.at("ovident");
+    const value ident = ms.at("ident");
+
+    // Generate types
+    const value typevar = _generate_type_and_copy_location(ident);
+    m_alist = cons(cons(ovident, cons("#template", typevar)), m_alist);
+
+    return list("and");
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                        declare-template
+  // NOTE: leaks a-list
+  const value declpat = list("declare-template", "ident");
+  append_rule({list("declare-template"), declpat}, [this](const auto &ms) {
+    const value ident = ms.at("ident");
+
+    // Generate types
+    const value typevar = _generate_type_and_copy_location(ident);
+    m_alist = cons(cons(ident, cons("#template", typevar)), m_alist);
+
+    return list("and");
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                             template
   // NOTE: leaks a-list
   const value temppat = list("template", cons("ident", "params"), dot, "body");
   append_rule({list("template"), temppat}, [this, &counter](const auto &ms, value fm) {
@@ -155,18 +185,10 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value params = ms.at("params");
     const value body = ms.at("body");
 
-
-    // TODO: make safe name generation
-    const value tag = sym(std::format("template:{}_{}", ident, counter));
-    const value proxyvar = sym(std::format("Template:{}_{}", ident, counter));
-    counter++;
-
+    assert(sym_name(ident)[0] != '_' and not isupper(sym_name(ident)[0]) &&
+           "Tempalte identifiers can't look like Prolog variables");
+    const value proxyvar = _generate_type_and_copy_location(ident);
     _link_code_to_type(fm, proxyvar);
-    _put_code_tag(fm, tag);
-
-    // Declare a type-variable that will bound to the template
-    // NOTE: this is a forward-declaration
-    m_alist = cons(cons(ident, cons("#template", proxyvar)), m_alist);
 
     // Will revert a-list from any changes after this point
     utl::state_saver _ {m_alist, m_target};
@@ -198,7 +220,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     // - quasiquote to prevent evaluation of all the type variables straight away
     // - variables from the higher level(s) will be captured via quasiquote(s)
     const value function_template =
-        list("quasiquote", list("#dynamic-function-dispatch", tag, plparams,
+        list("quasiquote", list("#dynamic-function-dispatch", ident, plparams,
                                 plresult, plbody));
 
     return list("=", proxyvar, function_template);
@@ -413,31 +435,6 @@ opi::scheme_to_prolog::find_code_type(opi::value code) const
       std::format("No type associated to code object"), code};
 }
 
-bool
-opi::scheme_to_prolog::find_code_tag(value code, value &tag) const noexcept
-{
-  const auto it = m_code_tags.find(&*code);
-
-  // Check if code object is present in the map
-  if (it == m_code_tags.end())
-    return false;
-
-  // Return associated name
-  tag = it->second;
-  return true;
-}
-
-
-opi::value
-opi::scheme_to_prolog::find_code_tag(opi::value code) const
-{
-  value result = nil;
-  if (find_code_tag(code, result))
-    return result;
-  throw bad_code {
-      std::format("No tag associated to code object"), code};
-}
-
 
 void
 opi::scheme_to_prolog::_link_code_to_type(value code, value type)
@@ -455,15 +452,6 @@ opi::scheme_to_prolog::_link_code_to_type(value code, value type)
                     oldtype, type),
         code};
   }
-}
-
-
-void
-opi::scheme_to_prolog::_put_code_tag(value code, value tag)
-{
-  if (not m_code_tags.emplace(&*code, tag).second)
-    throw duplicate_code_objects {"Can't put a tag (duplicate code object)",
-                                  code};
 }
 
 
@@ -514,7 +502,7 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out)
 
     value type = cdr(x);
 
-    // Instantiate templates
+    // Instantiate template
     if (type->t == tag::pair and issym(car(type), "#template"))
     {
       const value functemplate = _unquote_times(cdr(type), nlevelsabove);
