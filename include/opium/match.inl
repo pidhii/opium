@@ -34,6 +34,8 @@ opi::match::_match(value pat, value expr, Mapping &result) const
   switch (pat->t)
   {
     case tag::sym:
+      if (sym_name(pat) == "_")
+        return true;
       if (member(pat, m_literals))
         return equal(pat, expr);
       else
