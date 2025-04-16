@@ -57,7 +57,8 @@ target_include_directories(opium_objects PUBLIC ${CMAKE_SOURCE_DIR}/include ${RE
 target_compile_options(opium_objects PUBLIC ${READLINE_CFLAGS_OTHER})
 
 # Main executable
-add_executable (opium main.cpp $<TARGET_OBJECTS:opium_objects>)
+file (GLOB opium_exec_src apps/opium/*.cpp)
+add_executable (opium ${opium_exec_src} $<TARGET_OBJECTS:opium_objects>)
 target_include_directories (opium PUBLIC ${CMAKE_SOURCE_DIR}/include)
 target_link_libraries (opium PUBLIC -lgc ${Boost_LIBRARIES} ${READLINE_LIBRARIES})
 target_include_directories(opium PUBLIC ${READLINE_INCLUDE_DIRS})
