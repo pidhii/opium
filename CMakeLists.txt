@@ -64,7 +64,15 @@ target_link_libraries (opium PUBLIC -lgc ${Boost_LIBRARIES} ${READLINE_LIBRARIES
 target_include_directories(opium PUBLIC ${READLINE_INCLUDE_DIRS})
 target_compile_options(opium PUBLIC ${READLINE_CFLAGS_OTHER})
 
-install (TARGETS opium DESTINATION bin)
+# Preprocessor executable
+file (GLOB opium_pp_exec_src apps/opium-pp/*.cpp)
+add_executable (opium-pp ${opium_pp_exec_src} $<TARGET_OBJECTS:opium_objects>)
+target_include_directories (opium-pp PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries (opium-pp PUBLIC -lgc ${Boost_LIBRARIES})
+target_include_directories(opium-pp PUBLIC ${READLINE_INCLUDE_DIRS})
+target_compile_options(opium-pp PUBLIC ${READLINE_CFLAGS_OTHER})
+
+install (TARGETS opium opium-pp DESTINATION bin)
 
 option (OPIUM_UNIT_TESTS "Enable unit tests for opium components" ON)
 if (OPIUM_UNIT_TESTS)
