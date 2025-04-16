@@ -4,6 +4,7 @@ BraceWrapping:
   BeforeElse: true
   IndentBraces: false
   AfterControlStatement: true
+  BeforeCatch: true
 
 SpaceBeforeCpp11BracedList: true
 IndentAccessModifiers: false
