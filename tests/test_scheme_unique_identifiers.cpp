@@ -37,8 +37,7 @@ class SchemeUniqueIdentifiersTest: public testing::Test {
     // Create a symbol generator with a predictable format for testing
     gensym_counter = 0;
     gensym = std::make_unique<opi::symbol_generator>(gensym_counter, "_test{}");
-    transformer =
-        std::make_unique<opi::scheme_unique_identifiers>(*gensym, false);
+    transformer = std::make_unique<opi::scheme_unique_identifiers>(*gensym);
   }
 
   // Helper function to parse a Scheme expression from string

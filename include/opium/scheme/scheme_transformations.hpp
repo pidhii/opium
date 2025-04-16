@@ -33,9 +33,15 @@ namespace opi {
 //       it has to be done by a separate transformer
 class scheme_unique_identifiers: public ext_scheme_code_transformer {
   public:
-  scheme_unique_identifiers(symbol_generator &gensym, bool is_toplevel = true);
+  scheme_unique_identifiers(symbol_generator &gensym);
+
+  value
+  transform_block(value block) const;
 
   private:
+  value
+  _copy_mapped_identifier(value identifier) const;
+
   // Helper for automatic reset of toplevel-flag in transformation rules
   value
   _T(value expr);
@@ -43,8 +49,7 @@ class scheme_unique_identifiers: public ext_scheme_code_transformer {
 
   private:
   symbol_generator &m_gensym;
-  value m_alist;
-  bool m_is_toplevel;
+  mutable value m_alist;
 }; // class opi::scheme_unique_identifiers
 
 
@@ -74,6 +79,13 @@ class scheme_preprocessor {
   value
   operator () (value expr) const
   { return m_unique_identifiers(m_flattener(expr)); }
+
+  value
+  transform_block(value block) const
+  {
+    return m_unique_identifiers.transform_block(
+        opi::transform_block(m_flattener, block));
+  }
 
   private:
   std::optional<size_t> m_default_counter;

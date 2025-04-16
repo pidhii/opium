@@ -31,33 +31,33 @@ using namespace std::placeholders;
 
 inline opi::value
 opi::scheme_unique_identifiers::_T(value expr)
-{
-  utl::state_saver _ {m_is_toplevel};
-  m_is_toplevel = false;
-  return (*this)(expr);
-}
+{ return (*this)(expr); }
 
 opi::scheme_unique_identifiers::scheme_unique_identifiers(
-    symbol_generator &gensym, bool is_toplevel)
+    symbol_generator &gensym)
 : T {std::bind(&scheme_unique_identifiers::_T, this, _1)},
   m_gensym {gensym},
-  m_alist {nil},
-  m_is_toplevel {is_toplevel}
+  m_alist {nil}
 {
   flip_page();
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                  define-overload (function-syntax)
-  // NOTE: leaks alist to the surrounding context
-  const value fndefovldpat = list("define-overload", cons("f", "xs"), dot, "body");
+  const value fndefovldpat =
+      list("define-overload", cons("identifier", "xs"), dot, "body");
   append_rule({list("define-overload"), fndefovldpat}, [this](const auto &ms) {
-    const value f = ms.at("f");
+    const value identifier = ms.at("identifier");
     const value xs = ms.at("xs");
     const value body = ms.at("body");
 
-    // Replace identifiers with unique ones
-    m_alist = cons(cons(f, f), m_alist); // Leak function identifier
-    utl::state_saver _ {m_alist}; // But will roll-back further changes to alist
+    // Get the mapped identifier created during forward-declaration
+    const value newidentifier = _copy_mapped_identifier(identifier);
+    copy_location(identifier, newidentifier);
+
+    // Roll-back further changes to alist
+    utl::state_saver _ {m_alist};
+
+    // Replace function arguments with unique identifiers
     value newxs = nil;
     for (const value ident : range(xs))
     {
@@ -69,25 +69,27 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(T));
-    return list("template", cons(f, newxs), dot, newbody);
+    const value newbody = transform_block(body);
+    return list("template", cons(newidentifier, newxs), dot, newbody);
   });
-
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                      define (function-syntax)
-  // NOTE: leaks alist to the surrounding context
-  const value fndefpat = list("define", cons("f", "xs"), "body", "...");
+  // TODO: merge with define-overload as the handlers are identical
+  const value fndefpat = list("define", cons("identifier", "xs"), dot, "body");
   append_rule({list("define"), fndefpat}, [this](const auto &ms) {
-    const value f = ms.at("f");
-    const value xs= ms.contains("xs") ? ms.at("xs") : nil;
-    const value body = ms.contains("body") ? ms.at("body") : nil;
+    const value identifier = ms.at("identifier");
+    const value xs = ms.at("xs");
+    const value body = ms.at("body");
 
-    // Replace identifiers with unique ones
-    const value newf = m_gensym();
-    copy_location(f, newf);
-    m_alist = cons(cons(f, newf), m_alist); // Leak function identifier
-    utl::state_saver _ {m_alist}; // But will roll-back further changes to alist
+    // Get the mapped identifier created during forward-declaration
+    const value newidentifier = _copy_mapped_identifier(identifier);
+    copy_location(identifier, newidentifier);
+
+    // Roll-back changes to alist after this point
+    utl::state_saver _ {m_alist};
+
+    // Replace function arguments with unique identifiers
     value newxs = nil;
     for (const value ident : range(xs))
     {
@@ -99,28 +101,24 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(T));
-    return list("template", cons(newf, newxs), dot, newbody);
+    const value newbody = transform_block(body);
+    return list("template", cons(newidentifier, newxs), dot, newbody);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               define
-  // NOTE: leaks alist to the surrounding context
-  const value defpat = list("define", "ident", "body", "...");
+  const value defpat = list("define", "identifier", dot, "body");
   append_rule({list("define"), defpat}, [this](const auto &ms) {
-    const value ident = ms.at("ident");
-    const value body = ms.contains("body") ? ms.at("body") : nil;
+    const value identifier = ms.at("identifier");
+    const value body = ms.at("body");
 
-    // Replace identifier with unique one and update alist
-    const value newident = m_gensym();
-    m_alist = cons(cons(ident, newident), m_alist);
-
-    // Copy original identifier location
-    copy_location(ident, newident);
+    // Get the mapped identifier created during forward-declaration
+    const value newidentifier = _copy_mapped_identifier(identifier);
+    copy_location(identifier, newidentifier);
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(T));
-    return list("define", newident, dot, newbody);
+    const value newbody = transform_block(body);
+    return list("define", newidentifier, dot, newbody);
   });
 
   // Helper macro with common code for all let-expressions
@@ -159,7 +157,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     m_alist = newalist;
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(T));
+    const value newbody = transform_block(body);
     return list("let", newbinds, dot, newbody);
   });
 
@@ -184,7 +182,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(T));
+    const value newbody = transform_block(body);
     return list("let*", newbinds, dot, newbody);
   });
 
@@ -213,7 +211,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(T));
+    const value newbody = transform_block(body);
     return list("letrec", newbinds, dot, newbody);
   });
 
@@ -238,7 +236,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(T));
+    const value newbody = transform_block(body);
     return list("letrec*", newbinds, dot, newbody);
   });
 
@@ -273,7 +271,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     m_alist = newalist;
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(T));
+    const value newbody = transform_block(body);
     return list("let-values", newbinds, dot, newbody);
   });
 
@@ -304,7 +302,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(T));
+    const value newbody = transform_block(body);
     return list("let*-values", newbinds, dot, newbody);
   });
 
@@ -331,8 +329,17 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     }
 
     // Transform body with new alist
-    const value newbody = list(range(body) | std::views::transform(T));
+    const value newbody = transform_block(body);
     return list("lambda", newargs, dot, newbody);
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                               begin
+  const value beginpat = cons("begin", "body");
+  append_rule({list("begin"), beginpat}, [this](const auto &ms) {
+    const value body = ms.at("body");
+    const value newbody = transform_block(body);
+    return cons("begin", newbody);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
@@ -360,4 +367,67 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
       return sym(sym_name(newident)); // Copy it for pointer-based code tracking
     return ident;
   });
+}
+
+
+opi::value
+opi::scheme_unique_identifiers::_copy_mapped_identifier(value identifier) const
+{
+  value mappedidentifier = nil;
+  const bool ok = assoc(identifier, m_alist, mappedidentifier);
+  assert(ok && "Can't find identifier in a-list");
+  return sym(sym_name(mappedidentifier));
+}
+
+
+opi::value
+opi::scheme_unique_identifiers::transform_block(value block) const
+{
+  const match define_overload {
+    list("define-overload"),
+    list("define-overload", cons("identifier", "xs"), dot, "body")
+  };
+
+  const match define_function {
+    list("define"),
+    list("define", cons("identifier", "xs"), dot, "body")
+  };
+
+  const match define_identifier {
+    list("define"),
+    list("define", "identifier", dot, "body")
+  };
+
+  const auto try_match = [&](value expr, const match &m, value &identifier) {
+    opi::stl::unordered_map<value, value> matches;
+    if (m(expr, matches))
+    {
+      assert(matches.contains("identifier"));
+      identifier = matches.at("identifier");
+      return true;
+    }
+    return false;
+  };
+
+  // Recover a-list after the block is processed
+  utl::state_saver _ {m_alist};
+
+  // Forward-declarations for all define-family syntaxes
+  for (const value expr : range(block))
+  {
+    value identifier = nil;
+    if (try_match(expr, define_overload, identifier))
+    {
+      m_alist = cons(cons(identifier, identifier), m_alist);
+    }
+    else if (try_match(expr, define_function, identifier) or
+             try_match(expr, define_identifier, identifier))
+    {
+      const value newidentifier = m_gensym();
+      m_alist = cons(cons(identifier, newidentifier), m_alist);
+    }
+  }
+
+  // Once forward-declarations are handled do the actual transformation
+  return list(range(block) | std::views::transform(std::ref(*this)));
 }
