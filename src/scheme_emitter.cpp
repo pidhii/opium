@@ -31,8 +31,11 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
   //                        declare-template-overload
   m_transformer.prepend_rule(
       {list("declare-template-overload"),
-       list("declare-template-overload", "_", "_")},
-      [this](const auto &) { return m_dont_emit_symbol; });
+       list("declare-template-overload", "ovident", "_")},
+      [this](const auto &ms) {
+        m_ctx.register_identifier_for_function_template(ms.at("ovident"));
+        return m_dont_emit_symbol;
+      });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                           declare-template
@@ -80,7 +83,7 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
         {
           const value newvaluesbind = list(list(pattern), expr);
           valuesbindings = append(valuesbindings, list(newvaluesbind));
-    }
+        }
       }
 
       // Build final test condition
