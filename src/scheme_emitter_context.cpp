@@ -122,3 +122,25 @@ opi::scheme_emitter_context::register_identifier_for_function_template(
   // NOTE: duplicate insertions occure naturally due to function overloads
   m_function_template_identifiers.emplace(identifier);
 }
+
+
+void
+opi::scheme_emitter_context::add_case_rule(const case_to_scheme &rule) noexcept
+{ m_cases_rules.emplace_back(rule); }
+
+
+const opi::case_to_scheme&
+opi::scheme_emitter_context::find_case_rule(value pattern, value type) const
+{
+  const auto it = std::ranges::find_if(m_cases_rules, [&](const auto &rule) {
+    return rule.ctor_match(pattern) and rule.type_match(type);
+  });
+  if (it != m_cases_rules.end())
+    return *it;
+
+  if (has_parent())
+    return m_parent.find_case_rule(pattern, type);
+
+  throw bad_code {
+      std::format("No handler for case {} with type {}", pattern, type)};
+}

@@ -52,16 +52,53 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
     const value newexprs =
         list(range(exprs) | std::views::transform(std::ref(m_transformer)));
 
-    value newcases = nil;
+    value condclauses = nil;
     for (const auto &[rowpatterns, branch] :
          utl::zip(range(patterns), range(branches)))
     {
-      const value newbranch = transform_block(m_transformer, branch);
-      const value newcase = cons(rowpatterns, newbranch);
-      newcases = append(newcases, list(newcase));
+      value conditions = nil;
+      value valuesbindings = nil;
+      for (const auto [pattern, expr] : utl::zip(range(rowpatterns), range(newexprs)))
+      {
+        // Use predicate test for every non-wildcard pattern, and bind everything
+        // with let-values
+        if (pattern->t == tag::pair)
+        {
+          const value exprtype = _find_code_type(expr);
+          const case_to_scheme &rule = m_ctx.find_case_rule(pattern, exprtype);
+          // Create new condition to guard the branch
+          const value newcond = list(rule.predicate, expr);
+          conditions = append(conditions, list(newcond));
+          // Create new bindings with unpack rule
+          if (cdr(pattern) != nil)
+          {
+            const value newvaluesbind = list(cdr(pattern), list(rule.unpack, expr));
+            valuesbindings = append(valuesbindings, list(newvaluesbind));
+          }
+        }
+        else
+        {
+          const value newvaluesbind = list(list(pattern), expr);
+          valuesbindings = append(valuesbindings, list(newvaluesbind));
+    }
+      }
+
+      // Build final test condition
+      const value test = conditions == nil         ? True
+                         : length(conditions) == 1 ? car(conditions)
+                                                   : cons("and", conditions);
+
+      // Build brnach body wirapping initial expression into let-values (if needed)
+      value newbranch = transform_block(m_transformer, branch);
+      if (valuesbindings != nil)
+        newbranch = list(list("let-values", valuesbindings, dot, newbranch));
+
+      // Create an entry for `cond`-expression
+      const value condclause = cons(test, newbranch);
+      condclauses = append(condclauses, list(condclause));
     }
 
-    return list("cases", newexprs, dot, newcases);
+    return cons("cond", condclauses);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>

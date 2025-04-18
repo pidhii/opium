@@ -112,6 +112,18 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode)
   // Translate the code to proper scheme
   opi::stl::vector<value> main_tape;
   scheme_emitter_context ctx {pl, to_prolog, main_tape};
+  ctx.add_case_rule({
+    match {list("cons"), list("cons", "_", "_")},
+    match {list("cons-list"), list("cons-list", "_")},
+    "pair?",
+    "unpack-pair"
+  });
+  ctx.add_case_rule({
+    match {list("empty-list"), list("empty-list")},
+    match {list("cons-list"), list("cons-list", "_")},
+    "null?",
+    "<cant-unpack-empty-list>"
+  });
   execution_timer emit_timer {"Scheme emitter"};
   auto [main, type_map] = emit_scheme(ctx, plcode, ppcode);
   emit_timer.stop();

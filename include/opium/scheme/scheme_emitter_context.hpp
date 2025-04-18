@@ -42,6 +42,14 @@ struct function_template {
 };
 
 
+struct case_to_scheme {
+  match ctor_match;
+  match type_match;
+  value predicate;
+  value unpack;
+};
+
+
 struct scheme_emitter_context {
   scheme_emitter_context(const prolog &pl, const scheme_to_prolog &pl_emitter,
                          code_tape &output);
@@ -83,6 +91,12 @@ struct scheme_emitter_context {
   void
   register_identifier_for_function_template(value identifier);
 
+  void
+  add_case_rule(const case_to_scheme &rule) noexcept;
+
+  const case_to_scheme&
+  find_case_rule(value pattern, value type) const;
+
   /**
    * Get output tape for supplementary code
    */
@@ -116,6 +130,9 @@ private:
   /** Cache for produced template specializations */
   opi::stl::unordered_map<value /* type */, value /* function identifier */>
       m_specializations;
+
+  /** Rules on handling matching in cases expressions */
+  opi::stl::deque<case_to_scheme> m_cases_rules;
 
   const prolog &m_pl; /**< Storage for predicates */
   const scheme_to_prolog &m_prolog_emitter; /**< Storage for type info */
