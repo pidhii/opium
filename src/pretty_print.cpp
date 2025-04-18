@@ -66,7 +66,6 @@ opi::pretty_printer::_print_block(std::ostream &os, opi::value stmt, int indent,
   if (stmt->t != tag::pair)
     return print(os, stmt, indent);
 
-  const std::string op = car(stmt)->sym.data;
   const value clauses = cdr(stmt);
 
   // Print the operator
@@ -110,7 +109,7 @@ opi::scheme_formatter::scheme_formatter()
 
   const match casesmatch {
       list("cases"), list("cases", "exprs", cons("patterns", "branch"), "...")};
-  append_rule(casesmatch, [](const auto &ms, value fm) {
+  append_rule(casesmatch, [](const auto &ms) {
     const value exprs = ms.at("exprs");
     const value patterns = ms.contains("patterns") ? ms.at("patterns") : nil;
     const value branches = ms.contains("branch") ? ms.at("branch") : nil;
@@ -127,6 +126,26 @@ opi::scheme_formatter::scheme_formatter()
     const value result = list("cases", exprs, dot, newcases);
     return pretty_printer::format_block(true, 2, result);
   });
+
+  const match condmatch {
+      list("cond"), list("cond", cons("condition", "branch"), "...")};
+  append_rule(condmatch, [](const auto &ms) {
+    const value conditions = ms.contains("condition") ? ms.at("condition") : nil;
+    const value branches = ms.contains("branch") ? ms.at("branch") : nil;
+
+    value newclauses = nil;
+    for (const auto &[condition, branch] :
+         utl::zip(range(conditions), range(branches)))
+    {
+      const value origclause = cons(condition, branch);
+      const value newclause = pretty_printer::format_block(false, 1, origclause);
+      newclauses = append(newclauses, list(newclause));
+    }
+
+    const value result = cons("cond", newclauses);
+    return pretty_printer::format_block(false, 2, result);
+  });
+
 
   const auto defrule = [](const auto &ms, value fm) {
     const value ident = ms.at("ident");
