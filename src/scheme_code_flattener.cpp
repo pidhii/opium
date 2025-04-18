@@ -32,7 +32,7 @@
 #include <type_traits>
 
 
-opi::value
+static opi::value
 pattern_constructor(opi::value pattern) noexcept
 {
   if (issym(pattern))
@@ -42,7 +42,7 @@ pattern_constructor(opi::value pattern) noexcept
 }
 
 
-opi::value
+static opi::value
 pattern_arguments(opi::value pattern) noexcept
 {
   if (issym(pattern))
@@ -52,7 +52,7 @@ pattern_arguments(opi::value pattern) noexcept
 }
 
 
-size_t
+static size_t
 pattern_arity(opi::value pattern) noexcept
 {
   if (issym(pattern))
@@ -132,7 +132,7 @@ match_table::table_row::~table_row()
 }
 
 
-void
+static void
 print_table(std::ostream &os, const match_table &table, size_t indent = 0)
 {
   // os << std::string(indent, ' ');
@@ -177,7 +177,7 @@ struct column_stats {
 };
 
 
-bool
+static bool
 is_normal_form(const column_stats &stats) noexcept
 {
   const auto eq_1 = [](size_t x) { return x == 1; };
@@ -186,7 +186,7 @@ is_normal_form(const column_stats &stats) noexcept
 }
 
 
-bool
+static bool
 is_wildcard(const column_stats &stats) noexcept
 {
   const auto is_wild = [](opi::value x) { return x == "_"; };
@@ -195,7 +195,7 @@ is_wildcard(const column_stats &stats) noexcept
 }
 
 
-column_stats
+static column_stats
 analyse_column(const match_table &table, size_t col)
 {
   column_stats stats;
@@ -211,7 +211,7 @@ analyse_column(const match_table &table, size_t col)
 }
 
 
-opi::stl::vector<column_stats>
+static opi::stl::vector<column_stats>
 analyse_table(const match_table &table)
 {
   opi::stl::vector<column_stats> result;
@@ -221,7 +221,7 @@ analyse_table(const match_table &table)
 }
 
 
-void
+static void
 sort(match_table &table, size_t col)
 {
   opi::stl::unordered_map<opi::value, size_t> ctorseq;
@@ -242,10 +242,10 @@ sort(match_table &table, size_t col)
 }
 
 
-match_table
+static match_table
 simplify_table(match_table table, opi::symbol_generator &gensym);
 
-match_table
+static match_table
 squash_column(match_table &table, size_t col, opi::symbol_generator &gensym)
 {
   opi::stl::list<opi::stl::list<match_table::table_row>> partition;
@@ -340,7 +340,7 @@ squash_column(match_table &table, size_t col, opi::symbol_generator &gensym)
 }
 
 
-bool
+static bool
 is_flat_pattern(opi::value pattern)
 {
   const auto issym = [](opi::value x) { return opi::issym(x); };
@@ -352,7 +352,7 @@ is_flat_pattern(opi::value pattern)
 }
 
 
-match_table
+static match_table
 simplify_table(match_table table, opi::symbol_generator &gensym)
 {
   const opi::stl::vector<column_stats> stats = analyse_table(table);
@@ -395,7 +395,7 @@ simplify_table(match_table table, opi::symbol_generator &gensym)
 }
 
 
-opi::value
+static opi::value
 build_cases(const match_table &table)
 {
   const opi::stl::vector<column_stats> stats = analyse_table(table);
@@ -426,57 +426,54 @@ build_cases(const match_table &table)
 opi::scheme_code_flattener::scheme_code_flattener(symbol_generator &gensym)
 : m_gensym {gensym}
 {
-const match casesmatch {
+  const match casesmatch {
       list("cases"), list("cases", "exprs", cons("patterns", "branch"), "...")};
-prepend_rule(casesmatch, [this](const auto &ms, value) {
-  const value exprs = ms.at("exprs");
-  const value patterns = ms.contains("patterns") ? ms.at("patterns") : nil;
-  const value branches = ms.contains("branch") ? ms.at("branch") : nil;
+  prepend_rule(casesmatch, [this](const auto &ms, value) {
+    const value exprs = ms.at("exprs");
+    const value patterns = ms.contains("patterns") ? ms.at("patterns") : nil;
+    const value branches = ms.contains("branch") ? ms.at("branch") : nil;
 
-  opi::stl::vector<match_table::table_row> rows;
-  for (auto [rowpatterns, branch] : utl::zip(range(patterns), range(branches)))
-  {
-    std::cerr << std::format("case {} -> {}", rowpatterns, branch) << std::endl;
-    match_table::table_row &newrow = rows.emplace_back();
-    std::ranges::copy(range(rowpatterns), std::back_inserter(newrow.row_patterns));
-    newrow.row_branch = transform_block(*this, branch);
-  }
-
-  // Create identifiers for all expressions
-  opi::stl::vector<value> expridents;
-  const auto issym = [](opi::value x) { return opi::issym(x); };
-  for (const value expr : range(exprs))
-  {
-    const value exprident = issym(expr) ? expr : m_gensym();
-    expridents.push_back(exprident);
-  }
-
-  match_table table {rows.begin(), rows.end()};
-  table.table_column_inputs = expridents;
-
-  table = simplify_table(table, m_gensym);
-  std::cerr << "match table:\n";
-  print_table(std::cout, table);
-
-  const value newcases = build_cases(table); // TODO
-  std::cout << "resulting cases:\n" << pprint_scm(newcases);
-  std::cout << std::endl;
-
-  // If all expressions are symbols, return the cases directly
-  // Otherwise, bind non-symbol expressions to temporary variables
-  if (std::ranges::all_of(range(exprs), issym))
-    return newcases;
-  else
-  {
-    // Create bindings for all non-symbol expressions
-    value bindings = nil;
-    for (const auto [expr, exprident] : utl::zip(range(exprs), expridents))
+    opi::stl::vector<match_table::table_row> rows;
+    for (auto [rowpatterns, branch] :
+         utl::zip(range(patterns), range(branches)))
     {
-      if (not issym(expr)) 
-        bindings = append(bindings, list(list(exprident, (*this)(expr))));
+      match_table::table_row &newrow = rows.emplace_back();
+      std::ranges::copy(range(rowpatterns), std::back_inserter(newrow.row_patterns));
+      newrow.row_branch = transform_block(*this, branch);
     }
-    return list("let", bindings, newcases);
-  }
+
+    // Create identifiers for all expressions
+    opi::stl::vector<value> expridents;
+    const auto issym = [](opi::value x) { return opi::issym(x); };
+    for (const value expr : range(exprs))
+    {
+      const value exprident = issym(expr) ? expr : m_gensym();
+      expridents.push_back(exprident);
+    }
+
+    match_table table {rows.begin(), rows.end()};
+    table.table_column_inputs = expridents;
+    table = simplify_table(table, m_gensym);
+
+    const value newcases = build_cases(table); // TODO
+    std::cout << "resulting cases:\n" << pprint_scm(newcases);
+    std::cout << std::endl;
+
+    // If all expressions are symbols, return the cases directly
+    // Otherwise, bind non-symbol expressions to temporary variables
+    if (std::ranges::all_of(range(exprs), issym))
+      return newcases;
+    else
+    {
+      // Create bindings for all non-symbol expressions
+      value bindings = nil;
+      for (const auto [expr, exprident] : utl::zip(range(exprs), expridents))
+      {
+        if (not issym(expr)) 
+          bindings = append(bindings, list(list(exprident, (*this)(expr))));
+      }
+      return list("let", bindings, newcases);
+    }
   });
 
   // function invocation
