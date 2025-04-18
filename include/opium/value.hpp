@@ -813,7 +813,7 @@ opi::value::operator == (opi::value other) const noexcept
 
 inline bool
 opi::value::operator == (const char *symbol) const
-{ return opi::str_view(*this) == symbol; }
+{ return issym(*this, symbol); }
 
 inline
 opi::value::operator std::pair<value, value>() const
