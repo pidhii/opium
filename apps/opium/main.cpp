@@ -182,7 +182,6 @@ main(int argc, char **argv)
   if (varmap.contains("input-file"))
   {
     const std::fs::path inputpath = varmap["input-file"].as<std::fs::path>();
-    info("\e[1mrunning Type Check on {}\e[0m", inputpath.c_str());
 
     std::ifstream inputfile {inputpath, std::ios::binary};
     assert(inputfile.is_open());
@@ -192,9 +191,10 @@ main(int argc, char **argv)
     {
       opi::execution_timer preprocessor_timer {"Preprocessor"};
       scheme_preprocessor pp;
-      const value ppcode = transform_block(pp, in);
+      const value ppcode = pp.transform_block(in);
       preprocessor_timer.stop();
 
+      info("\e[1mrunning Type Check on {}\e[0m", inputpath.c_str());
       opi::execution_timer analyzer_timer {"Type analyzer"};
       size_t cnt = 0;
       const auto [out, type_map] = translate_to_scheme(cnt, pl, ppcode);
