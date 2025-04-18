@@ -73,7 +73,11 @@ struct cons_list_iterator {
    */
   cons_list_iterator
   operator ++ (int) noexcept
-  { return cons_list_iterator {cdr(m_l)}; }
+  {
+    cons_list_iterator ret {m_l};
+    m_l = cdr<false>(m_l);
+    return ret;
+  }
 
   bool
   operator == (const cons_list_iterator &other) const noexcept
@@ -86,6 +90,7 @@ struct cons_list_iterator {
 };
 static_assert(std::input_iterator<cons_list_iterator>);
 static_assert(std::forward_iterator<cons_list_iterator>);
+static_assert(std::sentinel_for<cons_list_iterator, cons_list_iterator>);
 
 
 /**
