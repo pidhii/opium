@@ -45,6 +45,15 @@ struct scheme_emitter {
       *exproutput++ = result;
   }
 
+  value
+  transform_list(value l)
+  {
+    opi::stl::vector<value> result;
+    for (const value expr : range(l))
+      emit(expr, std::back_inserter(result));
+    return list(result);
+  }
+
   protected:
   value
   _find_code_type(value code) const;

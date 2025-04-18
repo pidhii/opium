@@ -52,8 +52,7 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
     const value patterns = ms.contains("patterns") ? ms.at("patterns") : nil;
     const value branches = ms.contains("branch") ? ms.at("branch") : nil;
 
-    const value newexprs =
-        list(range(exprs) | std::views::transform(std::ref(m_transformer)));
+    const value newexprs = transform_list(exprs);
 
     value condclauses = nil;
     for (const auto &[rowpatterns, branch] :
@@ -92,7 +91,7 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
                                                    : cons("and", conditions);
 
       // Build brnach body wirapping initial expression into let-values (if needed)
-      value newbranch = transform_block(m_transformer, branch);
+      value newbranch = transform_list(branch);
       if (valuesbindings != nil)
         newbranch = list(list("let-values", valuesbindings, dot, newbranch));
 
