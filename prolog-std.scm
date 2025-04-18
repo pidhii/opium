@@ -1,9 +1,4 @@
 ;;;;
-;; X = Y
-;;;;
-(predicate (= X X))
-
-;;;;
 ;; maplist/2 Goal L1 L2
 ;;
 ;; Apply Goal to pairs of elements from lists L1 and L2.
