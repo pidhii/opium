@@ -130,6 +130,8 @@ class prolog {
     using bad_code::bad_code;
   };
 
+  prolog();
+
   /**
    * Add a predicate to the evaluator
    * 

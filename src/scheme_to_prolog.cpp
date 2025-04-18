@@ -25,9 +25,28 @@
 #include "opium/logging.hpp"
 #include "opium/value.hpp"
 #include "opium/utilities/ranges.hpp"
+#include "opium/lisp_parser.hpp"
 
 
 using namespace std::placeholders;
+
+
+void
+opi::scheme_to_prolog::set_up_prolog(prolog &pl) const noexcept
+{
+  // Add a predicate for dynamic function specialization
+  lisp_parser parser;
+  const value signature = parser.parse(R"(
+    (result-of ((#dynamic-function-dispatch _ BindArgs BindResult Body) . Args) Result)
+  )");
+  const value rule = parser.parse(R"(
+    (and (= BindArgs Args)
+         (= BindResult Result)
+         (call Body))
+  )");
+  pl.add_predicate(signature, rule);
+}
+
 
 opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
                                         type_format_string format)

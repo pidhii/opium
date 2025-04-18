@@ -25,6 +25,28 @@
 ;(predicate (match-on (empty-list) (cons-list _)))
 
 
+(pragma prolog
+  (ensure-loaded "prolog-std.scm")
+  ;; builting arithmetics
+  (predicate (result-of (+ num num) num))
+  ;; builtin string functions
+  (predicate (result-of (string-append . Strs) str) (all str Strs))
+  ;; builtin functions for cons-lists
+  (predicate (result-of (list . Ts) (cons-list T)) (all T Ts))
+  (predicate (result-of (cons T (cons-list T)) (cons-list T)))
+  (predicate (result-of (empty-list) (cons-list _)))
+  (predicate (result-of (car (cons-list T)) T))
+  (predicate (result-of (cdr (cons-list T)) (cons-list T)))
+  ;; matching rules for cons-list
+  (predicate (match-on (cons T (cons-list T)) (cons-list T)))
+  (predicate (match-on (empty-list) (cons-list _)))
+  ;; values
+  (predicate (result-of (values . Values) Values))
+  ;; misc
+  (predicate (result-of (display _) void))
+  (predicate (result-of (newline) void)))
+
+
 (define (add-lists xs ys)
   (cases (xs ys)
     (((cons x xs) (cons y ys))
@@ -38,32 +60,32 @@
         (fold-left f z2 xs)))
     (((empty-list)) z)))
 
-;(define (test x)
-  ;(cases x
-    ;((foo (foo a b) c) d)
-    ;((foo (bar e f) g) h)
-    ;((bar (foo i j) k) l)
-    ;((bar (bar (foo m1 m2) n) o) p)
-    ;((bar (bar (bar q1 q2) r) s) t)))
-
+(define (join sep strings)
+  (cases (strings)
+    (((cons first rest))
+     (define (join s1 s2) (string-append s1 sep s2))
+     (fold-left join first rest))
+    ((_) "")))
 
 (define-overload (add x y) (+ x y))
 (define-overload (add s1 s2) (string-append s1 s2))
 
-(define result0 (add 1 2))
-(define result1 (add "one" "two"))
+(display (add 1 2)) (newline)
+(display (add "one" "two")) (newline)
 
-(define result2 (fold-left add 0 (list 1 2 3 4 5)))
-(define result3 (fold-left add "" (list "a" "b" "c" "d" "e")))
+(display (fold-left add 0 (list 1 2 3 4 5))) (newline)
+(display (fold-left add "" (list "a" "b" "c" "d" "e"))) (newline)
 
-(define result4
+(display
   (let ((fold-left-instance fold-left))
     (fold-left-instance add 0 (list 1 2 3 4 5))))
+(newline)
 
-(define result_add-lists
-  (add-lists (list 1 2 3) (list 4 5 6)))
+(display (add-lists (list 1 2 3) (list 4 5 6))) (newline)
 
-
-(define result_add3
+(display
   (let ((add3 (lambda (x y z) (add x (add y z)))))
     (add3 1 2 3)))
+(newline)
+
+(display (join ", " (list "one" "two" "three"))) (newline)

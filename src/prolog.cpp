@@ -22,6 +22,12 @@
 #include <regex.h>
 
 
+opi::prolog::prolog()
+{
+  // Define `=` as builtin
+  add_predicate(list("=", "X", "X"), True);
+}
+
 const opi::predicate&
 opi::prolog::add_predicate(const predicate &pred)
 { return m_db.emplace(pred.name(), pred)->second; }

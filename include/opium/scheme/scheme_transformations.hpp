@@ -31,6 +31,7 @@ namespace opi {
 
 // TODO: this guy transforms `define` and `define-overload` into `template`;
 //       it has to be done by a separate transformer
+// TODO: remane to `scheme_renamer`
 class scheme_unique_identifiers: public ext_scheme_code_transformer {
   public:
   scheme_unique_identifiers(symbol_generator &gensym);
@@ -112,15 +113,14 @@ class scheme_to_prolog: public code_transformer {
   scheme_to_prolog(size_t &counter, type_format_string format = "T:{}");
 
   void
+  set_up_prolog(prolog &pl) const noexcept;
+
+  void
   add_global(value ident, value type) noexcept
   { m_global_alist = cons(cons(ident, type), m_global_alist); }
 
   value
   transform_block(value block);
-
-  std::ranges::view auto
-  predicates() const
-  { return std::views::all(m_predicates); }
 
   bool
   find_code_type(value code, value &type) const noexcept;
@@ -157,7 +157,6 @@ class scheme_to_prolog: public code_transformer {
   value m_target;
   value m_alist;
   value m_global_alist;
-  stl::deque<predicate> m_predicates;
   symbol_generator m_lambda_gensym;
   stl::unordered_map<void *, value> m_type_map; /**< Associations between input
                                                      symbols and generated

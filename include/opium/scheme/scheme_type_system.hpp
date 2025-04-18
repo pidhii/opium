@@ -25,6 +25,7 @@
 #include "opium/prolog.hpp"
 #include "opium/pretty_print.hpp"
 #include "opium/utilities/execution_timer.hpp"
+#include "opium/lisp_parser.hpp"
 
 #include "opium/scheme/scheme_emitter_context.hpp"
 #include "opium/value.hpp"
@@ -78,6 +79,9 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode)
   scheme_to_prolog to_prolog {counter};
   prolog_cleaner pl_cleaner;
 
+  // Configure Prolog interpreter
+  to_prolog.set_up_prolog(pl);
+
   // TODO: find a better way
   execution_timer extract_timer {"type extraction from support predicates"};
   int warned = false;
@@ -103,15 +107,13 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode)
                             std::views::transform(std::ref(pl_cleaner)));
   prolog_generation_timer.stop();
 
-  // Collect predicates generated during translation
-  for (const predicate &pred : to_prolog.predicates())
-    pl.add_predicate(pred);
-
   debug("\e[1mType Check Prolog code:\e[0m\n```\n{}\n```", pprint_pl(plcode));
 
   // Translate the code to proper scheme
   opi::stl::vector<value> main_tape;
   scheme_emitter_context ctx {pl, to_prolog, main_tape};
+
+  // Bultins (FIXME)
   ctx.add_case_rule({
     match {list("cons"), list("cons", "_", "_")},
     match {list("cons-list"), list("cons-list", "_")},
@@ -124,13 +126,27 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode)
     "null?",
     "<cant-unpack-empty-list>"
   });
+
+  lisp_parser parser;
+  std::istringstream code {
+    R"(
+
+    (define (empty-list) '())
+
+    (define (unpack-pair p)
+      (values (car p) (cdr p)))
+
+    )"
+  };
+  const value builtins = parser.parse_all(code);
+
   execution_timer emit_timer {"Scheme emitter"};
   auto [main, type_map] = emit_scheme(ctx, plcode, ppcode);
   emit_timer.stop();
 
   const value globals = list(main_tape);
   const value resultcode = append(globals, main);
-  return {resultcode, type_map};
+  return {append(builtins, resultcode), type_map};
 }
 
 } // namespace opi
