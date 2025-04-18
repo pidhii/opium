@@ -23,6 +23,7 @@
 #include "opium/stl/unordered_set.hpp"
 #include "opium/utilities/state_saver.hpp"
 #include "opium/value.hpp"
+#include "opium/utilities/ranges.hpp"
 
 #include <ranges>
 #include <readline/readline.h>
@@ -35,6 +36,38 @@ inline opi::value
 opi::scheme_unique_identifiers::_T(value expr)
 { return (*this)(expr); }
 
+
+static opi::value
+_rename_pattern(opi::value pattern, opi::symbol_generator &gensym,
+                opi::value &alist)
+{
+  using namespace std::placeholders;
+
+  switch (pattern->t)
+  {
+    case opi::tag::pair: {
+      const opi::value constructor = car(pattern);
+      const opi::value arguments = cdr(pattern);
+      const auto t =
+          std::bind(_rename_pattern, _1, std::ref(gensym), std::ref(alist));
+      const opi::value newarguments =
+          list(range(arguments) | std::views::transform(t));
+      return cons(constructor, newarguments);
+    }
+
+    case opi::tag::sym: {
+      const opi::value newident = gensym();
+      alist = cons(cons(pattern, newident), alist);
+      copy_location(pattern, newident);
+      return newident;
+    }
+
+    default:
+      return pattern;
+  }
+}
+
+
 opi::scheme_unique_identifiers::scheme_unique_identifiers(
     symbol_generator &gensym)
 : T {std::bind(&scheme_unique_identifiers::_T, this, _1)},
@@ -43,6 +76,46 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
   m_overload_alist {nil}
 {
   flip_page();
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                 cases
+  const match casesmatch {
+      list("cases"), list("cases", "exprs", cons("patterns", "branch"), "...")};
+  append_rule(casesmatch, [this](const auto &ms) {
+    const value exprs = ms.at("exprs");
+    const value patterns = ms.contains("patterns") ? ms.at("patterns") : nil;
+    const value branches = ms.contains("branch") ? ms.at("branch") : nil;
+
+    // Transform all expressions
+    const value newexprs =
+        list(range(exprs) | std::views::transform(std::ref(*this)));
+
+    value newcases = nil;
+    for (const auto &[rowpatterns, branch] : 
+         utl::zip(range(patterns), range(branches)))
+    {
+      // Revert changes to a-list after finishing with this branch
+      utl::state_saver _ {m_alist};
+
+      // Process each pattern in the row
+      value newrowpatterns = nil;
+      for (const value pattern : range(rowpatterns))
+      {
+        // Rename identifiers in the pattern
+        const value newpattern = _rename_pattern(pattern, m_gensym, m_alist);
+        newrowpatterns = append(newrowpatterns, list(newpattern));
+      }
+
+      // Process branch
+      const value newbranch = transform_block(branch);
+      // Construct transformed case
+      const value newcase = cons(newrowpatterns, newbranch);
+      // Update resulting cases
+      newcases = append(newcases, list(newcase));
+    }
+
+    return list("cases", newexprs, dot, newcases);
+  });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                  define-overload (function-syntax)

@@ -21,7 +21,7 @@
 #include "opium/scheme/scheme_emitter_context.hpp"
 #include "opium/scheme/scheme_type_system.hpp"
 #include "opium/value.hpp"
-#include <asm-generic/errno.h>
+#include "opium/utilities/ranges.hpp"
 
 
 opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &query)
@@ -39,6 +39,30 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
   m_transformer.prepend_rule(
       {list("declare-template"), list("declare-template", "_")},
       [this](const auto &) { return m_dont_emit_symbol; });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                 cases
+  const match casesmatch {
+      list("cases"), list("cases", "exprs", cons("patterns", "branch"), "...")};
+  m_transformer.prepend_rule(casesmatch, [this](const auto &ms) {
+    const value exprs = ms.at("exprs");
+    const value patterns = ms.contains("patterns") ? ms.at("patterns") : nil;
+    const value branches = ms.contains("branch") ? ms.at("branch") : nil;
+
+    const value newexprs =
+        list(range(exprs) | std::views::transform(std::ref(m_transformer)));
+
+    value newcases = nil;
+    for (const auto &[rowpatterns, branch] :
+         utl::zip(range(patterns), range(branches)))
+    {
+      const value newbranch = transform_block(m_transformer, branch);
+      const value newcase = cons(rowpatterns, newbranch);
+      newcases = append(newcases, list(newcase));
+    }
+
+    return list("cases", newexprs, dot, newcases);
+  });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 template

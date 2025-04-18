@@ -52,7 +52,7 @@ struct scheme_emitter {
   private:
   const value m_dont_emit_symbol;
   const query_result &m_query_result;
-  scheme_code_transformer m_transformer;
+  ext_scheme_code_transformer m_transformer;
   scheme_emitter_context &m_ctx;
 }; // class opi::scheme_emitter
 

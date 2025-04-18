@@ -20,7 +20,7 @@
 #include "opium/pretty_print.hpp"
 #include "opium/code_transformer.hpp"
 #include "opium/value.hpp"
-
+#include "opium/utilities/ranges.hpp"
 
 
 opi::pretty_printer::pretty_printer(const code_transformer &formatter)
@@ -107,6 +107,26 @@ opi::scheme_formatter::scheme_formatter()
                     list("if", ms.at("cond"), ms.at("then"), ms.at("else"));
                 return pretty_printer::format_block(true, 4, expr);
               });
+
+  const match casesmatch {
+      list("cases"), list("cases", "exprs", cons("patterns", "branch"), "...")};
+  append_rule(casesmatch, [](const auto &ms, value fm) {
+    const value exprs = ms.at("exprs");
+    const value patterns = ms.contains("patterns") ? ms.at("patterns") : nil;
+    const value branches = ms.contains("branch") ? ms.at("branch") : nil;
+
+    value newcases = nil;
+    for (const auto &[rowpatterns, branch] :
+         utl::zip(range(patterns), range(branches)))
+    {
+      const value origcase = cons(rowpatterns, branch);
+      const value newcase = pretty_printer::format_block(false, 2, origcase);
+      newcases = append(newcases, list(newcase));
+    }
+
+    const value result = list("cases", exprs, dot, newcases);
+    return pretty_printer::format_block(true, 2, result);
+  });
 
   const auto defrule = [](const auto &ms, value fm) {
     const value ident = ms.at("ident");

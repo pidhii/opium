@@ -24,6 +24,7 @@
 #include "opium/utilities/state_saver.hpp"
 #include "opium/logging.hpp"
 #include "opium/value.hpp"
+#include "opium/utilities/ranges.hpp"
 
 
 using namespace std::placeholders;
@@ -36,6 +37,77 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   m_global_alist {nil},
   m_lambda_gensym {counter, "Lambda{}"}
 {
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                 cases
+  const match casesmatch {
+      list("cases"), list("cases", "exprs", cons("patterns", "branch"), "...")};
+  append_rule(casesmatch, [this, &counter](const auto &ms) {
+    const value exprs = ms.at("exprs");
+    const value patterns = ms.contains("patterns") ? ms.at("patterns") : nil;
+    const value branches = ms.contains("branch") ? ms.at("branch") : nil;
+
+    // Save original target
+    const value origtarget = m_target;
+
+    utl::state_saver _ {m_target};
+
+    // Translate all expressions
+    opi::stl::vector<value> exprproxies;
+    value plexprs = nil;
+    for (const value expr : range(exprs))
+    {
+      const value exprproxy = sym(std::format("CaseProxy_{}", counter++));
+      m_target = exprproxy;
+      const value plexpr = (*this)(expr);
+      plexprs = append(plexprs, list(plexpr));
+      exprproxies.push_back(exprproxy);
+    }
+
+    // Translate cases
+    value plcases = nil;
+    for (const auto &[rowpatterns, branch] :
+         utl::zip(range(patterns), range(branches)))
+    {
+      utl::state_saver _ {m_alist, m_target};
+
+      // Process each pattern in the row
+      value plmatches = nil;
+      for (const auto &[pattern, exprproxy] :
+           utl::zip(range(rowpatterns), exprproxies))
+      {
+        if (pattern->t == tag::pair)
+        { // Generate patter matching via match-on predicate
+          const value constructor = car(pattern);
+          const value arguments = cdr(pattern);
+          value plarguments = nil;
+          for (const value ident : range(arguments))
+          {
+            const value type = _generate_type_and_copy_location(ident);
+            m_alist = cons(cons(ident, type), m_alist);
+            plarguments = append(plarguments, list(type));
+          }
+          const value plpattern = cons(constructor, plarguments);
+          const value matchexpr = list("match-on", plpattern, exprproxy);
+          plmatches = append(plmatches, list(matchexpr));
+        }
+        else
+        { // Just an alias
+          m_alist = cons(cons(pattern, exprproxy), m_alist);
+        }
+      }
+
+      m_target = origtarget;
+      const value plbranch = transform_block(branch);
+
+      // Add all matches and the branch to plcases
+      plcases = append(plcases, plmatches);
+      plcases = append(plcases, list(plbranch));
+    }
+
+    // Combine all expressions and cases
+    return cons("and", append(plexprs, plcases));
+  });
+
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 if
   const match ifmatch {list("if"), list("if", "cond", "then", "else")};
@@ -457,7 +529,11 @@ opi::scheme_to_prolog::_link_code_to_type(value code, value type)
 
 std::string
 opi::scheme_to_prolog::_type_name_for(value ident) const
-{ return std::format(m_type_format, std::string(sym_name(ident))); }
+{ 
+  if (not issym(ident))
+    throw bad_code {std::format("Not a symbol: {}", ident), ident};
+  return std::format(m_type_format, std::string(sym_name(ident)));
+}
 
 
 opi::value

@@ -25,8 +25,14 @@
   (call Body))
 
 
-;(predicate (result-of (cons X Y) (cons X Y)))
+;(predicate (result-of (tuple . Ts) (tuple . Ts)))
+;(predicate (match-on (tuple . Ts) (tuple . Ts)))
+
 (predicate (result-of (cons T (cons-list T)) (cons-list T)))
+(predicate (result-of (empty-list) (cons-list _)))
+(predicate (match-on (cons T (cons-list T)) (cons-list T)))
+(predicate (match-on (empty-list) (cons-list _)))
+
 
 (predicate (result-of (car (cons-list T)) T))
 (predicate (result-of (cdr (cons-list T)) (cons-list T)))
