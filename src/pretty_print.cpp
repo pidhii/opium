@@ -158,42 +158,25 @@ opi::scheme_formatter::scheme_formatter()
   append_rule({list("template"), list("template", "ident", dot, "body")}, defrule);
 
   const value let_pat = list(list(list("ident", "expr"), "..."), "body", "...");
-  auto let_rule = [&](const std::string &let, const auto &ms) {
+  auto let_rule = [&](const auto &ms, value fm) {
     value idents = ms.contains("ident") ? ms.at("ident") : nil;
     value exprs = ms.contains("expr") ? ms.at("expr") : nil;
     const value body = ms.contains("body") ? ms.at("body") : nil;
     value binds = nil;
     for (; idents->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
       binds = append(binds, list(list(car(idents), car(exprs))));
+    const std::string_view let = sym_name(car(fm));
     binds = pretty_printer::format_block(false, 1 + let.length(), binds);
     const value letexpr = list(sym(let), binds, dot, body);
     return pretty_printer::format_block(true, 2, letexpr);
   };
-  append_rule(match {list("let"), cons("let", let_pat)},
-              std::bind(let_rule, "let", std::placeholders::_1));
-  append_rule(match {list("let*"), cons("let*", let_pat)},
-              std::bind(let_rule, "let*", std::placeholders::_1));
-  append_rule(match {list("letrec"), cons("letrec", let_pat)},
-              std::bind(let_rule, "letrec", std::placeholders::_1));
-  append_rule(match {list("let-values"), cons("let-values", let_pat)},
-              std::bind(let_rule, "let-values", std::placeholders::_1));
-  append_rule(match {list("let*-values"), cons("let*-values", let_pat)},
-              std::bind(let_rule, "let*-values", std::placeholders::_1));
+  append_rule(match {list("let"), cons("let", let_pat)}, let_rule);
+  append_rule(match {list("let*"), cons("let*", let_pat)}, let_rule);
+  append_rule(match {list("letrec"), cons("letrec", let_pat)}, let_rule);
+  append_rule(match {list("let-values"), cons("let-values", let_pat)}, let_rule);
+  append_rule(match {list("let*-values"), cons("let*-values", let_pat)}, let_rule);
               
   append_rule({nil, "x"}, [](const auto &ms) { return ms.at("x"); });
-}
-
-
-static void
-_flatten_clauses(std::string_view tag, opi::value expr, opi::value &result)
-{
-  if (expr->t == opi::tag::pair and issym(car(expr), tag))
-  {
-    for (const opi::value clause : range(cdr(expr)))
-      _flatten_clauses(tag, clause, result);
-  }
-  else
-    result = append(result, list(expr));
 }
 
 
