@@ -18,6 +18,8 @@
 
 
 #include "opium/scheme/scheme_code_transformer.hpp"
+#include "opium/utilities/ranges.hpp"
+#include "opium/logging.hpp"
 
 #include <functional>
 
@@ -214,4 +216,27 @@ opi::ext_scheme_code_transformer::ext_scheme_code_transformer()
     return list("define-overload", ident, dot, newbody);
   });
 
+  // TODO: fixme
+  const match casesmatch {
+      list("cases"), list("cases", "exprs", cons("patterns", "branch"), "...")};
+  prepend_rule(casesmatch, [this](const auto &ms) {
+    const value exprs = ms.at("exprs");
+    const value patterns = ms.contains("patterns") ? ms.at("patterns") : nil;
+    const value branches = ms.contains("branch") ? ms.at("branch") : nil;
+    warning("branches: {}", branches);
+    
+    const value newexprs = transform_block(*this, exprs);
+
+    value newcases = nil;
+    for (const auto &[rowpatterns, branch] :
+         utl::zip(range(patterns), range(branches)))
+    {
+      const value newbranch = transform_block(*this, branch);
+      const value newcase = cons(patterns, newbranch);
+      newcases = append(newcases, list(newcase));
+    }
+
+    warning("new cases: {}", newcases);
+    return list("cases", newexprs, dot, newcases);
+  });
 }
