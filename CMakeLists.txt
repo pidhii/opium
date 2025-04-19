@@ -56,6 +56,19 @@ add_library(opium_objects OBJECT ${src_files})
 target_include_directories(opium_objects PUBLIC ${CMAKE_SOURCE_DIR}/include ${READLINE_INCLUDE_DIRS})
 target_compile_options(opium_objects PUBLIC ${READLINE_CFLAGS_OTHER})
 
+# Shared library
+add_library (opium_so SHARED $<TARGET_OBJECTS:opium_objects>)
+target_link_libraries (opium_so PUBLIC -lgc ${Boost_LIBRARIES} ${READLINE_LIBRARIES})
+set_target_properties (opium_so PROPERTIES OUTPUT_NAME opium)
+
+# Static library
+add_library (opium_a STATIC $<TARGET_OBJECTS:opium_objects>)
+target_link_libraries (opium_a PUBLIC -lgc ${Boost_LIBRARIES} ${READLINE_LIBRARIES})
+set_target_properties (opium_a PROPERTIES OUTPUT_NAME opium)
+
+install (DIRECTORY ${CMAKE_SOURCE_DIR}/include/opium DESTINATION include)
+install (TARGETS opium_so opium_a DESTINATION lib)
+
 # Main executable
 file (GLOB opium_exec_src apps/opium/*.cpp)
 add_executable (opium ${opium_exec_src} $<TARGET_OBJECTS:opium_objects>)
@@ -76,6 +89,9 @@ install (TARGETS opium opium-pp DESTINATION bin)
 
 option (OPIUM_UNIT_TESTS "Enable unit tests for opium components" ON)
 if (OPIUM_UNIT_TESTS)
+  # Disable installtion of GTest
+  set (INSTALL_GTEST OFF)
+
   # Download and configure Google Test
   FetchContent_Declare(
     googletest
