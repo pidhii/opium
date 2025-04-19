@@ -25,11 +25,11 @@
 #include "opium/prolog.hpp"
 #include "opium/pretty_print.hpp"
 #include "opium/utilities/execution_timer.hpp"
-#include "opium/lisp_parser.hpp"
 
 #include "opium/scheme/scheme_emitter_context.hpp"
 #include "opium/value.hpp"
 
+#include <iterator>
 #include <ranges>
 
 
@@ -72,8 +72,23 @@ void
 pretty_template_instance_name(value type, std::ostream &os);
 
 
+template <std::output_iterator<value> Output>
+void
+_gather_all_symbols(value x, Output output) noexcept
+{
+  if (issym(x))
+    *output++ = x;
+  else if (x->t == tag::pair)
+  {
+    _gather_all_symbols(car(x), output);
+    _gather_all_symbols(cdr(x), output);
+  }
+}
+
+template <std::ranges::range Pragmas = std::initializer_list<value>>
 inline std::pair<value, scheme_type_location_map>
-translate_to_scheme(size_t &counter, prolog &pl, value ppcode)
+translate_to_scheme(size_t &counter, prolog &pl, value ppcode,
+                    Pragmas &&pragmas = {})
 {
   // Compose translator from Scheme to Prolog
   scheme_to_prolog to_prolog {counter};
@@ -113,32 +128,41 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode)
   opi::stl::vector<value> main_tape;
   scheme_emitter_context ctx {pl, to_prolog, main_tape};
 
-  // Bultins (FIXME)
-  ctx.add_case_rule({
-    match {list("cons"), list("cons", "_", "_")},
-    match {list("cons-list"), list("cons-list", "_")},
-    "pair?",
-    "unpack-pair"
-  });
-  ctx.add_case_rule({
-    match {list("empty-list"), list("empty-list")},
-    match {list("cons-list"), list("cons-list", "_")},
-    "null?",
-    "<cant-unpack-empty-list>"
-  });
+  // Process pragmas
+  const match matchcasesrule {list("cases-rule"),
+                         list("cases-rule", "ctor-pattern", "type-pattern",
+                              "predicate", "unpack")};
+  const match matchinline {list("inline"), cons("inline", "exprs")};
+  opi::stl::unordered_map<value, value> ms;
+  opi::stl::vector<value> inlines;
+  for (const value expr : pragmas)
+  {
+    if (ms.clear(), matchcasesrule(expr, ms))
+    {
+      const value ctorpattern = ms.at("ctor-pattern");
+      const value typepattern = ms.at("type-pattern");
+      const value predicate = ms.at("predicate");
+      const value unpack = ms.at("unpack");
 
-  lisp_parser parser;
-  std::istringstream code {
-    R"(
+      std::vector<value> ctorliterals, typeliterals;
+      _gather_all_symbols(ctorpattern, std::back_inserter(ctorliterals));
+      _gather_all_symbols(typepattern, std::back_inserter(typeliterals));
 
-    (define (empty-list) '())
-
-    (define (unpack-pair p)
-      (values (car p) (cdr p)))
-
-    )"
-  };
-  const value builtins = parser.parse_all(code);
+      ctx.add_case_rule({
+        match {list(ctorliterals), ctorpattern},
+        match {list(typeliterals), typepattern},
+        predicate,
+        unpack,
+      });
+    }
+    else if (ms.clear(), matchinline(expr, ms))
+    {
+      const value exprs = ms.at("exprs");
+      std::ranges::copy(range(exprs), std::back_inserter(inlines));
+    }
+    else
+      throw bad_code {std::format("Invalid pragma: {}", expr), expr};
+  }
 
   execution_timer emit_timer {"Scheme emitter"};
   auto [main, type_map] = emit_scheme(ctx, plcode, ppcode);
@@ -146,7 +170,7 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode)
 
   const value globals = list(main_tape);
   const value resultcode = append(globals, main);
-  return {append(builtins, resultcode), type_map};
+  return {append(list(inlines), resultcode), type_map};
 }
 
 } // namespace opi

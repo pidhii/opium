@@ -141,67 +141,34 @@ write_scheme_script(std::ostream &os, opi::value script)
 }
 
 
-using pragma_handler =
-    std::function<void(const opi::stl::unordered_map<opi::value, opi::value>&)>;
+using pragmas =
+    opi::stl::unordered_map<std::string, opi::stl::deque<opi::value>>;
 
-struct pragma {
-  opi::match match;
-  pragma_handler handler;
-};
-
-template <std::forward_iterator PragmaBegin, std::forward_iterator PragmaEnd>
 opi::value
-filter_pragmas(opi::value script, PragmaBegin begin, PragmaEnd end)
+filter_pragmas(opi::value script, pragmas &pragmas)
 {
   opi::stl::vector<opi::value> result;
   opi::stl::unordered_map<opi::value, opi::value> matches;
   for (const opi::value expr : range(script))
   {
     // Handle pragmas
-    bool ispragma = false;
-    for (auto pragmait = begin; pragmait != end; ++pragmait)
+    if (expr->t == opi::tag::pair and car(expr) == "pragma")
     {
-      matches.clear();
-      if (pragmait->match(expr, matches))
-      {
-        pragmait->handler(matches);
-        ispragma = true;
-        break;
-      }
-    }
-    if (ispragma)
-      continue;
+      if (length(cdr(expr)) < 2 or not issym(car(cdr(expr))))
+        throw opi::bad_code {"Invalid pragma", expr};
 
-    // Pass all other expressions
-    result.push_back(expr);
+      const std::string tag {sym_name(car(cdr(expr)))};
+      std::ranges::copy(range(cdr(cdr(expr))), std::back_inserter(pragmas[tag]));
+    }
+    else
+    {
+      // Pass all other expressions
+      result.push_back(expr);
+    }
   }
 
   return list(result);
 }
-
-struct pragma_reader {
-  opi::stl::deque<opi::value> prolog_expressions;
-
-  pragma_reader()
-  {
-    // Extra prolog expressions
-    m_pragmas.emplace_back(
-        opi::match {opi::list("pragma", "prolog"),
-                    list("pragma", "prolog", opi::dot, "exprs")},
-        [this](const auto &ms) {
-          const opi::value exprs = ms.at("exprs");
-          std::ranges::copy(range(exprs),
-                            std::back_inserter(prolog_expressions));
-        });
-  }
-
-  opi::value
-  operator () (opi::value script)
-  { return filter_pragmas(script, m_pragmas.begin(), m_pragmas.end()); }
-
-  private:
-  opi::stl::vector<pragma> m_pragmas;
-};
 
 
 int
@@ -281,13 +248,14 @@ main(int argc, char **argv)
     value in = parser.parse_all(inputfile, inputpath);
 
     // Collect and erase pragmas
-    pragma_reader pragmas;
-    opi::execution_timer pragma_timer {"pragma processor"};
-    in = pragmas(in);
-    // - run extra prolog expression
-    for (const value plexpr : pragmas.prolog_expressions)
-      pl << plexpr;
+    opi::execution_timer pragma_timer {"extraction of pragmas"};
+    pragmas pragmas;
+    in = filter_pragmas(in, pragmas);
     pragma_timer.stop();
+
+    // Run extra prolog expressions
+    for (const value plexpr : pragmas["prolog"])
+      pl << plexpr;
 
     try
     {
@@ -299,7 +267,8 @@ main(int argc, char **argv)
       info("\e[1mrunning Type Check on {}\e[0m", inputpath.c_str());
       opi::execution_timer analyzer_timer {"Type analyzer"};
       size_t cnt = 0;
-      const auto [out, type_map] = translate_to_scheme(cnt, pl, ppcode);
+      const auto [out, type_map] =
+          translate_to_scheme(cnt, pl, ppcode, pragmas["scheme-translator"]);
       analyzer_timer.stop();
 
       // Display the source file with type annotations

@@ -1,30 +1,8 @@
 
-;(define-record-type (pair T U)
-  ;(pair (:car T) (:cdr U))
-  ;pair?
-  ;(:car car set-car!)
-  ;(:cdr cdr set-cdr!))
-
-;(predicate (result-of (pair T U) (pair T U)))
-;(predicate (result-of (pair? (pair _ _)) boolean))
-;(predicate (result-of (car (pair T _)) T))
-;(predicate (result-of (set-car! (pair T _) T) nil))
-;(predicate (result-of (cdr (pair _ U)) U))
-;(predicate (result-of (set-cdr! (pair _ U) U) nil))
-
-
-
-
-;(define-variant-type (cons-list T)
-  ;(cons T (cons-list T))
-  ;(empty-list))
-
-;(predicate (result-of (cons T (cons-list T)) (cons-list T)))
-;(predicate (result-of (empty-list) (cons-list _)))
-;(predicate (match-on (cons T (cons-list T)) (cons-list T)))
-;(predicate (match-on (empty-list) (cons-list _)))
-
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; Scheme builtin functions
+;;
 (pragma prolog
   (ensure-loaded "prolog-std.scm")
   ;; builting arithmetics
@@ -33,18 +11,39 @@
   (predicate (result-of (string-append . Strs) str) (all str Strs))
   ;; builtin functions for cons-lists
   (predicate (result-of (list . Ts) (cons-list T)) (all T Ts))
-  (predicate (result-of (cons T (cons-list T)) (cons-list T)))
-  (predicate (result-of (empty-list) (cons-list _)))
   (predicate (result-of (car (cons-list T)) T))
   (predicate (result-of (cdr (cons-list T)) (cons-list T)))
-  ;; matching rules for cons-list
-  (predicate (match-on (cons T (cons-list T)) (cons-list T)))
-  (predicate (match-on (empty-list) (cons-list _)))
   ;; values
   (predicate (result-of (values . Values) Values))
   ;; misc
   (predicate (result-of (display _) void))
   (predicate (result-of (newline) void)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;
+;; type cons-list T = cons T (cons-list T)
+;;                  | empty-list
+;;
+;; Note: we will simply use native pairs (pair?) of Scheme for the cons-list.
+;;
+(pragma prolog
+  ;; constructor types
+  (predicate (result-of (cons T (cons-list T)) (cons-list T)))
+  (predicate (result-of (empty-list) (cons-list _)))
+  ;; rules for type-cases
+  (predicate (match-on (cons T (cons-list T)) (cons-list T)))
+  (predicate (match-on (empty-list) (cons-list _))))
+;;
+(pragma scheme-translator
+  ;; rules for translation of cases expressions with cons-list
+  (cases-rule (cons _ _) (cons-list _) pair? unpack-pair)
+  (cases-rule (empty-list) (cons-list _) null? <unused>) ;; nothing to unpack
+  ;; inline auxiliary functions to avoid type-check and name mangling
+  (inline
+    (define (unpack-pair p) (values (car p) (cdr p)))
+    (define (empty-list) '())))
+
 
 
 (define (add-lists xs ys)
@@ -89,3 +88,4 @@
 (newline)
 
 (display (join ", " (list "one" "two" "three"))) (newline)
+
