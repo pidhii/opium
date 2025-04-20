@@ -1,0 +1,380 @@
+%define parse.error verbose
+/* Just for the sake of safety. */
+/*%define parse.lac full*/
+/* LAR(1) has issues after adding module-syntax. */
+%define lr.type ielr
+/*%define parse.lac full*/
+
+%define api.value.type { opi::value }
+
+%locations
+
+%language "c"
+
+%{
+#include "opium/value.hpp"
+#include "opium/logging.hpp"
+#include "opium/pretty_print.hpp"
+#include "opium/stl/vector.hpp"
+#include "opium/lisp_parser.hpp"
+
+#include <fstream>
+#include <algorithm>
+#include <sstream>
+#include <cassert>
+
+
+static opi::value* g_result_ptr;
+
+#define YYMALLOC opi::allocate
+#define YYFREE GC_free
+/*#define YYSTACK_USE_ALLOCA 1*/
+
+
+extern int
+yylex();
+
+
+static void
+yyerror(const char *what)
+{
+  opi::error("parse error: {}", what);
+}
+
+
+static opi::value
+mangle_type_constructor(opi::value ctor)
+{
+  return opi::sym("oslctor:" + std::string(opi::sym_name(ctor)));
+}
+
+
+static opi::value
+generate_record_definition(opi::value name, opi::value ctorname,
+                           opi::value fields, opi::value predname)
+{
+  // Constructor signature
+  const opi::value mangledctor = mangle_type_constructor(ctorname);
+  const opi::value ctorsign = cons(mangledctor, fields);
+
+  // Getters
+  opi::value getters = opi::nil;
+  for (const opi::value field : opi::range(fields))
+  {
+    const std::string gettername = std::format("{}-{}", name, field);
+    getters = cons(list(field, opi::sym(gettername)), getters);
+  }
+
+  return list("define-record-type", name, ctorsign, predname, opi::dot, getters);
+}
+
+
+static opi::value
+generate_unpack_definition(opi::value recorddef, opi::value unpackname)
+{
+  const opi::value signature = car(cdr(cdr(recorddef)));
+  const opi::value fields = cdr(signature);
+  const opi::value getters = cdr(cdr(cdr(cdr(recorddef))));
+
+  opi::value args = opi::nil;
+  for (const opi::value field : opi::range(fields))
+  {
+    opi::value getter;
+    const bool ok = assoc(field, getters, getter);
+    assert(ok && "Failed to find required getter");
+    const opi::value getfield = list(car(getter), "x");
+    args = append(args, list(getfield));
+  }
+
+  return list("define", list(unpackname, "x"), cons("values", args));
+}
+
+
+template <std::output_iterator<opi::value> Output>
+static void
+generate_variant(opi::value typesign, opi::value ctorsign, Output output)
+{
+  // NOTE: Don't allow overloading constructors for now
+  //       (no particular reason, just a design decision; can change it later)
+  const opi::value type = car(typesign);
+  const opi::value ctorname = car(ctorsign);
+  const opi::value mangledctor = mangle_type_constructor(ctorname);
+  const opi::value mangledctorsign = cons(mangledctor, cdr(ctorsign));
+  const size_t arity = length(cdr(ctorsign));
+
+  const opi::value recordname = opi::sym(std::format("{}.{}", type, ctorname));
+  opi::value fields;
+  for (size_t i = 0; i < arity; ++i)
+  {
+    const std::string fieldname = std::format(":{}", i);
+    fields = append(fields, list(opi::sym(fieldname)));
+  }
+  const opi::value predname = opi::sym(std::format("{}?", recordname));
+  const opi::value unpackname = opi::sym(std::format("unpack-{}", recordname));
+
+  // Generate Scheme inlines and cases-rule
+  const opi::value recorddef =
+      generate_record_definition(recordname, ctorname, fields, predname);
+  const opi::value unpackdef = generate_unpack_definition(recorddef, unpackname);
+
+  *output++ = list("pragma", "scheme-translator",
+                    list("inline", opi::list("import", opi::list("srfi", ":9"))),
+                    list("inline", recorddef, unpackdef),
+                    list("cases-rule", mangledctorsign, typesign, predname, unpackname));
+
+  // Generate Prolog predicates
+  const opi::value ctorpred =
+      list("predicate", list("result-of", mangledctorsign, typesign));
+  const opi::value matchpred =
+      list("predicate", list("match-on", mangledctorsign, typesign));
+
+  *output++ = list("pragma", "prolog", ctorpred, matchpred);
+}
+
+
+template <std::output_iterator<opi::value> Output>
+static void
+generate_variant_type(opi::value typesign, opi::value variants, Output output)
+{
+  for (const opi::value ctorsign : range(variants))
+    generate_variant(typesign, ctorsign, output);
+}
+
+
+
+%}
+
+%code requires {
+  #include "opium/value.hpp"
+
+  using namespace opi;
+}
+
+
+// =============================================================================
+//                                Tokens
+%token IDENT
+%token CAPIDENT
+%token MATCH IN RIGHT_ARROW OTHERWIZE
+%token BEGIN_STRING STRING_CHUNK END_STRING
+%token INTEGER
+%token PRAGMA_
+%token TYPE
+
+%right '|'
+%nonassoc '='
+
+%right LET LETREC WHERE
+
+%nonassoc EQ NE
+%left LT LE GT GE
+%left '+' '-' '%'
+%left '*' '/'
+%left '.' ':'
+
+// =============================================================================
+//                              Structures
+%type Atom
+%type Expr
+%type ListOfExprs
+%type SeqOfExprs
+%type TopLvlExpr
+%type Match MatchClause MatchClauses
+%type AtomPattern ExprPattern ListOfExprPatterns
+%type String StringChunks
+%type Bind ListOfBinds
+%type Ctor
+%type TopLvlSeq TopLvlExpr
+%type TypeDef TypeSign CtorSign ListOfCtorSigns ListOfTypeParams
+
+%nonassoc AFTER_APPLY
+%left APPLY
+// -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --
+%start Entry
+
+
+%%
+
+Entry
+  : TopLvlSeq { *g_result_ptr = $1; }
+;
+
+Atom
+  : IDENT { $$ = $1; }
+  | INTEGER
+  | '(' Expr ')' { $$ = $2; }
+  | '{' SeqOfExprs '}' { $$ = cons("begin", $2); }
+  | '[' ']' { $$ = list(mangle_type_constructor("EmptyList")); }
+  | '+' { $$ = "+"; }
+  | '-' { $$ = "-"; }
+  | '*' { $$ = "*"; }
+  | '/' { $$ = "/"; }
+  | String
+;
+
+String
+  : BEGIN_STRING StringChunks END_STRING {
+    std::string result;
+    for (const value chunk : range($2))
+      std::ranges::copy(str_view(chunk), std::back_inserter(result));
+    $$ = str(result);
+  }
+;
+
+StringChunks
+  : { $$ = nil; }
+  | STRING_CHUNK StringChunks { $$ = cons($1, $2); }
+;
+
+Expr
+  : Atom
+  | Atom '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); }
+  | Ctor '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); }
+  | Ctor %prec AFTER_APPLY { $$ = list($1); }
+  | Expr '=' Expr { $$ = list("define-overload", $1, $3); }
+  | Expr ':' Expr { $$ = list(mangle_type_constructor("Cons"), $1, $3); }
+  | Expr '+' Expr { $$ = list("+", $1, $3); }
+  | Expr '-' Expr { $$ = list("-", $1, $3); }
+  | Expr '*' Expr { $$ = list("*", $1, $3); }
+  | Expr '/' Expr { $$ = list("/", $1, $3); }
+  | Expr '.' IDENT '(' ListOfExprs ')' { $$ = list($3, $1, dot, $5); }
+  | Match
+  | LET ListOfBinds IN Expr { $$ = list("let", $2, $4); }
+  | LETREC ListOfBinds IN Expr { $$ = list("letrec", $2, $4); }
+  | Expr WHERE ListOfBinds { $$ = list("letrec", $3, $1); }
+  | PRAGMA_ IDENT STRING_CHUNK {
+    lisp_parser parser;
+    std::istringstream buf {std::string(str_view($3))};
+    $$ = list("pragma", $2, dot, parser.parse_all(buf));
+  }
+;
+
+Match
+  : MATCH ListOfExprs IN MatchClauses {
+    // Fix otherwize-clause
+    value newclauses = nil;
+    const size_t ncols = length($2);
+    for (const value clause : range($4))
+    {
+      if (car(car(clause)) == "otherwize")
+      {
+        const auto makewild = []() { return sym("_"); };
+        opi::stl::vector<value> newpat;
+        std::ranges::generate_n(std::back_inserter(newpat), ncols, makewild);
+        const value newclause = cons(list(newpat), cdr(clause));
+        newclauses = append(newclauses, list(newclause));
+      }
+      else
+        newclauses = append(newclauses, list(clause));
+    }
+    $$ = list("cases", $2, dot, newclauses);
+  }
+;
+
+SeqOfExprs
+  : { $$ = nil; }
+  | Expr SeqOfExprs %prec AFTER_APPLY { $$ = cons($1, $2); }
+;
+
+TopLvlSeq
+  : { $$ = nil; }
+  | TopLvlExpr TopLvlSeq %prec AFTER_APPLY { $$ = append($1, $2); }
+;
+
+TopLvlExpr
+  : Expr { $$ = list($1); }
+  | TypeDef
+;
+
+TypeDef
+  : TYPE TypeSign '=' ListOfCtorSigns {
+    opi::stl::vector<value> tape;
+    generate_variant_type($2, $4, std::back_inserter(tape));
+    $$ = list(tape);
+  }
+;
+
+TypeSign: IDENT '(' ListOfTypeParams ')' { $$ = cons($1, $3); };
+
+ListOfCtorSigns
+  : CtorSign { $$ = list($1); }
+  | CtorSign '|' ListOfCtorSigns { $$ = cons($1, $3); }
+;
+
+CtorSign: CAPIDENT '(' ListOfTypeParams ')' { $$ = cons($1, $3); };
+
+ListOfTypeParams
+  : { $$ = nil; }
+  | CAPIDENT { $$ = list($1); }
+  | CAPIDENT ',' ListOfTypeParams { $$ = cons($1, $3); }
+;
+
+ListOfExprs
+  : { $$ = nil; }
+  | Expr { $$ = list($1); }
+  | Expr ',' ListOfExprs { $$ = cons($1, $3); }
+;
+
+MatchClauses
+  :  MatchClause { $$ = list($1); }
+  |  MatchClause MatchClauses { $$ = cons($1, $2); }
+;
+
+MatchClause
+  : '|' ListOfExprPatterns RIGHT_ARROW Expr { $$ = cons($2, list($4)); }
+;
+
+ListOfExprPatterns
+  : { $$ = nil; }
+  | ExprPattern { $$ = list($1); }
+  | ExprPattern ',' ListOfExprPatterns { $$ = cons($1, $3); }
+;
+
+ExprPattern
+  : AtomPattern
+  | ExprPattern ':' ExprPattern { $$ = list(mangle_type_constructor("Cons"), $1, $3); }
+;
+
+AtomPattern
+  : IDENT
+  | '(' ExprPattern ')' { $$ = $2; }
+  | Ctor '(' ListOfExprPatterns ')' { $$ = cons($1, $3); }
+  | OTHERWIZE { $$ = "otherwize"; }
+;
+
+
+ListOfBinds
+  : Bind { $$ = list($1); }
+  | Bind ',' ListOfBinds { $$ = cons($1, $3); }
+;
+
+Bind
+  : IDENT '=' Expr { $$ = list($1, $3); }
+  | IDENT '(' ListOfExprs ')' '=' Expr {
+    const value lambda = list("lambda", $3, $6);
+    $$ = list($1, lambda);
+  }
+;
+
+Ctor
+  : CAPIDENT { $$ = mangle_type_constructor($1); }
+;
+
+%%
+
+extern
+FILE* yyin;
+
+namespace opi::osl {
+
+opi::value
+parse(std::FILE *file)
+{
+  opi::value result;
+  g_result_ptr = &result;
+  yyin = file;
+  yyparse();
+  return *g_result_ptr;
+}
+
+} // namespace opi::osl

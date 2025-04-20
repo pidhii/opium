@@ -87,6 +87,24 @@ target_compile_options(opium-pp PUBLIC ${READLINE_CFLAGS_OTHER})
 
 install (TARGETS opium opium-pp DESTINATION bin)
 
+option (OPIUM_SCRIPT "Build opium scripting language" ON)
+if (OPIUM_SCRIPT)
+  find_package (BISON REQUIRED)
+  find_package (FLEX REQUIRED)
+
+  set (osl_prefix ${CMAKE_SOURCE_DIR}/osl)
+  BISON_TARGET (osl_parser ${osl_prefix}/syntax/parser.ypp ${CMAKE_BINARY_DIR}/osl_parser.cpp)
+  FLEX_TARGET (osl_scanner ${osl_prefix}/syntax/scanner.l ${CMAKE_BINARY_DIR}/osl_scanner.cpp)
+  ADD_FLEX_BISON_DEPENDENCY (osl_scanner osl_parser)
+
+  set (osl_syntax_src ${BISON_osl_parser_OUTPUTS} ${FLEX_osl_scanner_OUTPUTS})
+  add_executable (osl ${osl_prefix}/main.cpp ${osl_syntax_src})
+  target_compile_options (osl PRIVATE -Wno-error=unused-function)
+  target_include_directories(osl PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_link_libraries (osl opium_a)
+  install (TARGETS osl DESTINATION bin)
+endif (OPIUM_SCRIPT)
+
 option (OPIUM_UNIT_TESTS "Enable unit tests for opium components" ON)
 if (OPIUM_UNIT_TESTS)
   # Disable installtion of GTest
