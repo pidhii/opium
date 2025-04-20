@@ -390,8 +390,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   append_rule(beginmatch, [this](const auto &ms) {
     const value body = ms.at("body");
     // Special handling for blocks
-    const value newbody = transform_block(body);
-    return cons("begin", newbody);
+    return transform_block(body);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
