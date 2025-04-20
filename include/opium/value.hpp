@@ -74,6 +74,8 @@ class value {
    */
   explicit value(object *ptr): m_ptr {ptr} { assert(ptr != nullptr); }
 
+  value();
+
   value(const char *sym);
 
   /**
@@ -801,6 +803,11 @@ print(std::ostream &os, const opi::value &val);
 inline std::ostream&
 operator << (std::ostream &os, const opi::value &val)
 { opi::print(os, val); return os; }
+
+inline
+opi::value::value()
+: m_ptr {&*opi::nil}
+{ }
 
 inline
 opi::value::value(const char *sym)
