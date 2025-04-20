@@ -120,6 +120,36 @@ namespace fs = std::filesystem;
 }
 
 
+using pragmas =
+    opi::stl::unordered_map<std::string, opi::stl::deque<opi::value>>;
+
+opi::value
+filter_pragmas(opi::value script, pragmas &pragmas)
+{
+  opi::stl::vector<opi::value> result;
+  opi::stl::unordered_map<opi::value, opi::value> matches;
+  for (const opi::value expr : range(script))
+  {
+    // Handle pragmas
+    if (expr->t == opi::tag::pair and car(expr) == "pragma")
+    {
+      if (length(cdr(expr)) < 2 or not issym(car(cdr(expr))))
+        throw opi::bad_code {"Invalid pragma", expr};
+
+      const std::string tag {sym_name(car(cdr(expr)))};
+      std::ranges::copy(range(cdr(cdr(expr))), std::back_inserter(pragmas[tag]));
+    }
+    else
+    {
+      // Pass all other expressions
+      result.push_back(expr);
+    }
+  }
+
+  return list(result);
+}
+
+
 int
 main(int argc, char **argv)
 {
@@ -197,7 +227,11 @@ main(int argc, char **argv)
   {
     // Parse the input file
     info("Parsing input file '{}'", inputpath.c_str());
-    const value in = parser.parse_all(inputfile, inputpath);
+    value in = parser.parse_all(inputfile, inputpath);
+
+    info("Removing pragmas");
+    pragmas pragmas;
+    in = filter_pragmas(in, pragmas);
 
     // Run preprocessor
     info("Running preprocessor");

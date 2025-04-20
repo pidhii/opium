@@ -307,6 +307,9 @@ class predicate_runtime {
     // made to the `other`
   }
 
+  ~predicate_runtime()
+  { mark_dead(); }
+
   /**
    * Move assignment operator
    * 

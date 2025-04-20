@@ -43,6 +43,12 @@ opi::generate_function_template_body(scheme_emitter_context &ctx,
   const value resultbind = list("=", resultsymbol, resulttype);
   const value expr = list("and", parambind, resultbind, plbody);
 
+  debug("generating specialized body:\n"
+        "\tinstantiation = {}\n"
+        "\ttemplate      = {}\n"
+        "\tresult expr   = {}",
+      instantiation, type_template, pprint_pl(expr));
+
   // Emit body within a nested context
   code_tape localtape;
   scheme_emitter_context localctx {ctx, localtape};

@@ -261,8 +261,17 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
       }
       else if (issym(car(e), "call"))
       {
+        value goal = car(cdr(e));
+        if (prolog_impl::var(goal))
+        {
+          throw error {
+              std::format("Can't use unbound variable as a Goal\nin {}",
+                          pprint_pl(reconstruct(e, ignore_unbound_variables))),
+              e};
+        }
+
         // Reconstruct "Goal" as much as possible
-        const value goal = reconstruct(car(cdr(e)), ignore_unbound_variables);
+        goal = reconstruct(goal, ignore_unbound_variables);
         debug("call Goal: {}", goal);
 
         if (goal->t == tag::pair)
@@ -291,8 +300,17 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
           broke_through = true;
           cont();
         };
-        for (const predicate &p : predicate_branches(predname))
-          _make_predicate_true(ert, p, eargs, newcont, ntvhandler);
+
+        try {
+          for (const predicate &p : predicate_branches(predname))
+            _make_predicate_true(ert, p, eargs, newcont, ntvhandler);
+        }
+        catch (const error &exn)
+        {
+          throw error {std::format("{}\nin expression {}", exn.what(),
+                                   reconstruct(e, ignore_unbound_variables)),
+                       e};
+        }
 
         // Couldn't satisfy a predicate
         if (not broke_through)

@@ -49,17 +49,7 @@ opi::prolog_repl::operator << (opi::value expr)
         copy_location(expr, body);
         break;
     }
-    const predicate &pred = add_predicate(signature, body);
-    std::cout << std::format("{}{} :- ", pred.name(),
-                             opi::list(pred.arguments()));
-    if (length(pred.body()) > 1)
-    {
-      std::cout << "\n  ";
-      pprint_pl(std::cout, pred.body(), 2);
-    }
-    else
-      pprint_pl(std::cout, pred.body());
-    std::cout << "\n" << std::endl;
+    add_predicate(signature, body);
     return;
   }
 
@@ -67,7 +57,6 @@ opi::prolog_repl::operator << (opi::value expr)
   if (issym(car(expr), "query"))
   {
     _query(car(cdr(expr)));
-    std::cout << std::endl;
     return;
   }
 

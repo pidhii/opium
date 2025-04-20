@@ -168,8 +168,15 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
     {
       const auto &possibilities = it->second;
       if (possibilities.size() != 1)
+      {
+        std::ostringstream buf;
+        buf << std::format("Ambiguous type {} for {}:\n", type, x);
+        for (const value variant : possibilities)
+          buf << variant << "\n";
+        error("{}", buf.str());
         throw code_transformation_error {
-            std::format("Ambiguous type for {}: {}", x, list(possibilities)), x};
+            std::format("Ambiguous type for {}", x), x};
+      }
       type = *possibilities.begin();
     }
 

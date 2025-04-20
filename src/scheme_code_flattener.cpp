@@ -29,7 +29,6 @@
 #include <cstddef>
 #include <ranges>
 #include <stdexcept>
-#include <type_traits>
 
 
 static opi::value
@@ -64,17 +63,50 @@ pattern_arity(opi::value pattern) noexcept
 
 // TODO: optimize by removing copying by value
 struct match_table {
-  using branch = std::variant<match_table*, opi::value>;
+
+  struct branch {
+    enum class kind { sub_table, code } kind;
+
+    branch(): kind {kind::code}, m_sub_table {nullptr} { }
+
+    // ~branch() { if (kind == kind::sub_table) sub_table->~match_table(); }
+
+    const match_table&
+    table() const noexcept
+    {
+      assert(kind == kind::sub_table);
+      return *m_sub_table;
+    }
+
+    opi::value
+    code() const noexcept
+    {
+      assert(kind == kind::code);
+      return m_code;
+    }
+
+    void
+    set_table(match_table *table)
+    {
+      kind = kind::sub_table;
+      m_sub_table = table;
+    }
+
+    void
+    set_code(opi::value code) noexcept
+    {
+      kind = kind::code;
+      m_code = code;
+    }
+
+    private:
+    match_table *m_sub_table;
+    opi::value m_code;
+  };
 
   struct table_row {
     opi::stl::vector<opi::value> row_patterns;
     branch row_branch;
-
-    table_row(): row_branch {opi::nil} { };
-
-    table_row(const table_row &other);
-
-    ~table_row();
 
     opi::value&
     operator [] (size_t col) noexcept
@@ -112,35 +144,9 @@ struct match_table {
 };
 
 
-match_table::table_row::table_row(const table_row &other)
-: row_patterns {other.row_patterns}
-{
-  std::visit([this](auto &&x) {
-    using T = std::decay_t<decltype(x)>;
-    if constexpr (std::is_same_v<T, match_table*>)
-      row_branch = opi::make<match_table>(*x);
-    else
-      row_branch = x;
-  }, other.row_branch);
-}
-
-
-match_table::table_row::~table_row()
-{
-  if (match_table **table = std::get_if<match_table*>(&row_branch))
-    (*table)->~match_table();
-}
-
-
 static void
 print_table(std::ostream &os, const match_table &table, size_t indent = 0)
 {
-  // os << std::string(indent, ' ');
-  // os << "from";
-  // for (const opi::value in : table.table_column_inputs)
-  //   os << "\t" << in;
-  // os << "\n";
-
   for (size_t row = 0; row < table.rows(); ++row)
   {
     os << std::string(indent, ' ');
@@ -153,17 +159,18 @@ print_table(std::ostream &os, const match_table &table, size_t indent = 0)
       os << "\t" << std::format("{}={}", input, table[row][col]);
     }
 
-    std::visit([&](auto&& x) {
-      using T = std::decay_t<decltype(x)>;
-      if constexpr (std::is_same_v<T, match_table*>)
-      {
+    const match_table::branch &branch = table[row].row_branch;
+    switch (branch.kind)
+    {
+      case match_table::branch::kind::sub_table:
         os << "\t-> SUBTABLE:\n";
-        print_table(os, *x, indent+2);
-      }
-      else
-        os << "\t-> " << x << std::endl;
-    }, table[row].row_branch);
+        print_table(os, branch.table(), indent+2);
+        break;
 
+      case match_table::branch::kind::code:
+        os << "\t-> " << branch.code() << std::endl;
+        break;
+    }
   }
 }
 
@@ -329,7 +336,7 @@ squash_column(match_table &table, size_t col, opi::symbol_generator &gensym)
 
       match_table subtable = simplify_table({part.begin(), part.end()}, gensym);
       subtable.table_column_inputs = inputs;
-      squashedrow.row_branch = opi::make<match_table>(std::move(subtable));
+      squashedrow.row_branch.set_table(opi::make<match_table>(std::move(subtable)));
       newtable.emplace_back(squashedrow);
     }
   }
@@ -407,14 +414,17 @@ build_cases(const match_table &table)
     const opi::value patterns = list(table[row].row_patterns);
 
     opi::value branch = opi::nil;
-    std::visit([&](auto&& x) {
-      using T = std::decay_t<decltype(x)>;
-      if constexpr (std::is_same_v<T, match_table*>)
-        branch = list(build_cases(*x)); // branch must be a block-expression
-      else
-        branch = x;
-    }, table[row].row_branch);
+    const match_table::branch &br = table[row].row_branch;
+    switch (br.kind)
+    {
+      case match_table::branch::kind::sub_table:
+        branch = list(build_cases(br.table())); // branch must be a block-expression
+        break;
 
+      case match_table::branch::kind::code:
+        branch = br.code();
+        break;
+    }
 
     cases = append(cases, list(cons(patterns, branch)));
   }
@@ -439,7 +449,7 @@ opi::scheme_code_flattener::scheme_code_flattener(symbol_generator &gensym)
     {
       match_table::table_row &newrow = rows.emplace_back();
       std::ranges::copy(range(rowpatterns), std::back_inserter(newrow.row_patterns));
-      newrow.row_branch = transform_block(*this, branch);
+      newrow.row_branch.set_code(transform_block(*this, branch));
     }
 
     // Create identifiers for all expressions
@@ -456,8 +466,8 @@ opi::scheme_code_flattener::scheme_code_flattener(symbol_generator &gensym)
     table = simplify_table(table, m_gensym);
 
     const value newcases = build_cases(table); // TODO
-    std::cout << "resulting cases:\n" << pprint_scm(newcases);
-    std::cout << std::endl;
+    // std::cout << "resulting cases:\n" << pprint_scm(newcases);
+    // std::cout << std::endl;
 
     // If all expressions are symbols, return the cases directly
     // Otherwise, bind non-symbol expressions to temporary variables

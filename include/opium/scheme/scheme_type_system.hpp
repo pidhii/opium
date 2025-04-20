@@ -74,14 +74,14 @@ pretty_template_instance_name(value type, std::ostream &os);
 
 template <std::output_iterator<value> Output>
 void
-_gather_all_symbols(value x, Output output) noexcept
+_gather_literals(value x, Output output) noexcept
 {
-  if (issym(x))
+  if (issym(x) and x != "_" and std::islower(sym_name(x)[0]))
     *output++ = x;
   else if (x->t == tag::pair)
   {
-    _gather_all_symbols(car(x), output);
-    _gather_all_symbols(cdr(x), output);
+    _gather_literals(car(x), output);
+    _gather_literals(cdr(x), output);
   }
 }
 
@@ -118,8 +118,8 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode,
   extract_timer.stop();
 
   execution_timer prolog_generation_timer {"Prolog generation"};
-  const value plcode = list(range(to_prolog.transform_block(ppcode)) |
-                            std::views::transform(std::ref(pl_cleaner)));
+  const value plcode = list(range(to_prolog.transform_block(ppcode))
+                            | std::views::transform(std::ref(pl_cleaner)));
   prolog_generation_timer.stop();
 
   debug("\e[1mType Check Prolog code:\e[0m\n```\n{}\n```", pprint_pl(plcode));
@@ -145,8 +145,8 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode,
       const value unpack = ms.at("unpack");
 
       std::vector<value> ctorliterals, typeliterals;
-      _gather_all_symbols(ctorpattern, std::back_inserter(ctorliterals));
-      _gather_all_symbols(typepattern, std::back_inserter(typeliterals));
+      _gather_literals(ctorpattern, std::back_inserter(ctorliterals));
+      _gather_literals(typepattern, std::back_inserter(typeliterals));
 
       ctx.add_case_rule({
         match {list(ctorliterals), ctorpattern},

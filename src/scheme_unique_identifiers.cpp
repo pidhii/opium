@@ -449,11 +449,17 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
 
 
 opi::value
-opi::scheme_unique_identifiers::_copy_mapped_identifier(value identifier) const
+opi::scheme_unique_identifiers::_copy_mapped_identifier(value ident) const
 {
   value mappedidentifier = nil;
-  const bool ok = assoc(identifier, m_alist, mappedidentifier);
-  assert(ok && "Can't find identifier in a-list");
+  const bool ok = assoc(ident, m_alist, mappedidentifier);
+  if (not ok)
+  {
+    throw bad_code {std::format("Can't find ident {} in a-list."
+                                "Possibly missing forward-declaration.",
+                                ident),
+                    ident};
+  }
   return sym(sym_name(mappedidentifier));
 }
 

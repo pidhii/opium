@@ -49,7 +49,7 @@ opi::code_transformer::operator () (value inexpr) const
   match_mapping matches;
   for (const auto &[matcher, transformer] : m_pages | std::views::join)
   {
-    if (matcher(inexpr, matches))
+    if (matches.clear(), matcher(inexpr, matches))
     {
       const value result = transformer(matches, inexpr);
       copy_location(inexpr, result);
@@ -79,35 +79,36 @@ _flatten_clauses(std::string_view tag, opi::value expr, opi::value &result)
 
 opi::prolog_cleaner::prolog_cleaner()
 {
-  append_rule({list("and"), cons("and", "clauses")}, [this](const auto &ms) {
-    value clauses = ms.at("clauses");
+  // FIXME
+  // append_rule({list("and"), cons("and", "clauses")}, [this](const auto &ms) {
+  //   value clauses = ms.at("clauses");
 
-    // Flatten clauses w.r.t. nested AND statements
-    value newclauses = nil;
-    for (const value clause : range(clauses))
-      _flatten_clauses("and", clause, newclauses);
-    clauses = newclauses;
+  //   // Flatten clauses w.r.t. nested AND statements
+  //   value newclauses = nil;
+  //   for (const value clause : range(clauses))
+  //     _flatten_clauses("and", clause, newclauses);
+  //   clauses = newclauses;
 
-    if (length(clauses) == 1)
-      return (*this)(car(clauses));
-    else
-      return  cons("and", clauses);
-  });
+  //   if (length(clauses) == 1)
+  //     return (*this)(car(clauses));
+  //   else
+  //     return  cons("and", clauses);
+  // });
 
-  append_rule({list("or"), cons("or", "clauses")}, [this](const auto &ms) {
-    value clauses = ms.at("clauses");
+  // append_rule({list("or"), cons("or", "clauses")}, [this](const auto &ms) {
+  //   value clauses = ms.at("clauses");
 
-    // Flatten clauses w.r.t. nested OR statements
-    value newclauses = nil;
-    for (const value clause : range(clauses))
-      _flatten_clauses("OR", clause, newclauses);
-    clauses = newclauses;
+  //   // Flatten clauses w.r.t. nested OR statements
+  //   value newclauses = nil;
+  //   for (const value clause : range(clauses))
+  //     _flatten_clauses("OR", clause, newclauses);
+  //   clauses = newclauses;
 
-    if (length(clauses) == 1)
-      return (*this)(car(clauses));
-    else
-      return  cons("or", clauses);
-  });
+  //   if (length(clauses) == 1)
+  //     return (*this)(car(clauses));
+  //   else
+  //     return  cons("or", clauses);
+  // });
 
   append_rule({nil, "x"}, [](const auto &ms) { return ms.at("x"); });
 }
