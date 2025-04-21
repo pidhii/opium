@@ -1,15 +1,16 @@
+%require "3.2"
+%language "C++"
+
 %define parse.error verbose
 /* Just for the sake of safety. */
 /*%define parse.lac full*/
 /* LAR(1) has issues after adding module-syntax. */
 %define lr.type ielr
-/*%define parse.lac full*/
-
+/*%glr-parser*/
+%define parse.lac full
 %define api.value.type { opi::value }
 
 %locations
-
-%language "c"
 
 %{
 #include "opium/value.hpp"
@@ -24,29 +25,32 @@
 #include <sstream>
 #include <cassert>
 
+#include "location.hh"
+
 
 static opi::value* g_result_ptr;
 
 #define YYMALLOC opi::allocate
+#define YYREALLOC GC_realloc
 #define YYFREE GC_free
 /*#define YYSTACK_USE_ALLOCA 1*/
+/*#define union struct*/
 
 
 extern int
-yylex();
-
-
-static void
-yyerror(const char *what)
-{
-  opi::error("parse error: {}", what);
-}
+yylex(opi::value *yylval, yy::location *loc);
 
 
 static opi::value
 mangle_type_constructor(opi::value ctor)
 {
   return opi::sym("oslctor:" + std::string(opi::sym_name(ctor)));
+}
+
+static bool
+symbol_is_constructor(opi::value x)
+{
+  return opi::issym(x) and opi::sym_name(x).starts_with("oslctor:");
 }
 
 
@@ -247,7 +251,7 @@ generate_record_type(opi::value typesign, opi::value fields, Output output)
 //                                Tokens
 %token IDENT
 %token CAPIDENT
-%token MATCH IN RIGHT_ARROW OTHERWIZE
+%right MATCH IN RIGHT_ARROW OTHERWIZE
 %token BEGIN_STRING STRING_CHUNK END_STRING
 %token INTEGER
 %token PRAGMA_
@@ -266,8 +270,7 @@ generate_record_type(opi::value typesign, opi::value fields, Output output)
 
 // =============================================================================
 //                              Structures
-%type Atom
-%type Expr
+%type ApplExpr Expr
 %type ListOfExprs
 %type SeqOfExprs
 %type TopLvlExpr
@@ -291,19 +294,6 @@ Entry
   : TopLvlSeq { *g_result_ptr = $1; }
 ;
 
-Atom
-  : IDENT { $$ = $1; }
-  | INTEGER
-  | '(' Expr ')' { $$ = $2; }
-  | '{' SeqOfExprs '}' { $$ = cons("begin", $2); }
-  | '[' ']' { $$ = list(mangle_type_constructor("EmptyList")); }
-  | '+' { $$ = "+"; }
-  | '-' { $$ = "-"; }
-  | '*' { $$ = "*"; }
-  | '/' { $$ = "/"; }
-  | String
-;
-
 String
   : BEGIN_STRING StringChunks END_STRING {
     std::string result;
@@ -318,19 +308,31 @@ StringChunks
   | STRING_CHUNK StringChunks { $$ = cons($1, $2); }
 ;
 
+ApplExpr
+  : IDENT
+  | INTEGER
+  | String
+  | '{' SeqOfExprs '}' { $$ = cons("begin", $2); }
+  | '[' ']' { $$ = list(mangle_type_constructor("EmptyList")); }
+  | '+' { $$ = "+"; }
+  | '-' { $$ = "-"; }
+  | '*' { $$ = "*"; }
+  | '/' { $$ = "/"; }
+  | ApplExpr '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); }
+  | '(' Expr ')' %prec AFTER_APPLY { $$ = $2; }
+  | Expr '.' IDENT '(' ListOfExprs ')' { $$ = list($3, $1, dot, $5); }
+  | Expr '#' IDENT { $$ = list(overloaded_getter_name($3), $1); }
+;
+
 Expr
-  : Atom
-  | Atom '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); }
+  : ApplExpr
   | Ctor '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); }
-  | Ctor %prec AFTER_APPLY { $$ = list($1); }
   | Expr '=' Expr { $$ = list(issym($1) ? "define" : "define-overload", $1, $3); }
   | Expr ':' Expr { $$ = list(mangle_type_constructor("Cons"), $1, $3); }
   | Expr '+' Expr { $$ = list("+", $1, $3); }
   | Expr '-' Expr { $$ = list("-", $1, $3); }
   | Expr '*' Expr { $$ = list("*", $1, $3); }
   | Expr '/' Expr { $$ = list("/", $1, $3); }
-  | Expr '.' IDENT '(' ListOfExprs ')' { $$ = list($3, $1, dot, $5); }
-  | Expr '#' IDENT { $$ = list(overloaded_getter_name($3), $1); }
   | Match
   | LET ListOfBinds IN Expr { $$ = list("let", $2, $4); }
   | LETREC ListOfBinds IN Expr { $$ = list("letrec", $2, $4); }
@@ -482,8 +484,18 @@ parse(std::FILE *file)
   opi::value result;
   g_result_ptr = &result;
   yyin = file;
-  yyparse();
+  yy::parser parser;
+  parser.parse();
   return *g_result_ptr;
 }
 
 } // namespace opi::osl
+
+
+void
+yy::parser::error(const yy::location &, const std::string &what)
+{
+  opi::error("parse error: {}", what);
+}
+
+
