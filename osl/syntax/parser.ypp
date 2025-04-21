@@ -1,5 +1,5 @@
 %require "3.2"
-%language "C++"
+%language "C"
 
 %define parse.error verbose
 /* Just for the sake of safety. */
@@ -33,12 +33,18 @@ static opi::value* g_result_ptr;
 #define YYMALLOC opi::allocate
 #define YYREALLOC GC_realloc
 #define YYFREE GC_free
-/*#define YYSTACK_USE_ALLOCA 1*/
-/*#define union struct*/
+#define YYSTACK_USE_ALLOCA 1
 
 
 extern int
-yylex(opi::value *yylval, yy::location *loc);
+yylex();
+
+void
+yyerror(const char *what)
+{
+  opi::error("parse error: {}", what);
+}
+
 
 
 static opi::value
@@ -47,11 +53,20 @@ mangle_type_constructor(opi::value ctor)
   return opi::sym("oslctor:" + std::string(opi::sym_name(ctor)));
 }
 
-static bool
-symbol_is_constructor(opi::value x)
+
+static opi::value
+random_access_getter()
 {
-  return opi::issym(x) and opi::sym_name(x).starts_with("oslctor:");
+  return "osl:ref";
 }
+
+
+static opi::value
+random_access_setter()
+{
+  return "osl:set";
+}
+
 
 
 template <std::output_iterator<opi::value> Output>
@@ -256,9 +271,10 @@ generate_record_type(opi::value typesign, opi::value fields, Output output)
 %token INTEGER
 %token PRAGMA_
 %token TYPE
+%token SET
 
 %right '|'
-%nonassoc '='
+%left '='
 
 %right LET LETREC WHERE
 
@@ -320,13 +336,15 @@ ApplExpr
   | '/' { $$ = "/"; }
   | ApplExpr '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); }
   | '(' Expr ')' %prec AFTER_APPLY { $$ = $2; }
-  | Expr '.' IDENT '(' ListOfExprs ')' { $$ = list($3, $1, dot, $5); }
-  | Expr '#' IDENT { $$ = list(overloaded_getter_name($3), $1); }
+  | ApplExpr '.' IDENT '(' ListOfExprs ')' { $$ = list($3, $1, dot, $5); }
+  | ApplExpr '#' IDENT { $$ = list(overloaded_getter_name($3), $1); }
+  | ApplExpr '[' Expr ']' { $$ = list(random_access_getter(), $1, $3); }
 ;
 
 Expr
   : ApplExpr
   | Ctor '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); }
+  | SET ApplExpr '[' Expr ']' '=' Expr { $$ = list(random_access_setter(), $2, $4, $7); }
   | Expr '=' Expr { $$ = list(issym($1) ? "define" : "define-overload", $1, $3); }
   | Expr ':' Expr { $$ = list(mangle_type_constructor("Cons"), $1, $3); }
   | Expr '+' Expr { $$ = list("+", $1, $3); }
@@ -339,6 +357,7 @@ Expr
   | Expr WHERE ListOfBinds { $$ = list("letrec", $3, $1); }
   | PRAGMA_ IDENT STRING_CHUNK {
     lisp_parser parser;
+    assert(isstr($3));
     std::istringstream buf {std::string(str_view($3))};
     $$ = list("pragma", $2, dot, parser.parse_all(buf));
   }
@@ -484,18 +503,10 @@ parse(std::FILE *file)
   opi::value result;
   g_result_ptr = &result;
   yyin = file;
-  yy::parser parser;
-  parser.parse();
+  yyparse();
   return *g_result_ptr;
 }
 
 } // namespace opi::osl
-
-
-void
-yy::parser::error(const yy::location &, const std::string &what)
-{
-  opi::error("parse error: {}", what);
-}
 
 

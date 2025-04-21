@@ -6,9 +6,6 @@
 #include "opium/value.hpp"
 
 
-#define YY_DECL int yylex(opi::value *yylvalp, yy::location *)
-
-#define yylval (*yylvalp)
 
 %}
 
@@ -27,75 +24,76 @@
 [[:space:]]
 
 
-match return yy::parser::token::MATCH;
-in    return yy::parser::token::IN;
+match return MATCH;
+in    return IN;
 
-otherwize return yy::parser::token::OTHERWIZE;
+otherwize return OTHERWIZE;
 
-let return yy::parser::token::LET;
-letrec return yy::parser::token::LETREC;
-where return yy::parser::token::WHERE;
+let return LET;
+letrec return LETREC;
+where return WHERE;
 
-type return yy::parser::token::TYPE;
+set return SET;
+
+type return TYPE;
 
 \" {
   BEGIN(STRING);
-  return yy::parser::token::BEGIN_STRING;
+  return BEGIN_STRING;
 }
 <STRING>[^\\"]+ {
   yylval = str(yytext);
-  return yy::parser::token::STRING_CHUNK;
+  return STRING_CHUNK;
 }
 <STRING>\" {
   BEGIN(INITIAL);
-  return yy::parser::token::END_STRING;
+  return END_STRING;
 }
 
 
 #pragma {
   BEGIN(PRAGMA);
-  return yy::parser::token::PRAGMA_;
+  return PRAGMA_;
 }
 
 <PRAGMA>[[:space:]]
 
 <PRAGMA>[-_a-zA-Z0-9]+ {
   yylval = sym(yytext);
-  return yy::parser::token::IDENT;
+  return IDENT;
 }
 
 <PRAGMA>\{[^\}]*\} {
-  const std::string_view text {yytext};
-  const std::string_view innertext = text.substr(1, text.length()-2);
-  yylval = str(std::string(innertext));
+  const std::string text {yytext+1, (size_t)yyleng-2};
+  yylval = str(text);
   BEGIN(INITIAL);
-  return yy::parser::token::STRING_CHUNK;
+  return STRING_CHUNK;
 }
 
 [0-9_]+ {
   yylval = num(std::stoll(yytext));
-  return yy::parser::token::INTEGER;
+  return INTEGER;
 }
 
 [_a-z][_a-zA-Z0-9]* {
   yylval = opi::sym(yytext);
-  return yy::parser::token::IDENT;
+  return IDENT;
 }
 
 
 [A-Z][_a-zA-Z0-9]* {
   yylval = opi::sym(yytext);
-  return yy::parser::token::CAPIDENT;
+  return CAPIDENT;
 }
 
-"->" return yy::parser::token::RIGHT_ARROW;
+"->" return RIGHT_ARROW;
 
-"==" return yy::parser::token::EQ;
-"!=" return yy::parser::token::NE;
-"<"  return yy::parser::token::LT;
-"<=" return yy::parser::token::LE;
-">"  return yy::parser::token::GT;
-">=" return yy::parser::token::GE;
+"==" return EQ;
+"!=" return NE;
+"<"  return LT;
+"<=" return LE;
+">"  return GT;
+">=" return GE;
 "=" |
 "+" |
 "-" |
