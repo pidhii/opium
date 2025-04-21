@@ -1,10 +1,13 @@
-;;;;
-;;
-;; Define cons-list:
-;;
-;;   type cons_list(T) = Cons(T, cons_list(T))
-;;                     | EmptyList
-;;
+#pragma scheme-translator {
+  (inline (import (srfi :9) (srfi :11)))
+}
+////
+//
+// Define cons-list:
+//
+//   type cons_list(T) = Cons(T, cons_list(T))
+//                     | EmptyList
+//
 #pragma prolog {
   (ensure-loaded "prolog-std.scm")
 
@@ -22,7 +25,7 @@
   (predicate (result-of (cdr (cons-list T)) (cons-list T)))
 
 }
-;;
+//
 #pragma scheme-translator {
   ;; Rules for translation of cases expressions with cons-list
   (cases-rule (oslctor:Cons _ _) (cons-list _) pair? unpack-pair)
@@ -36,17 +39,17 @@
 }
 
 
-;;;;
-;;
-;; Redefine operator +
-;;
+////
+//
+// Redefine operator +
+//
 #pragma scheme-translator {
   ;; Rename Scheme builtin `+` and `string-append`
   (inline
     (define sum +)
     (define addStrs string-append))
 }
-;;
+//
 #pragma prolog {
   (ensure-loaded "prolog-std.scm")
 
@@ -54,7 +57,7 @@
   (predicate (result-of (addStrs . Strs) str) (all str Strs))
   (predicate (result-of (sum . Nums) num) (all num Nums))
 }
-;; Overload new `+` to work for both numbers and strings
+// Overload new `+` to work for both numbers and strings
 n1 + n2 = sum(n1, n2)
 s1 + s2 = addStrs(s1, s2)
 
@@ -74,10 +77,10 @@ foldLeft(xs, f, z) =
 
 
 
-;;;;
-;;
-;; Console output functions
-;;
+////
+//
+// Console output functions
+//
 #pragma prolog {
   (predicate (result-of (display _) void))
   (predicate (result-of (newline) void))
@@ -107,6 +110,7 @@ println(addLists(list(1, 2, 3), list(1, 2, 3)))
 println(add3(1, 2, 3))
   where add3(x, y, z) = x + y + z
 
+
 join(strs, sep) =
   match strs in
   | first : rest ->
@@ -114,10 +118,12 @@ join(strs, sep) =
         where join2(s1, s2) = addStrs(s1, sep, s2)
   | otherwize -> ""
 
+
 println(list("one", "two", "three").join(", "))
 
 
 
+// FIXME: atm you have to put parenthes even with zero type parameters
 type result(T, U) = Ok(T) | Error(U)
 
 
@@ -130,3 +136,17 @@ match something_very_complicated_and_error_prone() in
 | Ok(res) -> println("success:", res)
 | Error(err) -> println("error:", err)
   
+
+
+// FIXME: atm it is possible to put TypeSig in a list of template parameters
+type triplet(T, U, V) = {
+  first T,
+  second U,
+  third result(T, U)
+}
+
+t = triplet(1, "two", Ok(2))
+println("triplet:", t)
+println("first + 1:", t#first + 1)
+println("third:", t#third)
+
