@@ -17,6 +17,7 @@
 #include "opium/pretty_print.hpp"
 #include "opium/stl/vector.hpp"
 #include "opium/lisp_parser.hpp"
+#include "opium/utilities/ranges.hpp"
 
 #include <fstream>
 #include <algorithm>
@@ -49,23 +50,63 @@ mangle_type_constructor(opi::value ctor)
 }
 
 
-static opi::value
-generate_record_definition(opi::value name, opi::value ctorname,
-                           opi::value fields, opi::value predname)
+template <std::output_iterator<opi::value> Output>
+opi::value
+generate_record_definition(opi::value typesign, opi::value name, opi::value ctorname,
+                           opi::value fields, opi::value fieldtypes,
+                           opi::value predname, Output output)
 {
-  // Constructor signature
-  const opi::value mangledctor = mangle_type_constructor(ctorname);
-  const opi::value ctorsign = cons(mangledctor, fields);
-
-  // Getters
-  opi::value getters = opi::nil;
+  // Getters and setters
+  opi::value accessors = opi::nil;
   for (const opi::value field : opi::range(fields))
   {
-    const std::string gettername = std::format("{}-{}", name, field);
-    getters = cons(list(field, opi::sym(gettername)), getters);
+    const opi::value gettername = opi::sym(std::format("{}-{}", ctorname, field));
+    const opi::value settername = opi::sym(std::format("{}-set-{}!", ctorname, field));
+    accessors = append(accessors, list(list(field, gettername, settername)));
   }
 
-  return list("define-record-type", name, ctorsign, predname, opi::dot, getters);
+  // Write define-record-type expression
+  const opi::value recorddef = list("define-record-type", name,
+                                    cons(ctorname, fields), predname,
+                                    opi::dot, accessors);
+  *output++ = list("pragma", "scheme-translator", list("inline", recorddef));
+
+  opi::value predicates = opi::nil;
+
+  // Write type signature for constructor
+  const opi::value ctorsign = cons(ctorname, fieldtypes);
+  const opi::value ctorpred = list("predicate", list("result-of", ctorsign, typesign));
+  predicates = append(predicates, list(ctorpred));
+
+  // Write type signatures of acessors
+  if (fields != opi::nil)
+  {
+    for (const auto &[field, type] : opi::utl::zip(range(accessors), range(fieldtypes)))
+    {
+      const opi::value getter = car(cdr(field));
+      const opi::value setter = car(cdr(cdr(field)));
+      const opi::value getterpred =
+          list("predicate", list("result-of", list(getter, typesign), type));
+      const opi::value setterpred = 
+          list("predicate", list("result-of", list(setter, typesign, type), "void"));
+      predicates = append(predicates, list(getterpred, setterpred));
+    }
+  }
+
+  *output++ = list("pragma", "prolog", opi::dot, predicates);
+
+  return recorddef;
+}
+
+
+static std::pair<opi::value, opi::value>
+field_accessors(opi::value recorddef, opi::value field)
+{
+  const opi::value accessors = cdr(cdr(cdr(cdr(recorddef))));
+  opi::value fieldaccessors;
+  if (not assoc(field, accessors, fieldaccessors))
+    throw std::runtime_error {std::format("No accessors for field {}", field)};
+  return {car(fieldaccessors), car(cdr(fieldaccessors))};
 }
 
 
@@ -74,19 +115,26 @@ generate_unpack_definition(opi::value recorddef, opi::value unpackname)
 {
   const opi::value signature = car(cdr(cdr(recorddef)));
   const opi::value fields = cdr(signature);
-  const opi::value getters = cdr(cdr(cdr(cdr(recorddef))));
 
   opi::value args = opi::nil;
   for (const opi::value field : opi::range(fields))
   {
-    opi::value getter;
-    const bool ok = assoc(field, getters, getter);
-    assert(ok && "Failed to find required getter");
-    const opi::value getfield = list(car(getter), "x");
+    const opi::value getter = field_accessors(recorddef, field).first;
+    const opi::value getfield = list(getter, "x");
     args = append(args, list(getfield));
   }
 
   return list("define", list(unpackname, "x"), cons("values", args));
+}
+
+
+template <std::output_iterator<opi::value> Output>
+void
+generate_overloaded_getter(opi::value recorddef, opi::value field,
+                           opi::value name, Output output)
+{
+  const opi::value getter = field_accessors(recorddef, field).first;
+  *output++ = list("define-overload", list(name, "x"), list(getter, "x"));
 }
 
 
@@ -103,7 +151,7 @@ generate_variant(opi::value typesign, opi::value ctorsign, Output output)
   const size_t arity = length(cdr(ctorsign));
 
   const opi::value recordname = opi::sym(std::format("{}.{}", type, ctorname));
-  opi::value fields;
+  opi::value fields = opi::nil;
   for (size_t i = 0; i < arity; ++i)
   {
     const std::string fieldname = std::format(":{}", i);
@@ -113,22 +161,21 @@ generate_variant(opi::value typesign, opi::value ctorsign, Output output)
   const opi::value unpackname = opi::sym(std::format("unpack-{}", recordname));
 
   // Generate Scheme inlines and cases-rule
-  const opi::value recorddef =
-      generate_record_definition(recordname, ctorname, fields, predname);
+  const opi::value recorddef = generate_record_definition(typesign, recordname,
+                                                          mangledctor, fields,
+                                                          cdr(ctorsign),
+                                                          predname, output);
   const opi::value unpackdef = generate_unpack_definition(recorddef, unpackname);
 
   *output++ = list("pragma", "scheme-translator",
-                    list("inline", opi::list("import", opi::list("srfi", ":9"))),
-                    list("inline", recorddef, unpackdef),
+                    list("inline", unpackdef),
                     list("cases-rule", mangledctorsign, typesign, predname, unpackname));
 
   // Generate Prolog predicates
-  const opi::value ctorpred =
-      list("predicate", list("result-of", mangledctorsign, typesign));
   const opi::value matchpred =
       list("predicate", list("match-on", mangledctorsign, typesign));
 
-  *output++ = list("pragma", "prolog", ctorpred, matchpred);
+  *output++ = list("pragma", "prolog", matchpred);
 }
 
 
@@ -141,6 +188,51 @@ generate_variant_type(opi::value typesign, opi::value variants, Output output)
 }
 
 
+static opi::value
+overloaded_getter_name(opi::value fieldname)
+{
+  return opi::sym(std::format("osl:#{}", fieldname));
+}
+
+static opi::value
+overloaded_setter_name(opi::value fieldname)
+{
+  return opi::sym(std::format("osl:#set-{}!", fieldname));
+}
+
+template <std::output_iterator<opi::value> Output>
+static void
+generate_record_type(opi::value typesign, opi::value fields, Output output)
+{
+  const opi::value recordname = car(typesign);
+  // const opi::value ctorname = recordname;
+
+  opi::value fieldnames = opi::nil;
+  opi::value fieldtypes = opi::nil;
+  for (const opi::value field : range(fields))
+  {
+    fieldnames = append(fieldnames, list(car(field)));
+    fieldtypes = append(fieldtypes, list(car(cdr(field))));
+  }
+
+  const opi::value mangledname = opi::sym(std::format("osl:{}", recordname));
+  const opi::value predname = opi::sym(std::format("{}?", mangledname));
+  const opi::value recorddef =
+      generate_record_definition(typesign, opi::sym(std::format("<{}>", mangledname)),
+                                 mangledname, fieldnames, fieldtypes, predname,
+                                 output);
+  *output++ = list("define-overload", cons(recordname, fieldnames),
+                   cons(mangledname, fieldnames));
+
+  for (const opi::value fieldname : range(fieldnames))
+  {
+    const auto [getter, setter] = field_accessors(recorddef, fieldname);
+    const opi::value ovgetter = overloaded_getter_name(fieldname);
+    const opi::value ovsetter = overloaded_setter_name(fieldname);
+    *output++ = list("define-overload", list(ovgetter, "x"), list(getter, "x"));
+    *output++ = list("define-overload", list(ovsetter, "x", "v"), list(setter, "x", "v"));
+  }
+}
 
 %}
 
@@ -170,7 +262,7 @@ generate_variant_type(opi::value typesign, opi::value variants, Output output)
 %left LT LE GT GE
 %left '+' '-' '%'
 %left '*' '/'
-%left '.' ':'
+%left '.' ':' '#'
 
 // =============================================================================
 //                              Structures
@@ -185,7 +277,7 @@ generate_variant_type(opi::value typesign, opi::value variants, Output output)
 %type Bind ListOfBinds
 %type Ctor
 %type TopLvlSeq TopLvlExpr
-%type TypeDef TypeSign CtorSign ListOfCtorSigns ListOfTypeParams
+%type TypeDef TypeSign CtorSign ListOfCtorSigns TypeParam ListOfTypeParams ListOfFields
 
 %nonassoc AFTER_APPLY
 %left APPLY
@@ -231,13 +323,14 @@ Expr
   | Atom '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); }
   | Ctor '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); }
   | Ctor %prec AFTER_APPLY { $$ = list($1); }
-  | Expr '=' Expr { $$ = list("define-overload", $1, $3); }
+  | Expr '=' Expr { $$ = list(issym($1) ? "define" : "define-overload", $1, $3); }
   | Expr ':' Expr { $$ = list(mangle_type_constructor("Cons"), $1, $3); }
   | Expr '+' Expr { $$ = list("+", $1, $3); }
   | Expr '-' Expr { $$ = list("-", $1, $3); }
   | Expr '*' Expr { $$ = list("*", $1, $3); }
   | Expr '/' Expr { $$ = list("/", $1, $3); }
   | Expr '.' IDENT '(' ListOfExprs ')' { $$ = list($3, $1, dot, $5); }
+  | Expr '#' IDENT { $$ = list(overloaded_getter_name($3), $1); }
   | Match
   | LET ListOfBinds IN Expr { $$ = list("let", $2, $4); }
   | LETREC ListOfBinds IN Expr { $$ = list("letrec", $2, $4); }
@@ -292,9 +385,17 @@ TypeDef
     generate_variant_type($2, $4, std::back_inserter(tape));
     $$ = list(tape);
   }
+  | TYPE TypeSign '=' '{' ListOfFields '}' {
+    opi::stl::vector<value> tape;
+    generate_record_type($2, $5, std::back_inserter(tape));
+    $$ = list(tape);
+  }
 ;
 
-TypeSign: IDENT '(' ListOfTypeParams ')' { $$ = cons($1, $3); };
+TypeSign
+  : IDENT %prec AFTER_APPLY
+  | IDENT '(' ListOfTypeParams ')' %prec APPLY { $$ = cons($1, $3); }
+;
 
 ListOfCtorSigns
   : CtorSign { $$ = list($1); }
@@ -305,8 +406,16 @@ CtorSign: CAPIDENT '(' ListOfTypeParams ')' { $$ = cons($1, $3); };
 
 ListOfTypeParams
   : { $$ = nil; }
-  | CAPIDENT { $$ = list($1); }
-  | CAPIDENT ',' ListOfTypeParams { $$ = cons($1, $3); }
+  | TypeParam { $$ = list($1); }
+  | TypeParam ',' ListOfTypeParams { $$ = cons($1, $3); }
+;
+
+TypeParam: CAPIDENT | TypeSign;
+
+ListOfFields
+  : { $$ = nil; }
+  | IDENT TypeParam { $$ = list(list($1, $2)); }
+  | IDENT TypeParam ',' ListOfFields { $$ = cons(list($1, $2), $4); }
 ;
 
 ListOfExprs

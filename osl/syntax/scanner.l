@@ -106,6 +106,7 @@ type return TYPE;
 ":" |
 "["|"]" |
 "{"|"}" |
+"#" |
 "("|")" {
   return yytext[0];
 }
