@@ -420,7 +420,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                quote
   append_rule({list("quote"), list("quote", dot, "x")}, [this](const auto &ms) {
-    std::vector<value> code;
+    opi::stl::vector<value> code;
 
     const value resexpr =
         list("=", m_target,
@@ -440,7 +440,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value f = ms.at("f");
     const value xs = ms.at("xs");
 
-    std::vector<value> code;
+    opi::stl::vector<value> code;
     const auto totype = [&](value atom) {
       return _to_type(atom, true, std::back_inserter(code));
     };
@@ -459,7 +459,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   append_rule({nil, "x"}, [this](const auto &ms) {
     const value x = ms.at("x");
 
-    std::vector<value> code;
+    opi::stl::vector<value> code;
     const value expr = list("=", m_target, _to_type(x, true, std::back_inserter(code)));
     code.push_back(expr);
 
@@ -578,7 +578,8 @@ opi::value
 opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out)
 {
   // Check for mapped types in the a-list
-  std::vector<value> variants;
+  struct resolve_result { value type; value code; };
+  opi::stl::vector<resolve_result> variants;
   size_t nlevelsabove = 0;
   for (const value x : range(m_alist))
   {
@@ -595,6 +596,7 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out)
       continue;
 
     value type = cdr(x);
+    value code = nil;
 
     // Instantiate template
     if (type->t == tag::pair and issym(car(type), "#template"))
@@ -602,21 +604,27 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out)
       const value functemplate = _unquote_times(cdr(type), nlevelsabove);
       static size_t counter = 0; // FIXME
       const value proxy = sym(std::format("Instance_{}", counter++));
-      copy_location(ident, proxy);
-      *out++ = list("insert-cells", functemplate, proxy);
+      // Fail this (branch of) query if template was not declared yet
+      // (otherwize, `call` would get a variable as a Goal and throw)
+      code = list(
+        list("if", list("nonvar", functemplate),
+                   list("insert-cells", functemplate, proxy),
+                   False)
+      );
       type = proxy;
+      copy_location(ident, proxy);
     }
     else
       type = _unquote_times(cdr(x), nlevelsabove);
 
-    variants.push_back(type);
+    variants.push_back({type, code});
   }
 
   // Also check in globals
   for (const value x : range(m_global_alist))
   {
     if (car(x) == ident)
-      variants.push_back(cdr(x));
+      variants.push_back({cdr(x), nil});
   }
 
   switch (variants.size())
@@ -625,8 +633,9 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out)
       throw bad_code {std::format("No such symbol, {}", ident), ident};
 
     case 1:
-      _link_code_to_type(ident, variants[0]);
-      return variants[0];
+      _link_code_to_type(ident, variants[0].type);
+      std::ranges::copy(range(variants[0].code), out);
+      return variants[0].type;
 
     default: {
       // Crate or-expression running over the variants
@@ -636,8 +645,17 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out)
       copy_location(ident, tmpvar);
 
       value clauses = nil;
-      for (const value variant : variants)
-        clauses = cons(list("=", tmpvar, variant), clauses);
+      for (const resolve_result &variant : variants)
+      {
+        const value bind = list("=", tmpvar, variant.type);
+        const value clause =
+            variant.code == nil ? bind
+                                : cons("and", append(variant.code, list(bind)));
+        clauses = cons(clause, clauses);
+      }
+      // warning("or clauses:");
+      // for (const value expr : range(clauses))
+      //   warning("{}", pprint_pl(expr));
       *out++ = cons("or", clauses);
 
       // Return temporary bound in the or expression
