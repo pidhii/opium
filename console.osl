@@ -1,0 +1,19 @@
+////
+//
+// Console output functions
+//
+#pragma prolog {
+  (predicate (result-of (display _) void))
+  (predicate (result-of (newline) void))
+  (predicate (result-of (println . _) void))
+}
+#pragma scheme-translator {
+  (inline
+    (define (println x . rest)
+      (display x)
+      (if (null? rest)
+          (newline)
+          (begin
+            (display " ")
+            (apply println rest)))))
+}

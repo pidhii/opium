@@ -1,0 +1,4 @@
+
+#pragma prolog {
+  (predicate (result-of (error str . Args) _))
+}

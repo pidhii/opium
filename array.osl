@@ -1,0 +1,58 @@
+////
+//
+// Fixed size array data type based on SRFI-43 Scheme Vector
+// see: https://www.gnu.org/software/guile/manual/html_node/SRFI_002d43.html
+//
+#pragma scheme-translator {
+  (inline
+    (import (srfi :43))
+
+    ;; Constructors
+    (define array vector)
+    (define makeArray make-vector)
+    (define makeUninitializedArray make-vector)
+    (define copyArray vector-copy)
+    (define appendArrays vector-append)
+
+    (define listToArray list->vector)
+    (define arrayToList vector->list)
+
+    ;; Selectors
+    (define arrayLength vector-length)
+    (define arrayRef vector-ref)
+
+    ;; Mutators
+    (define arraySet vector-set!)
+    (define fillArray vector-fill!))
+}
+//
+#pragma prolog {
+  (ensure-loaded "prolog-std.scm")
+
+  ;; Constructors
+  (predicate (result-of (array . Ts) (array T)) (all T Ts))
+  (predicate (result-of (makeArray num T) (array T)))
+  (predicate (result-of (makeUninitializedArray num) (array T)))
+  (predicate (result-of (copyArray (array T) . Args) (array T))
+    (or (= Args ())
+        (= Args (num))
+        (= Args (num num))
+        (= Args (num num T))))
+  (predicate (result-of (appendArrays . Arrays) (array T)) (all (array T) Arrays))
+
+  (predicate (result-of (listToArray (list T)) (array T)))
+  (predicate (result-of (arrayToList (array T)) (list T)))
+
+  ;; Selectors
+  (predicate (result-of (arrayLength (array _)) num))
+  (predicate (result-of (arrayRef (array T) num) T))
+
+  ;; Mutators
+  (predicate (result-of (arraySet (array T) num T) void))
+  (predicate (result-of (fillArray (array T) T . Args) void)
+    (or (= Args ())
+        (= Args (num))
+        (= Argrs (num num))))
+}
+//
+length(arr) = arrayLength(arr)

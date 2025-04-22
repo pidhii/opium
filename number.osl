@@ -1,0 +1,50 @@
+////
+//
+// Builtin operations with numbers
+//
+#pragma prolog {
+  (ensure-loaded "prolog-std.scm")
+
+  ;; Builtin arithmetic operations on numbers
+  (predicate (result-of (sum num . Nums) num) (all num Nums))
+  (predicate (result-of (difference num num . Nums) num) (all num Nums))
+  (predicate (result-of (product num . Nums) num) (all num Nums))
+  (predicate (result-of (divide num num . Nums) num) (all num Nums))
+
+  ;; Builtin comparison predicates for numbers
+  (predicate (result-of (numEqual . Nums) bool) (all num Nums))
+  (predicate (result-of (numNotEqual . Nums) bool) (all num Nums))
+  (predicate (result-of (numLessThen . Nums) bool) (all num Nums))
+  (predicate (result-of (numGreaterThen . Nums) bool) (all num Nums))
+  (predicate (result-of (numLessEqual . Nums) bool) (all num Nums))
+  (predicate (result-of (numGreaterEqual . Nums) bool) (all num Nums))
+}
+//
+#pragma scheme-translator {
+  (inline
+    ;; Builtin arithmetic operations on numbers
+    (define sum +)
+    (define difference -)
+    (define product *)
+    (define divide /)
+
+    ;; Builtin comparison predicates for numbers
+    (define numEqual =)
+    (define (numNotEqual . xs) (not (apply = xs)))
+    (define numLessThen <)
+    (define numGreaterThen >)
+    (define numLessEqual <=)
+    (define numGreaterEqual >=))
+}
+// Arithmetic operations
+x + y = sum(x, y)
+x - y = difference(x, y)
+x * y = product(x, y)
+x / y = divide(x, y)
+// Number comparison
+x == y = numEqual(x, y)
+x != y = numNotEqual(x, y)
+x < y = numLessThen(x, y)
+x <= y = numLessEqual(x, y)
+x > y = numGreaterThen(x, y)
+x >= y = numGreaterEqual(x, y)

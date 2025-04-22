@@ -1,65 +1,8 @@
-#pragma scheme-translator {
-  (inline (import (srfi :9) (srfi :11)))
-}
-////
-//
-// Define cons-list:
-//
-//   type cons_list(T) = Cons(T, cons_list(T))
-//                     | EmptyList
-//
-#pragma prolog {
-  (ensure-loaded "prolog-std.scm")
-
-  ;; Constructor types
-  (predicate (result-of (oslctor:Cons T (cons-list T)) (cons-list T)))
-  (predicate (result-of (oslctor:EmptyList) (cons-list _)))
-
-  ;; Rules for type-cases
-  (predicate (match-on (oslctor:Cons T (cons-list T)) (cons-list T)))
-  (predicate (match-on (oslctor:EmptyList) (cons-list _)))
-
-  ;; Builtin Scheme functions for cons-lists
-  (predicate (result-of (list . Ts) (cons-list T)) (all T Ts))
-  (predicate (result-of (car (cons-list T)) T))
-  (predicate (result-of (cdr (cons-list T)) (cons-list T)))
-
-}
-//
-#pragma scheme-translator {
-  ;; Rules for translation of cases expressions with cons-list
-  (cases-rule (oslctor:Cons _ _) (cons-list _) pair? unpack-pair)
-  (cases-rule (oslctor:EmptyList) (cons-list _) null? <unused>) ;; nothing to unpack
-
-  ;; Inline auxiliary functions to avoid type-check and name mangling
-  (inline
-    (define (unpack-pair p) (values (car p) (cdr p)))
-    (define oslctor:Cons cons)
-    (define (oslctor:EmptyList) '()))
-}
-
-
-////
-//
-// Redefine operator +
-//
-#pragma scheme-translator {
-  ;; Rename Scheme builtin `+` and `string-append`
-  (inline
-    (define sum +)
-    (define addStrs string-append))
-}
-//
-#pragma prolog {
-  (ensure-loaded "prolog-std.scm")
-
-  ;; Type signatures for the renamed functions
-  (predicate (result-of (addStrs . Strs) str) (all str Strs))
-  (predicate (result-of (sum . Nums) num) (all num Nums))
-}
-// Overload new `+` to work for both numbers and strings
-n1 + n2 = sum(n1, n2)
-s1 + s2 = addStrs(s1, s2)
+require "base"
+require "number"
+require "string"
+require "console"
+require "array"
 
 
 addLists(xs, ys) =
@@ -76,28 +19,6 @@ foldLeft(xs, f, z) =
   | otherwize -> z
 
 
-
-////
-//
-// Console output functions
-//
-#pragma prolog {
-  (predicate (result-of (display _) void))
-  (predicate (result-of (newline) void))
-  (predicate (result-of (println . _) void))
-}
-#pragma scheme-translator {
-  (inline
-    (define (println x . rest)
-      (display x)
-      (if (null? rest)
-          (newline)
-          (begin
-            (display " ")
-            (apply println rest)))))
-}
-
-
 println(0 + 1)
 println(1 + 2)
 println("one" + "two")
@@ -110,12 +31,11 @@ println(addLists(list(1, 2, 3), list(1, 2, 3)))
 println(add3(1, 2, 3))
   where add3(x, y, z) = x + y + z
 
-
 join(strs, sep) =
   match strs in
   | first : rest ->
         foldLeft(rest, join2, first)
-        where join2(s1, s2) = addStrs(s1, sep, s2)
+        where join2(s1, s2) = appendStrings(s1, sep, s2)
   | otherwize -> ""
 
 
@@ -149,4 +69,68 @@ t = triplet(1, "two", Ok(2))
 println("triplet:", t)
 println("first + 1:", t#first + 1)
 println("third:", t#third)
+set t#third = Error("no no no")
+println("third:", t#third)
 
+
+
+
+arr1 + arr2 = appendArrays(arr1, arr2)
+arr[k] = arrayRef(arr, k)
+set arr[k] = x = arraySet(arr, k, x)
+
+arr = array(1, 2, 3)
+println("arr:", arr)
+println("arr[1]:", arr[1])
+set arr[1] = 5
+println("arr[1]:", arr[1])
+
+println("merged array:", arr + array(1, 2, 3))
+
+
+type vector(T) = {
+  data array(T),
+  size num
+}
+
+
+vector() =
+  vector(makeUninitializedArray(0), 0)
+
+push(vec, x) = {
+  // Check if we have enough space for the new element and reallocate array with
+  // doubled capacity if current space is not sufficient
+  capacity = length(vec#data)
+  if vec#size == capacity then
+  {
+    newcapacity = if capacity == 0 then 1 else capacity*2
+    set vec#data = copyArray(vec#data, 0, newcapacity)
+  }
+  
+  // Append new element and increment vector size
+  set vec#data[vec#size] = x
+  set vec#size = vec#size + 1
+}
+
+require "error"
+
+vec[k] =
+  if k >= vec#size then
+    error("vector index out of range:", k, vec)
+  else
+    vec#data[k]
+
+set vec[k] = x =
+  if k >= vec#size then
+    error("vector index out of range:", k, vec)
+  else
+    set vec#data[k] = x
+
+
+vec = vector()
+vec.push(1)
+vec.push(2)
+vec.push(3)
+println("vector data:", vec#data)
+println("vec[2]:", vec[2])
+println("vec[3]:", vec[3])

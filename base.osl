@@ -1,0 +1,40 @@
+
+#pragma scheme-translator {
+  (inline (import (srfi :9) (srfi :11)))
+}
+
+////
+//
+// Define cons-list:
+//
+//   type list(T) = Cons(T, list(T))
+//                | EmptyList()
+//
+#pragma prolog {
+  (ensure-loaded "prolog-std.scm")
+
+  ;; Constructor types
+  (predicate (result-of (oslctor:Cons T (list T)) (list T)))
+  (predicate (result-of (oslctor:EmptyList) (list _)))
+
+  ;; Rules for type-cases
+  (predicate (match-on (oslctor:Cons T (list T)) (list T)))
+  (predicate (match-on (oslctor:EmptyList) (list _)))
+
+  ;; Builtin Scheme functions for lists
+  (predicate (result-of (list . Ts) (list T)) (all T Ts))
+  (predicate (result-of (car (list T)) T))
+  (predicate (result-of (cdr (list T)) (list T)))
+}
+//
+#pragma scheme-translator {
+  ;; Rules for translation of cases expressions with list
+  (cases-rule (oslctor:Cons _ _) (list _) pair? unpack-pair)
+  (cases-rule (oslctor:EmptyList) (list _) null? <unused>) ;; nothing to unpack
+
+  ;; Inline auxiliary functions to avoid type-check and name mangling
+  (inline
+    (define (unpack-pair p) (values (car p) (cdr p)))
+    (define oslctor:Cons cons)
+    (define (oslctor:EmptyList) '()))
+}

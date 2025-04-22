@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+input_file=${1?missing input file}
+osl_output="$(mktemp --tmpdir "${input_file}_XXXXXX")"
+opium_output="$(mktemp --tmpdir "${input_file}_XXXXXX")"
+
+make -C build install -j32 && ./install/bin/osl "$input_file" >"$osl_output" && ./install/bin/opium "$osl_output" -o "$opium_output" && guile "$opium_output"
+
+rm -fv "${osl_output}" "${opium_output}"
