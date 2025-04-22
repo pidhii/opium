@@ -421,6 +421,41 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                set!
+  // TODO: set current target to some dedicated "undefined" type
+  const match setmatch {list("set!"), list("set!", "ident", "expr")};
+  append_rule(setmatch, [this, &counter](const auto &ms, value fm) {
+    const value ident = ms.at("ident");
+    const value expr = ms.at("expr");
+
+    utl::state_saver _ {m_target};
+
+    // Code tape for all resulting Prolog expressions
+    opi::stl::vector<value> tape;
+
+    // Make sure that `ident` is a proper lvalue
+    if (not issym(ident))
+    {
+      throw bad_code {
+          std::format("Non lvalue expression in LHS of set!: {}", ident), fm};
+    }
+    const value identtype = _require_symbol(ident, std::back_inserter(tape));
+
+    // Evaluate `expr`
+    const value exprresult = sym(std::format("SetProxy_{}", counter++));
+    m_target = exprresult;
+    const value plexpr = (*this)(expr);
+    tape.push_back(plexpr);
+
+    // Bind `ident` with result of `expr`
+    const value bindexpr = list("=", identtype, exprresult);
+    tape.push_back(bindexpr);
+
+    // Wrap everything in an AND expression
+    return cons("and", list(tape));
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                quote
   append_rule({list("quote"), list("quote", dot, "x")}, [this](const auto &ms) {
     opi::stl::vector<value> code;
@@ -580,7 +615,7 @@ _unquote_times(opi::value x, size_t n)
 
 template <std::output_iterator<opi::value> CodeOutput>
 opi::value
-opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out)
+opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out, bool lvalue)
 {
   // Check for mapped types in the a-list
   struct resolve_result { value type; value code; };
@@ -606,6 +641,9 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out)
     // Instantiate template
     if (type->t == tag::pair and issym(car(type), "#template"))
     {
+      if (lvalue)
+        throw bad_code {std::format("Not an lvalue: {}", ident), ident};
+
       const value functemplate = _unquote_times(cdr(type), nlevelsabove);
       static size_t counter = 0; // FIXME
       const value proxy = sym(std::format("Instance_{}", counter++));

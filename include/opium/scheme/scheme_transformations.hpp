@@ -146,7 +146,7 @@ class scheme_to_prolog: public code_transformer {
 
   template <std::output_iterator<value> CodeOutput>
   value
-  _require_symbol(value ident, CodeOutput code_output);
+  _require_symbol(value ident, CodeOutput code_output, bool lvalue = false);
 
   template <std::output_iterator<value> CodeOutput>
   value

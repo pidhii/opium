@@ -486,6 +486,33 @@ opi::scheme_code_flattener::scheme_code_flattener(symbol_generator &gensym)
     }
   });
 
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                set!
+  // NOTE: This handler is not necessary and can be removed; however, the
+  // following could happen in that case:
+  // - there LHS of the set! form is some compound expression (invalid code)
+  // - handler of (for example) forms will lift it into a proxy variable
+  // - consequently, resulting set! form will look totaly valid, except that the
+  //   LHS is a temporary variable that the initial code has nothing to do with
+  const match setmatch {list("set!"), list("set!", "ident", "expr")};
+  prepend_rule(setmatch, [this](const auto &ms, value fm) {
+    const value ident = ms.at("ident");
+    const value expr = ms.at("expr");
+
+    if (not issym("ident"))
+    {
+      throw bad_code {
+          std::format("Invalid set! expression: expected identifier, got {}",
+                      ident),
+          fm};
+    }
+
+    // Flatten the RHS expression
+    const value newexpr = (*this)(expr);
+    return list("set!", ident, newexpr);
+  });
+
   // function invocation
   // -------------------
   // Pull output nested comound expressions from inside the invocation by

@@ -158,13 +158,13 @@ opi::scheme_code_transformer::scheme_code_transformer()
    * (and <clause> ...) ->
    * (and T[<clause>] ...)
    */
-   const match andmatch {list("and"), list("and", dot, "clauses")};
-   append_rule(andmatch, [this](const auto &ms) {
+  const match andmatch {list("and"), list("and", dot, "clauses")};
+  append_rule(andmatch, [this](const auto &ms) {
     const value clauses = ms.at("clauses");
     const value newclauses =
         list(range(clauses) | std::views::transform(std::ref(*this)));
     return cons("and", newclauses);
-   });
+  });
 
   /**
    * Rule for or expressions
@@ -173,13 +173,23 @@ opi::scheme_code_transformer::scheme_code_transformer()
    * (or <clause> ...) ->
    * (or T[<clause>] ...)
    */
-   const match ormatch {list("or"), list("or", dot, "clauses")};
-   append_rule(ormatch, [this](const auto &ms) {
-    const value clauses = ms.at("clauses");
-    const value newclauses =
-        list(range(clauses) | std::views::transform(std::ref(*this)));
-    return cons("or", newclauses);
-   });
+  const match ormatch {list("or"), list("or", dot, "clauses")};
+  append_rule(ormatch, [this](const auto &ms) {
+   const value clauses = ms.at("clauses");
+   const value newclauses =
+       list(range(clauses) | std::views::transform(std::ref(*this)));
+   return cons("or", newclauses);
+  });
+
+  /**
+   * Rule for set! expressions
+   */
+  const match setmatch {list("set!"), list("set!", "ident", "expr")};
+  append_rule(setmatch, [this](const auto &ms) {
+    const value ident = ms.at("ident");
+    const value expr = ms.at("expr");
+    return list("set!", (*this)(ident), (*this)(expr));
+  });
 
   /**
    * Rule for quote expressions
