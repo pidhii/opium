@@ -344,7 +344,9 @@ ApplExpr
 Expr
   : ApplExpr
   | Ctor '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); }
+  | SET IDENT '=' Expr { $$ = list("set!", $2, $4); }
   | SET ApplExpr '[' Expr ']' '=' Expr { $$ = list(random_access_setter(), $2, $4, $7); }
+  | SET ApplExpr '#' IDENT '=' Expr { $$ = list(overloaded_setter_name($4), $2, $6); }
   | Expr '=' Expr { $$ = list(issym($1) ? "define" : "define-overload", $1, $3); }
   | Expr ':' Expr { $$ = list(mangle_type_constructor("Cons"), $1, $3); }
   | Expr '+' Expr { $$ = list("+", $1, $3); }
