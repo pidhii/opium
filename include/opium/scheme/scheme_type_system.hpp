@@ -112,6 +112,7 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode,
 
         if (not warned++)
           warning("extracting types from support predicates");
+        debug("add global: {}", identifier);
         to_prolog.add_global(identifier, identifier);
       }
     }

@@ -356,46 +356,45 @@ opi::lisp_parser::_parse_list(const std::vector<token> &tokens, size_t &pos)
     pos++; // Skip closing paren
 
     // Get the location from car_val
-    source_location car_loc;
-    if (!get_location(car_val, car_loc)) {
-      throw parse_error {"Missing location for car value"};
-    }
-    
     value result = pair(car_val, cdr_val);
-    source_location result_loc = {
-      car_loc.source,
-      car_loc.start,
-      rparen_loc.end
-    };
-    set_location(result, result_loc);
+    source_location car_loc;
+    if (get_location(car_val, car_loc))
+    {
+      source_location result_loc = {
+        car_loc.source,
+        car_loc.start,
+        rparen_loc.end
+      };
+      set_location(result, result_loc);
+    }
     return result;
   }
   else
   {
     // Regular list
     value cdr_val = parse_list(tokens, pos);
-    
+    value result = pair(car_val, cdr_val);
+
     // Get locations for car and cdr
     source_location car_loc, cdr_loc;
-    if (!get_location(car_val, car_loc)) {
-      throw parse_error {"Missing location for car value"};
+    if (get_location(car_val, car_loc))
+    {
+      // For empty lists, cdr might not have a location
+      source_location result_loc;
+      result_loc.source = car_loc.source;
+      result_loc.start = car_loc.start;
+
+      if (get_location(cdr_val, cdr_loc)) {
+        result_loc.end = cdr_loc.end;
+      } else if (pos > 0 && pos <= tokens.size()) {
+        result_loc.end = tokens[pos-1].location.end;
+      } else {
+        result_loc.end = tokens.back().location.end;
+      }
+
+      set_location(result, result_loc);
     }
     
-    // For empty lists, cdr might not have a location
-    source_location result_loc;
-    result_loc.source = car_loc.source;
-    result_loc.start = car_loc.start;
-    
-    if (get_location(cdr_val, cdr_loc)) {
-      result_loc.end = cdr_loc.end;
-    } else if (pos > 0 && pos <= tokens.size()) {
-      result_loc.end = tokens[pos-1].location.end;
-    } else {
-      result_loc.end = tokens.back().location.end;
-    }
-    
-    value result = pair(car_val, cdr_val);
-    set_location(result, result_loc);
     return result;
   }
 }

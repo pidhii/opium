@@ -295,6 +295,8 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                              letrec*
+  // FIXME: fix semantics 
+  // see https://www.gnu.org/software/guile/manual/html_node/Local-Bindings.html
   append_rule({list("letrec*"), cons("letrec*", letpat)}, [this](const auto &ms) {
     UNPACK_MATCHES_AND_SAVE_STATE(ms)
 

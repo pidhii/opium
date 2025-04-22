@@ -181,7 +181,7 @@ opi::pretty_template_instance_name(value type, std::ostream &os)
     for (std::string prefix = ""; const value type : range(typeparams))
     {
       os << prefix;
-      prefix = ",";
+      prefix = "_";
       pretty_template_instance_name(type, os);
     }
     os << ">->";
