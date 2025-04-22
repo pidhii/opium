@@ -54,6 +54,9 @@ struct scheme_emitter {
     return list(result);
   }
 
+  value
+  transform_inner_block_into_expression(value block);
+
   protected:
   value
   _find_code_type(value code) const;

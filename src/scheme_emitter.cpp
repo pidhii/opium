@@ -143,6 +143,14 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                begin
+  const match beginmatch {list("begin"), list("begin", dot, "body")};
+  m_transformer.prepend_rule(beginmatch, [this](const auto &ms) {
+    const value body = ms.at("body");
+    return transform_inner_block_into_expression(body);
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                form
   m_transformer.append_rule({nil, list("f", dot, "xs")}, [this](const auto &ms) {
     const value f = ms.at("f");
@@ -205,4 +213,51 @@ opi::scheme_emitter::_find_code_type(value code) const
   }
   else
     return type;
+}
+
+
+// Fix for "define in expression context" error
+opi::value
+opi::scheme_emitter::transform_inner_block_into_expression(value block)
+{
+  // Transform all expressions within the block
+  const opi::value tblock = transform_list(block);
+
+  if (tblock == nil)
+    return nil;
+
+  if (length(tblock) == 1)
+    return car(tblock);
+
+  // Separate last expression from the rest
+  const value revblock = reverse(tblock);
+  const value last = car(revblock);
+  const value head = reverse(cdr(revblock));
+
+  // Wrap everything into a letrec*-expression
+  value binds = nil;
+  for (size_t cnt = 0; const value expr : range(head))
+  {
+    value bind;
+    if (expr->t == tag::pair and car(expr) == "define")
+    {
+      const value sign = car(cdr(expr));
+      const value body = cdr(cdr(expr));
+
+      if (issym(sign))
+        bind = list(sign, length(body) > 1 ? cons("begin", body) : car(body));
+      else
+      {
+        const value ident = car(sign);
+        const value args = cdr(sign);
+        bind = list(ident, list("lambda", args, body));
+      }
+    }
+    else
+      bind = list(sym(std::format("_{}", cnt++)), expr);
+
+    binds = append(binds, list(bind));
+  }
+
+  return list("letrec*", binds, last);
 }
