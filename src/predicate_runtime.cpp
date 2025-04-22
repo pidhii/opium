@@ -61,9 +61,12 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
               opi::stl::unordered_map<opi::object *, opi::value> &mem,
               int quasiquote_level = 0)
 {
-  const auto it = mem.find(&*expr);
-  if (it != mem.end())
-    return it->second;
+  if (expr != "_")
+  {
+    const auto it = mem.find(&*expr);
+    if (it != mem.end())
+      return it->second;
+  }
 
   if (_is_quotation_form(expr, "quasiquote"))
   {
