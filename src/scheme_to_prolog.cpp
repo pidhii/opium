@@ -139,7 +139,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     // <cond> must evaluate into boolean
     const value newcond = ({
       utl::state_saver _ {m_target};
-      m_target = "boolean";
+      m_target = "bool";
       (*this)(cond);
     });
 
@@ -159,7 +159,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     // <cond> must evaluate into boolean
     const value newcond = ({
       utl::state_saver _ {m_target};
-      m_target = "boolean";
+      m_target = "bool";
       (*this)(cond);
     });
 
@@ -747,7 +747,7 @@ opi::scheme_to_prolog::_to_type(value atom, bool resolve_symbols, CodeOutput out
     case tag::nil: result = "nil"; break;
     case tag::num: result = "num"; break;
     case tag::str: result = "str"; break;
-    case tag::boolean: result = "boolean"; break;
+    case tag::boolean: result = "bool"; break;
 
     case tag::sym:
       if (resolve_symbols)
