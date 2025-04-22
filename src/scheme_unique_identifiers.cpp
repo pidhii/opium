@@ -532,6 +532,7 @@ opi::scheme_unique_identifiers::transform_block(value block) const
       // Generate unique identifier for this definition
       const value newidentifier = m_gensym();
       m_overload_alist = cons(cons(identifier, newidentifier), m_overload_alist);
+      copy_location(identifier, newidentifier);
 
       // Add `newidentifier` to the overload group.
       overload_group &group = it->second;
@@ -543,6 +544,7 @@ opi::scheme_unique_identifiers::transform_block(value block) const
     {
       const value newidentifier = m_gensym();
       m_alist = cons(cons(identifier, newidentifier), m_alist);
+      copy_location(identifier, newidentifier);
 
       // Add `newidentifier` to a list of templates
       templates.emplace(newidentifier);

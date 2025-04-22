@@ -29,6 +29,7 @@
 #include "opium/scheme/scheme_emitter_context.hpp"
 #include "opium/value.hpp"
 
+#include <fstream>
 #include <iterator>
 #include <ranges>
 
@@ -121,6 +122,14 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode,
   const value plcode = list(range(to_prolog.transform_block(ppcode))
                             | std::views::transform(std::ref(pl_cleaner)));
   prolog_generation_timer.stop();
+
+  if (global_flags.contains("DumpTypeCheck"))
+  {
+    if (std::ofstream file {"TypeCheck.scm"})
+      file << pprint_pl(plcode) << std::endl;
+    else
+      warning("Failed to open TypeCheck.scm for writing");
+  }
 
   debug("\e[1mType Check Prolog code:\e[0m\n```\n{}\n```", pprint_pl(plcode));
 

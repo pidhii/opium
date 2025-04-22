@@ -225,6 +225,9 @@ main(int argc, char **argv)
   loglevel = parse_loglevel(verbosity);
 
   // Set global flags
+  // - DumpTypeCheck
+  // - DebugQuery
+  // - DebugQueryVars
   for (const std::string &flag : flags)
     global_flags.emplace(flag);
 

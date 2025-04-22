@@ -248,7 +248,9 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
     // Generate types
     const value typevar = _generate_type_and_copy_location(ident);
-    m_alist = cons(cons(ovident, cons("#template", typevar)), m_alist);
+    const value type = cons("#template", typevar);
+    m_alist = cons(cons(ovident, type), m_alist);
+    copy_location(ident, type);
 
     return list("and");
   });
@@ -262,7 +264,9 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
     // Generate types
     const value typevar = _generate_type_and_copy_location(ident);
-    m_alist = cons(cons(ident, cons("#template", typevar)), m_alist);
+    const value type = cons("#template", typevar);
+    m_alist = cons(cons(ident, type), m_alist);
+    copy_location(ident, type);
 
     return list("and");
   });
@@ -376,7 +380,6 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
     // Add identifier to the alist
     const value type = _generate_type_and_copy_location(ident);
-    m_alist = cons(cons(ident, type), m_alist);
 
     // Set new type as target for body evaluation
     utl::state_saver _ {m_alist, m_target};
@@ -436,7 +439,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                form
-  append_rule({nil, list("f", dot, "xs")}, [this](const auto &ms) {
+  append_rule({nil, list("f", dot, "xs")}, [this](const auto &ms, value fm) {
     const value f = ms.at("f");
     const value xs = ms.at("xs");
 
@@ -445,7 +448,9 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       return _to_type(atom, true, std::back_inserter(code));
     };
     const value form = list(range(cons(f, xs)) | std::views::transform(totype));
-    code.push_back(list("result-of", form, m_target));
+    const value plform = list("result-of", form, m_target);
+    code.push_back(plform);
+    copy_location(fm, plform);
 
     assert(code.size() >= 1);
     if (code.size() == 1)
@@ -612,7 +617,7 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out)
                    False)
       );
       type = proxy;
-      copy_location(ident, proxy);
+      copy_location(cdr(x), proxy);
     }
     else
       type = _unquote_times(cdr(x), nlevelsabove);
@@ -651,11 +656,9 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out)
         const value clause =
             variant.code == nil ? bind
                                 : cons("and", append(variant.code, list(bind)));
+        copy_location(variant.type, clause);
         clauses = cons(clause, clauses);
       }
-      // warning("or clauses:");
-      // for (const value expr : range(clauses))
-      //   warning("{}", pprint_pl(expr));
       *out++ = cons("or", clauses);
 
       // Return temporary bound in the or expression

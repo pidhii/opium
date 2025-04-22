@@ -106,24 +106,19 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
   if (loglevel >= loglevel::debug)
   {
     std::ostringstream message;
-    message << "make_true ";
 
     // Show source location whenever possible
-    bool haslocation = false;
     source_location location;
     if (get_location(e, location))
-    {
-      haslocation = true;
       message << display_location(location, 2, "\e[1m", "\e[2m");
-    }
 
     // Optionaly show Prolog sources
-    if (not haslocation or global_flags.contains("make_true:debug-prolog"))
+    if (global_flags.contains("DebugQuery"))
       message << "\nProlog expr: "
               << pprint_pl(reconstruct(e, stringify_unbound_variables), 13);
 
     // Optionaly show current state of local variables
-    if (global_flags.contains("make_true:debug-variables"))
+    if (global_flags.contains("DebugQueryVars"))
     {
       message << "\nwhere\n";
       for (const value var : ert.variables()) 
@@ -134,7 +129,9 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
     }
 
     // Display the message
-    debug("{}", message.str());
+    const std::string messagestr = message.str();
+    if (not messagestr.empty())
+      debug("make_true {}", messagestr);
   }
 
   switch (e->t)
@@ -381,8 +378,23 @@ void
 prolog::_make_or_true(predicate_runtime &ert, value clauses, Cont cont,
                       NTVHandler ntvhandler) const
 {
-  for (const value clause : range(clauses))
+  debug("looping over OR-branches");
+  indent _ {};
+  const std::string hrule (30, '/');
+  for (int cnt = 0; const value clause : range(clauses))
   {
+    std::ostringstream buf;
+    buf << std::format("\n\e[38;5;4;1m{} BRANCH {}\e[0m\n", hrule, hrule);
+    for (int i = 0; const value expr : range(clauses))
+    {
+      buf << std::format("{} {}\n", i++ == cnt ? "\e[38;5;4;1m->\e[0m" : "-", expr);
+      source_location location;
+      if (get_location(expr, location))
+        buf << display_location(location, 2, i-1 == cnt ? "\e[38;5;4;1m" : "", "\e[2m");
+    }
+    debug("{}\n", buf.str());
+    cnt ++;
+
     // Create auxiliary derived predicate_runtime
     predicate_runtime crt = _create_derived_prt(ert);
 
@@ -407,12 +419,13 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
     const value signature = eargs;
 
     const value body = insert_cells(prt, pred.body());
-    debug("make predicate true:\n{}{} :-\n  {}", pred.name(),
-          reconstruct(pargs, stringify_unbound_variables),
-          pprint_pl(reconstruct(body, stringify_unbound_variables), 2));
+    // debug("make predicate true:\n{}{} :-\n  {}", pred.name(),
+    //       reconstruct(pargs, stringify_unbound_variables),
+    //       pprint_pl(reconstruct(body, stringify_unbound_variables), 2));
 
     debug("\e[38;5;2mmatch\e[0m on {}{}", pred.name(),
           reconstruct(signature, stringify_unbound_variables));
+
     if (prt.try_sign(&pred, signature, ert, ntvhandler))
     {
       make_true(prt, body, cont, ntvhandler);

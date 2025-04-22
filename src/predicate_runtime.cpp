@@ -103,6 +103,7 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
     { // Fully evaluate the argument
       const opi::value result = _insert_cells(prt, car(cdr(expr)), mem, 0);
       mem.emplace(&*expr, result);
+      copy_location(expr, result);
       return result;
     }
     else
@@ -126,7 +127,10 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
           std::format("Invalid quasiquote expression: {}", expr), expr};
 
     if (quasiquote_level == 0)
-      return car(cdr(expr));
+    {
+      const opi::value result = car(cdr(expr));
+      copy_location(expr, result);
+    }
     else
       return expr;
   }
