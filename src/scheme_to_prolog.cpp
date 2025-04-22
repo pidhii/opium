@@ -150,6 +150,37 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                 if (no else-branch)
+  const match ifnoelsematch {list("if"), list("if", "cond", "then")};
+  append_rule(ifnoelsematch, [this](const auto &ms, value fm) {
+    const value cond = ms.at("cond");
+    const value thenbr = ms.at("then");
+
+    // <cond> must evaluate into boolean
+    const value newcond = ({
+      utl::state_saver _ {m_target};
+      m_target = "boolean";
+      (*this)(cond);
+    });
+
+    const value newthen = (*this)(thenbr);
+
+    // Since there is no <else> branch this expression is only valid with a
+    // wildcard target
+    if (m_target != "_")
+    {
+      throw bad_code {
+          std::format(
+              "Can't evaluate else-less if-expression with exact target ({})",
+              m_target),
+          fm};
+    }
+
+    return list("and", newcond, newthen);
+  });
+
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                     let / let* / letrec / letrec*
   // Common function for all let-family syntax variants
   auto letrule = [this](const auto &ms) {

@@ -107,6 +107,12 @@ opi::scheme_formatter::scheme_formatter()
                 return pretty_printer::format_block(true, 4, expr);
               });
 
+  append_rule(match {list("if"), list("if", "cond", "then")},
+              [&](const auto &ms) {
+                const value expr = list("if", ms.at("cond"), ms.at("then"));
+                return pretty_printer::format_block(true, 4, expr);
+              });
+
   const match casesmatch {
       list("cases"), list("cases", "exprs", cons("patterns", "branch"), "...")};
   append_rule(casesmatch, [](const auto &ms) {

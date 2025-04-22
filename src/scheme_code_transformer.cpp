@@ -40,9 +40,6 @@ opi::scheme_code_transformer::scheme_code_transformer()
    * Propagates transformation to all contained expressions:
    * (if <cond-expr> <then-expr> <else-expr>) ->
    * (if T[<cond-expr>] T[<then-expr>] T[<else-expr>])
-   * 
-   * This ensures that all subexpressions within an if statement
-   * are also transformed according to the rules.
    */
   const match ifmatch {list("if"), list("if", "cond", "then", "else")};
   append_rule(ifmatch, [this](const auto &ms) {
@@ -51,6 +48,18 @@ opi::scheme_code_transformer::scheme_code_transformer()
                       (*this)(ms.at("else")));
   });
 
+  /**
+   * Rule for else-less if-statement (T-agnostic scheme syntax)
+   * 
+   * Propagates transformation to all contained expressions:
+   * (if <cond-expr> <then-expr>) ->
+   * (if T[<cond-expr>] T[<then-expr>])
+   */
+  const match ifnoelsematch {list("if"), list("if", "cond", "then")};
+  append_rule(ifnoelsematch, [this](const auto &ms) {
+    return list("if", (*this)(ms.at("cond")),
+                      (*this)(ms.at("then")));
+  });
   /**
    * Rules for let-family bindings (T-agnostic scheme syntax)
    * 
@@ -63,10 +72,6 @@ opi::scheme_code_transformer::scheme_code_transformer()
    *              ...                )
    *   T[<body-expr>]
    *       ...       )
-   * 
-   * This pattern applies to all variants: let, let*, letrec, letrec*,
-   * let-values, and let*-values. The implementation uses a common helper
-   * function (let_rule) that handles all these variants.
    */
   // Define the common pattern for all let-family expressions
   const value let_pattern =
@@ -213,9 +218,6 @@ opi::ext_scheme_code_transformer::ext_scheme_code_transformer()
    * Propagates transformation to all contained expressions:
    * (define-overload <ident> <body> ...) ->
    * (define-overload <ident> T[<body>] ...)
-   * 
-   * This ensures that all expressions within a define statement
-   * are also transformed according to the rules.
    */
   const match defineovlmatch {list("define-overload"),
                               list("define-overload", "ident", dot, "body")};
