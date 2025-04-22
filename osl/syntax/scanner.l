@@ -6,11 +6,26 @@
 #include "opium/value.hpp"
 
 
+// Helper function to remove underscores from number strings
+static std::string
+remove_underscores(const char* text) {
+  std::string result;
+  for (const char* p = text; *p; ++p) {
+    if (*p != '_') {
+      result += *p;
+    }
+  }
+  return result;
+}
+
+
+#define YY_DECL extern "C" int yylex(opi::value *yylval_p, void *loc_p, yyscan_t yyscanner)
+#define yylval (*yylval_p)
 
 %}
 
 %option noyywrap
-/*%option reentrant*/
+%option reentrant
 %option interactive
 /*%option c++*/
 
@@ -19,10 +34,12 @@
 
 %%
 
-^"#!".*$
-"//".*$
+^"#!".*($|[\r\n])
+"//".*($|[\r\n])
 [[:space:]]
 
+
+require return REQUIRE;
 
 match return MATCH;
 in    return IN;
@@ -47,6 +64,34 @@ type return TYPE;
 }
 <STRING>[^\\"]+ {
   yylval = str(yytext);
+  return STRING_CHUNK;
+}
+<STRING>\\n {
+  yylval = str("\n");
+  return STRING_CHUNK;
+}
+<STRING>\\t {
+  yylval = str("\t");
+  return STRING_CHUNK;
+}
+<STRING>\\r {
+  yylval = str("\r");
+  return STRING_CHUNK;
+}
+<STRING>\\e {
+  yylval = str("\e");
+  return STRING_CHUNK;
+}
+<STRING>\\\\ {
+  yylval = str("\\");
+  return STRING_CHUNK;
+}
+<STRING>\\\" {
+  yylval = str("\"");
+  return STRING_CHUNK;
+}
+<STRING>\\. {
+  yylval = str(yytext + 1);
   return STRING_CHUNK;
 }
 <STRING>\" {
@@ -78,9 +123,40 @@ type return TYPE;
 true { yylval = True; return BOOLEAN; }
 false { yylval = False; return BOOLEAN; }
 
-[0-9_]+ {
-  yylval = num(std::stoll(yytext));
+0[xX][0-9a-fA-F_]+ {
+  std::string cleaned = remove_underscores(yytext);
+  yylval = num(std::stoll(cleaned, nullptr, 16));
   return INTEGER;
+}
+
+0[0-7_]+ {
+  std::string cleaned = remove_underscores(yytext);
+  yylval = num(std::stoll(cleaned, nullptr, 8));
+  return INTEGER;
+}
+
+[0-9_]+ {
+  std::string cleaned = remove_underscores(yytext);
+  yylval = num(std::stoll(cleaned));
+  return INTEGER;
+}
+
+\.[0-9][0-9_]*([eE][+-]?[0-9][0-9_]*)? {
+  std::string cleaned = remove_underscores(yytext);
+  yylval = num(std::stod(cleaned));
+  return FLOAT;
+}
+
+[0-9][0-9_]*\.[0-9_]*([eE][+-]?[0-9][0-9_]*)? {
+  std::string cleaned = remove_underscores(yytext);
+  yylval = num(std::stod(cleaned));
+  return FLOAT;
+}
+
+[0-9][0-9_]*[eE][+-]?[0-9][0-9_]* {
+  std::string cleaned = remove_underscores(yytext);
+  yylval = num(std::stod(cleaned));
+  return FLOAT;
 }
 
 [_a-z][_a-zA-Z0-9]* {

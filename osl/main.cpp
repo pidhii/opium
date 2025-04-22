@@ -8,7 +8,7 @@
 namespace opi::osl {
 
 opi::value
-parse(std::FILE *file);
+parse(std::FILE *file, bool reset_includes = true);
 
 } // namespace opi::osl
 

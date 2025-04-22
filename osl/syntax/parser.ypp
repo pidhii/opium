@@ -3,13 +3,15 @@
 
 %define parse.error verbose
 /* Just for the sake of safety. */
-/*%define parse.lac full*/
+/* %define parse.lac full */
 /* LAR(1) has issues after adding module-syntax. */
 %define lr.type ielr
 /*%glr-parser*/
 %define parse.lac full
 %define api.value.type { opi::value }
 
+%define api.pure full
+%param { yyscan_t scanner }
 %locations
 
 %{
@@ -23,6 +25,7 @@
 #include <fstream>
 #include <algorithm>
 #include <sstream>
+#include <filesystem>
 #include <cassert>
 
 #include "location.hh"
@@ -36,15 +39,12 @@ static opi::value* g_result_ptr;
 #define YYSTACK_USE_ALLOCA 1
 
 
-extern int
-yylex();
+namespace opi::osl {
 
-void
-yyerror(const char *what)
-{
-  opi::error("parse error: {}", what);
+opi::value
+parse(std::FILE *file, bool reset_includes = false);
+
 }
-
 
 
 static opi::value
@@ -253,22 +253,63 @@ generate_record_type(opi::value typesign, opi::value fields, Output output)
   }
 }
 
+
+static std::unordered_set<std::filesystem::path> g_included_files;
+
+opi::value
+load_file(const std::filesystem::path &path)
+{
+  const std::filesystem::path dirpath = path.parent_path();
+
+  if (FILE *file = fopen(path.c_str(), "r"))
+  {
+    const std::filesystem::path curpath = std::filesystem::current_path();
+    std::filesystem::current_path(dirpath);
+    const opi::value result = opi::osl::parse(file, false);
+    std::filesystem::current_path(curpath);
+
+    fclose(file);
+
+    return result;
+  }
+  else
+    throw std::runtime_error {std::format("Failed to open file {} for reading", path.c_str())};
+}
+
+
+
 %}
 
 %code requires {
   #include "opium/value.hpp"
 
   using namespace opi;
+
+  typedef void* yyscan_t;
+}
+
+%code {
+  extern "C" int
+  yylex(YYSTYPE *yylval_p, YYLTYPE *loc_p, yyscan_t yyscanner);
+
+  void
+  yyerror(YYLTYPE *loc_p, yyscan_t scnner, const char *what)
+  {
+    opi::error("parse error: {}", what);
+  }
+
+
 }
 
 
 // =============================================================================
 //                                Tokens
+%token REQUIRE
 %token IDENT
 %token CAPIDENT
 %right MATCH IN RIGHT_ARROW OTHERWIZE
 %token BEGIN_STRING STRING_CHUNK END_STRING
-%token INTEGER BOOLEAN
+%token INTEGER FLOAT BOOLEAN
 %token PRAGMA_
 %token TYPE
 %token SET
@@ -283,7 +324,7 @@ generate_record_type(opi::value typesign, opi::value fields, Output output)
 %right LET LETREC WHERE
 
 %nonassoc EQ NE
-%left LT LE GT GE
+%nonassoc LT LE GT GE
 %left '+' '-' '%'
 %left '*' '/'
 %left '.' ':' '#'
@@ -332,6 +373,7 @@ StringChunks
 ApplExpr
   : IDENT
   | INTEGER
+  | FLOAT
   | BOOLEAN
   | String
   | '{' SeqOfExprs '}' { $$ = cons("begin", $2); }
@@ -340,6 +382,12 @@ ApplExpr
   | '-' { $$ = "-"; }
   | '*' { $$ = "*"; }
   | '/' { $$ = "/"; }
+  | EQ { $$ = "=="; }
+  | NE { $$ = "!="; }
+  | GT { $$ = ">"; }
+  | LT { $$ = "<"; }
+  | GE { $$ = ">="; }
+  | LE { $$ = "<="; }
   | ApplExpr '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); }
   | '(' Expr ')' %prec AFTER_APPLY { $$ = $2; }
   | ApplExpr '.' IDENT '(' ListOfExprs ')' { $$ = list($3, $1, dot, $5); }
@@ -359,6 +407,12 @@ Expr
   | Expr '-' Expr { $$ = list("-", $1, $3); }
   | Expr '*' Expr { $$ = list("*", $1, $3); }
   | Expr '/' Expr { $$ = list("/", $1, $3); }
+  | Expr EQ Expr { $$ = list("==", $1, $3); }
+  | Expr NE Expr { $$ = list("!=", $1, $3); }
+  | Expr GT Expr { $$ = list(">", $1, $3); }
+  | Expr LT Expr { $$ = list("<", $1, $3); }
+  | Expr GE Expr { $$ = list(">=", $1, $3); }
+  | Expr LE Expr { $$ = list("<=", $1, $3); }
   | If
   | Match
   | LET ListOfBinds IN Expr { $$ = list("let", $2, $4); }
@@ -412,6 +466,18 @@ TopLvlSeq
 TopLvlExpr
   : Expr { $$ = list($1); }
   | TypeDef
+  | REQUIRE String {
+    std::filesystem::path fullpath = std::filesystem::absolute(str_view($2));
+    if (fullpath.extension() == "")
+      fullpath += ".osl";
+    if (g_included_files.contains(fullpath))
+      $$ = nil;
+    else
+    {
+      g_included_files.emplace(fullpath);
+      $$ = load_file(fullpath);
+    }
+  }
 ;
 
 TypeDef
@@ -506,21 +572,40 @@ Ctor
 
 %%
 
-extern
-FILE* yyin;
+typedef void* yyscan_t;
+
+extern int
+yylex_init(yyscan_t *scanner);
+
+extern void
+yyset_in(FILE *in, yyscan_t scanner);
+
+extern void
+yylex_destroy(yyscan_t scanner);
+
 
 namespace opi::osl {
 
 opi::value
-parse(std::FILE *file)
+parse(std::FILE *file, bool reset_includes)
 {
   opi::value result;
-  g_result_ptr = &result;
-  yyin = file;
-  yyparse();
-  return *g_result_ptr;
+
+  opi::value *result_ptr_save = &result;
+  std::swap(result_ptr_save, g_result_ptr);
+
+  if (reset_includes)
+    g_included_files.clear();
+
+  yyscan_t scanner;
+  yylex_init(&scanner);
+  yyset_in(file, scanner);
+  yyparse(scanner);
+  yylex_destroy(scanner);
+
+  std::swap(result_ptr_save, g_result_ptr);
+
+  return result;
 }
 
 } // namespace opi::osl
-
-
