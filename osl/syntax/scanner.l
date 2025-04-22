@@ -27,6 +27,10 @@
 match return MATCH;
 in    return IN;
 
+if return IF;
+then return THEN;
+else return ELSE;
+
 otherwize return OTHERWIZE;
 
 let return LET;
@@ -69,6 +73,10 @@ type return TYPE;
   BEGIN(INITIAL);
   return STRING_CHUNK;
 }
+
+
+true { yylval = True; return BOOLEAN; }
+false { yylval = False; return BOOLEAN; }
 
 [0-9_]+ {
   yylval = num(std::stoll(yytext));
