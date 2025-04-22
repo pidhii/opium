@@ -298,7 +298,7 @@ main(int argc, char **argv)
       }
 
     }
-    catch (const code_transformation_error &exn)
+    catch (const bad_code &exn)
     {
       error("{}", exn.display());
       exit(EXIT_FAILURE);
