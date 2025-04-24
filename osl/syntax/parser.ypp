@@ -324,6 +324,7 @@ load_file(const std::filesystem::path &path)
 
 %right LET LETREC WHERE
 
+%right FAT_RIGHT_ARROW
 %nonassoc EQ NE
 %nonassoc LT LE GT GE
 %left '+' '-' '%'
@@ -344,6 +345,7 @@ load_file(const std::filesystem::path &path)
 %type TopLvlSeq TopLvlExpr
 %type TypeDef TypeSign CtorSign ListOfCtorSigns TypeParam ListOfTypeParams ListOfFields
 %type If
+%type Lambda
 
 %nonassoc AFTER_APPLY
 %left APPLY
@@ -414,6 +416,7 @@ Expr
   | Expr LT Expr { $$ = list("<", $1, $3); }
   | Expr GE Expr { $$ = list(">=", $1, $3); }
   | Expr LE Expr { $$ = list("<=", $1, $3); }
+  | Lambda
   | If
   | Match
   | LET ListOfBinds IN Expr { $$ = list("let", $2, $4); }
@@ -425,6 +428,11 @@ Expr
     std::istringstream buf {std::string(str_view($3))};
     $$ = list("pragma", $2, dot, parser.parse_all(buf));
   }
+;
+
+Lambda
+  : '(' ListOfExprs ')' FAT_RIGHT_ARROW Expr { $$ = list("lambda", $2, $5); }
+  | IDENT FAT_RIGHT_ARROW Expr { $$ = list("lambda", list($1), $3); }
 ;
 
 If

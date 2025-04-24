@@ -171,6 +171,7 @@ false { yylval = False; return BOOLEAN; }
 }
 
 "->" return RIGHT_ARROW;
+"=>" return FAT_RIGHT_ARROW;
 
 "==" return EQ;
 "!=" return NE;
