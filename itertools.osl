@@ -1,0 +1,28 @@
+require "base"
+
+
+forEach(it, f) =
+  match next(it) in
+  | Some(x) -> { f(x) forEach(it, f) }
+  | Nothing() -> []
+
+
+
+type mapIterator(Iter, Func) = {
+  inner Iter,
+  func  Func
+}
+
+next(it) = {
+  if false then set it = mapIterator(it#inner, it#func)
+  match next(it#inner) in
+  | Some(x) -> Some(it#func(x))
+  | Nothing() -> Nothing()
+}
+
+map(it, f) = mapIterator(it, f)
+
+// map(it, f) =
+//   match next(it) in
+//   | Some(x) -> f(x) : map(it, f)
+//   | Nothing() -> []

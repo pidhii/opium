@@ -1,3 +1,5 @@
+require "base"
+
 ////
 //
 // Fixed size array data type based on SRFI-43 Scheme Vector
@@ -54,5 +56,29 @@
         (= Args (num))
         (= Argrs (num num))))
 }
-//
+
 length(arr) = arrayLength(arr)
+
+arr1 + arr2 = appendArrays(arr1, arr2)
+arr[k] = arrayRef(arr, k)
+set arr[k] = x = arraySet(arr, k, x)
+
+
+type arrayIterator(T) = {
+  arr array(T),
+  cur num
+}
+
+iter(arr, from) = arrayIterator(arr, from)
+iter(arr) = arrayIterator(arr, 0)
+
+next(it) = {
+  if false then it = arrayIterator(it#arr, 0)
+  if it#cur < arrayLength(it#arr) then {
+    result = it#arr[it#cur]
+    set it#cur = it#cur + 1
+    Some(result)
+  }
+  else
+    Nothing()
+}

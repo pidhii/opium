@@ -38,3 +38,5 @@
     (define oslctor:Cons cons)
     (define (oslctor:EmptyList) '()))
 }
+
+type maybe(T) = Some(T) | Nothing()

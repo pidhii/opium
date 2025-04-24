@@ -5,88 +5,6 @@ require "console"
 require "array"
 
 
-addLists(xs, ys) =
-  match xs, ys in
-  | x : xs, y : ys -> (x + y) : addLists(xs, ys)
-  | otherwize -> []
-
-
-foldLeft(xs, f, z) =
-  match xs in
-  | x : xs ->
-      let z = f(z, x)
-      in foldLeft(xs, f, z)
-  | otherwize -> z
-
-
-println(0 + 1)
-println(1 + 2)
-println("one" + "two")
-
-println(foldLeft(list(1, 2, 3, 4, 5), sum, 0))
-println(list("a", "b", "c", "d", "e").foldLeft(+, ""))
-
-println(addLists(list(1, 2, 3), list(1, 2, 3)))
-
-println(add3(1, 2, 3))
-  where add3(x, y, z) = x + y + z
-
-join(strs, sep) =
-  match strs in
-  | first : rest ->
-        foldLeft(rest, join2, first)
-        where join2(s1, s2) = appendStrings(s1, sep, s2)
-  | otherwize -> ""
-
-
-println(list("one", "two", "three").join(", "))
-
-
-
-// FIXME: atm you have to put parenthes even with zero type parameters
-type result(T, U) = Ok(T) | Error(U)
-
-
-something_very_complicated_and_error_prone() = {
-  println("Oh no, something went wrong")
-  Error("fuck")
-}
-
-match something_very_complicated_and_error_prone() in
-| Ok(res) -> println("success:", res)
-| Error(err) -> println("error:", err)
-  
-
-
-// FIXME: atm it is possible to put TypeSig in a list of template parameters
-type triplet(T, U, V) = {
-  first T,
-  second U,
-  third result(T, U)
-}
-
-t = triplet(1, "two", Ok(2))
-println("triplet:", t)
-println("first + 1:", t#first + 1)
-println("third:", t#third)
-set t#third = Error("no no no")
-println("third:", t#third)
-
-
-
-
-arr1 + arr2 = appendArrays(arr1, arr2)
-arr[k] = arrayRef(arr, k)
-set arr[k] = x = arraySet(arr, k, x)
-
-arr = array(1, 2, 3)
-println("arr:", arr)
-println("arr[1]:", arr[1])
-set arr[1] = 5
-println("arr[1]:", arr[1])
-
-println("merged array:", arr + array(1, 2, 3))
-
 
 type vector(T) = {
   data array(T),
@@ -126,11 +44,51 @@ set vec[k] = x =
   else
     set vec#data[k] = x
 
+forEach(vec, f) =
+  loop(0)
+  where loop(i) =
+    if i < vec#size then {
+      f(vec[i])
+      loop(i + 1)
+    } else []
+
+
+type vectorIterator(T) = {
+  data array(T),
+  max num,
+  cur num
+}
+
+iter(vec, from) = vectorIterator(vec#data, vec#size, from)
+iter(vec) = vectorIterator(vec#data, vec#size, 0)
+
+next(it) = {
+  if false then set it = vectorIterator(it#data, it#max, it#cur)
+  if it#cur < it#max then {
+    result = it#data[it#cur]
+    set it#cur = it#cur + 1
+    Some(result)
+  }
+  else
+    Nothing()
+}
 
 vec = vector()
 vec.push(1)
 vec.push(2)
 vec.push(3)
-println("vector data:", vec#data)
-println("vec[2]:", vec[2])
-println("vec[3]:", vec[3])
+
+require "itertools"
+
+println("vector:")
+it = vec.iter()
+println("it =", it)
+println("next(it) =", next(it))
+it.forEach(x => println("-", x))
+
+// println("vector data:")
+// vec#data.iter().forEach(x => println("-", x))
+// vec.iter().forEach(x => println("-", x))
+// vec.iter().map(x => x * 2).forEach(x => println("-", x))
+
+vec.iter().map(x => x * 2).forEach(x => println("-", x))
