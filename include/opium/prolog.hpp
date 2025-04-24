@@ -183,6 +183,7 @@ class prolog {
                        value eargs, Cont cont, NTVHandler ntvhandler) const;
 
   private:
+  mutable size_t m_depth;
   opi::stl::unordered_multimap<std::string, predicate> m_db; /**< Database of predicates */
 }; // class opi::prolog
 

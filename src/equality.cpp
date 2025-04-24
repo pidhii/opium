@@ -73,8 +73,7 @@ _equal(opi::value a, opi::value b, _memory_set &mem)
         return true;
 
       // Equal if both car and cdr are equal
-      return _equal(opi::value {a->car}, opi::value {b->car}, mem) and
-             _equal(opi::value {a->cdr}, opi::value {b->cdr}, mem);
+      return _equal(car(a), car(b), mem) and _equal(cdr(a), cdr(b), mem);
     }
 
     case opi::tag::boolean:
@@ -87,6 +86,9 @@ _equal(opi::value a, opi::value b, _memory_set &mem)
 bool
 opi::equal(value a, value b)
 {
+  if (a->hash != b->hash)
+    return false;
+
   _memory_set mem;
   return _equal(a, b, mem);
 }

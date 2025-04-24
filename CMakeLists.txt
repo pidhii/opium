@@ -88,6 +88,22 @@ target_compile_options(opium-pp PUBLIC ${READLINE_CFLAGS_OTHER})
 install (TARGETS opium opium-pp DESTINATION bin)
 
 option (OPIUM_SCRIPT "Build opium scripting language" ON)
+
+set (ECO_BUILD_TESTS OFF)
+set (ECO_WITH_VALGRIND OFF)
+add_subdirectory(eco)
+
+# Add eco include directories to opium targets
+target_include_directories(opium_objects PUBLIC ${CMAKE_SOURCE_DIR}/eco/include)
+
+# Link eco libraries to opium targets
+target_link_libraries(opium_so PUBLIC eco_so)
+target_link_libraries(opium_a PUBLIC eco_a)
+
+# Link eco to executables
+target_link_libraries(opium PUBLIC eco_a)
+target_link_libraries(opium-pp PUBLIC eco_a)
+
 if (OPIUM_SCRIPT)
   find_package (BISON REQUIRED)
   find_package (FLEX REQUIRED)
@@ -101,7 +117,8 @@ if (OPIUM_SCRIPT)
   add_executable (osl ${osl_prefix}/main.cpp ${osl_syntax_src})
   target_compile_options (osl PRIVATE -Wno-error=unused-function)
   target_include_directories(osl PUBLIC ${CMAKE_SOURCE_DIR}/include)
-  target_link_libraries (osl opium_a)
+  target_include_directories(osl PUBLIC ${CMAKE_SOURCE_DIR}/eco/include)
+  target_link_libraries (osl opium_a eco_a)
   install (TARGETS osl DESTINATION bin)
 endif (OPIUM_SCRIPT)
 
@@ -123,42 +140,42 @@ if (OPIUM_UNIT_TESTS)
   # Tests
   add_executable (test_predicate_runtime tests/test_predicate_runtime.cpp)
   target_include_directories (test_predicate_runtime PUBLIC ${CMAKE_SOURCE_DIR}/include)
-  target_link_libraries (test_predicate_runtime PUBLIC opium_objects -lgc GTest::gtest_main)
+  target_link_libraries (test_predicate_runtime PUBLIC opium_objects -lgc GTest::gtest_main eco_a)
 
   # LISP Parser Tests
   add_executable (test_lisp_parser tests/test_lisp_parser.cpp)
   target_include_directories (test_lisp_parser PUBLIC ${CMAKE_SOURCE_DIR}/include)
-  target_link_libraries (test_lisp_parser PUBLIC opium_objects -lgc GTest::gtest_main)
+  target_link_libraries (test_lisp_parser PUBLIC opium_objects -lgc GTest::gtest_main eco_a)
 
   # Prolog Tests
   add_executable (test_prolog tests/test_prolog.cpp)
   target_include_directories (test_prolog PUBLIC ${CMAKE_SOURCE_DIR}/include)
-  target_link_libraries (test_prolog PUBLIC opium_objects -lgc GTest::gtest_main)
+  target_link_libraries (test_prolog PUBLIC opium_objects -lgc GTest::gtest_main eco_a)
 
   # LISP Reader Tests
   add_executable (test_lisp_reader tests/test_lisp_reader.cpp)
   target_include_directories (test_lisp_reader PUBLIC ${CMAKE_SOURCE_DIR}/include)
-  target_link_libraries (test_lisp_reader PUBLIC opium_objects -lgc GTest::gtest_main)
+  target_link_libraries (test_lisp_reader PUBLIC opium_objects -lgc GTest::gtest_main eco_a)
 
   # Equality Tests
   add_executable (test_equality tests/test_equality.cpp)
   target_include_directories (test_equality PUBLIC ${CMAKE_SOURCE_DIR}/include)
-  target_link_libraries (test_equality PUBLIC opium_objects -lgc GTest::gtest_main)
+  target_link_libraries (test_equality PUBLIC opium_objects -lgc GTest::gtest_main eco_a)
 
   # Match Tests
   add_executable (test_match tests/test_match.cpp)
   target_include_directories (test_match PUBLIC ${CMAKE_SOURCE_DIR}/include)
-  target_link_libraries (test_match PUBLIC opium_objects -lgc GTest::gtest_main)
+  target_link_libraries (test_match PUBLIC opium_objects -lgc GTest::gtest_main eco_a)
 
   # Scheme Unique Identifiers Tests
   add_executable (test_scheme_unique_identifiers tests/test_scheme_unique_identifiers.cpp)
   target_include_directories (test_scheme_unique_identifiers PUBLIC ${CMAKE_SOURCE_DIR}/include)
-  target_link_libraries (test_scheme_unique_identifiers PUBLIC opium_objects -lgc GTest::gtest_main)
+  target_link_libraries (test_scheme_unique_identifiers PUBLIC opium_objects -lgc GTest::gtest_main eco_a)
 
   # Quotation Tests
   add_executable (test_quotation tests/test_quotation.cpp)
   target_include_directories (test_quotation PUBLIC ${CMAKE_SOURCE_DIR}/include)
-  target_link_libraries (test_quotation PUBLIC opium_objects -lgc GTest::gtest_main)
+  target_link_libraries (test_quotation PUBLIC opium_objects -lgc GTest::gtest_main eco_a)
 
   # Register tests with CTest
   include (GoogleTest)

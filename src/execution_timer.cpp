@@ -20,8 +20,15 @@
 #include "opium/utilities/execution_timer.hpp"
 #include "opium/logging.hpp"
 
+#include <unordered_map>
+
 
 namespace opi {
+
+static 
+std::unordered_map<std::string, std::chrono::nanoseconds> g_total_duration;
+static
+std::unordered_map<std::string, std::chrono::nanoseconds> g_max_duration;
 
 execution_timer::execution_timer(std::string_view name, bool auto_start)
 : m_name {name},
@@ -57,7 +64,15 @@ execution_timer::stop()
     auto duration = end_time - m_start_time;
     m_total_duration += duration;
     m_running = false;
-    _report();
+    // _report();
+
+    // Update total duration
+    g_total_duration[m_name] += duration;
+    
+    // Update max duration if this execution took longer
+    if (not g_max_duration.contains(m_name) ||
+        duration > g_max_duration[m_name])
+      g_max_duration[m_name] = duration;
   }
 }
 
@@ -69,7 +84,7 @@ execution_timer::reset()
 }
 
 void
-execution_timer::_report() const
+execution_timer::report() const
 {
   double ms = elapsed<std::chrono::milliseconds>().count();
 
@@ -80,6 +95,44 @@ execution_timer::_report() const
     opi::info("\e[1m{}\e[0m completed in {:.3f} ms", m_name, ms);
   else
     opi::info("\e[1m{}\e[0m completed in {:.3f} s", m_name, ms / 1000.0);
+}
+
+void
+execution_timer::report_global_stats()
+{
+  for (const auto &[name, duration] : g_total_duration)
+  {
+    const double total_ms =
+        std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+
+    const double max_ms =
+        g_max_duration.contains(name)
+            ? std::chrono::duration_cast<std::chrono::milliseconds>(
+                  g_max_duration[name])
+                  .count()
+            : 0.0;
+
+    // Format total time
+    std::string total_time;
+    if (total_ms < 1.0)
+      total_time = std::format("{:.3f} μs", total_ms * 1000.0);
+    else if (total_ms < 1000.0)
+      total_time = std::format("{:.3f} ms", total_ms);
+    else
+      total_time = std::format("{:.3f} s", total_ms / 1000.0);
+    
+    // Format max time
+    std::string max_time;
+    if (max_ms < 1.0)
+      max_time = std::format("{:.3f} μs", max_ms * 1000.0);
+    else if (max_ms < 1000.0)
+      max_time = std::format("{:.3f} ms", max_ms);
+    else
+      max_time = std::format("{:.3f} s", max_ms / 1000.0);
+    
+    // Report both total and max duration
+    opi::info("\e[1m{:30}\e[0m - total: {}, max: {}", name, total_time, max_time);
+  }
 }
 
 } // namespace opi

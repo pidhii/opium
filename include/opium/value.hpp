@@ -139,6 +139,7 @@ struct object {
   object(tag tag): t {tag} { }
 
   tag t; /**< Type tag */
+  size_t hash;
   union {
     struct { char *data; size_t len; } sym; /**< Symbol data */
     struct { char *data; size_t len; } str; /**< String data */
@@ -147,8 +148,11 @@ struct object {
     void *ptr; /**< Pointer data */
     bool boolean; /**< Boolean data */
   };
+
 }; // struct opi::object
 
+size_t
+hash(const opi::value &x);
 
 /**
  * \name Fundamental constructors
@@ -170,6 +174,7 @@ sym(std::string_view str)
   ret->sym.data = static_cast<char*>(allocate_atomic(str.length() + 1));
   std::memcpy(ret->sym.data, str.data(), str.length() + 1);
   ret->sym.len = str.length();
+  ret->hash = hash(ret);
   return ret;
 }
 
@@ -188,6 +193,7 @@ str(const std::string &str)
   ret->str.data = static_cast<char*>(allocate_atomic(str.length() + 1));
   std::memcpy(ret->str.data, str.c_str(), str.length() + 1);
   ret->str.len = str.length();
+  ret->hash = hash(ret);
   return ret;
 }
 
@@ -204,6 +210,7 @@ num(long double val)
 {
   value ret {make_atomic<object>(tag::num)};
   ret->num = val;
+  ret->hash = hash(ret);
   return ret;
 }
 
@@ -220,6 +227,7 @@ ptr(void *ptr)
 {
   value ret {make<object>(tag::ptr)};
   ret->ptr = ptr;
+  ret->hash = hash(ret);
   return ret;
 }
 
@@ -240,7 +248,26 @@ pair(value car, value cdr)
   assert(&*cdr);
   ret->car = &*car;
   ret->cdr = &*cdr;
+  ret->hash = hash(ret);
   return ret;
+}
+
+inline void
+set_car(value pair, value car)
+{
+  assert(pair->t == tag::pair);
+  pair->car = &*car;
+  pair->hash = 0;
+  pair->hash = hash(pair);
+}
+
+inline void
+set_cdr(value pair, value cdr)
+{
+  assert(pair->t == tag::pair);
+  pair->cdr = &*cdr;
+  pair->hash = 0;
+  pair->hash = hash(pair);
 }
 
 extern const value True, False; /**< Boolean constants */

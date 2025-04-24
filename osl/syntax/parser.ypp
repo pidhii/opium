@@ -22,6 +22,7 @@
 #include "opium/lisp_parser.hpp"
 #include "opium/utilities/ranges.hpp"
 
+#include <unordered_set>
 #include <fstream>
 #include <algorithm>
 #include <sstream>

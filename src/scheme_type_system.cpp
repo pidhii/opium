@@ -18,6 +18,7 @@
 
 
 #include "opium/scheme/scheme_type_system.hpp"
+#include "opium/logging.hpp"
 #include "opium/scheme/scheme_emitter_context.hpp"
 #include "opium/scheme/scheme_emitter.hpp"
 #include "opium/source_location.hpp"
@@ -143,7 +144,12 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
   query_timer.stop();
 
   if (not success)
-    throw bad_code {"Prolog query failed", plcode};
+  {
+    if (global_flags.contains("IgnoreFailedQuery"))
+      return {nil, {}};
+    else
+      throw bad_code {"Prolog query failed (use -fIgnoreFailedQuery to ignore)", plcode};
+  }
   else
     debug("\e[1mQUERY SUCCEEDED\e[0m");
 
@@ -181,18 +187,21 @@ opi::pretty_template_instance_name(value type, std::ostream &os)
     for (std::string prefix = ""; const value type : range(typeparams))
     {
       os << prefix;
-      prefix = "_";
+      prefix = ",";
       pretty_template_instance_name(type, os);
     }
-    os << ">->";
+    os << ",";
     pretty_template_instance_name(resulttype, os);
+    os << ">";
     return;
   }
 
-  for (std::string prefix = ""; const value x : range(type))
+  os << car(type) << "<";
+  for (std::string prefix = ""; const value x : range(cdr(type)))
   {
     os << prefix;
-    prefix = "_";
+    prefix = ",";
     pretty_template_instance_name(x, os);
   }
+  os << ">";
 }

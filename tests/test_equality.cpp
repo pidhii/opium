@@ -198,15 +198,15 @@ TEST_F(EqualityTest, CyclicStructures)
   opi::value cycle2 = opi::pair(opi::sym("a"), opi::nil);
 
   // Make them cyclic by setting cdr to point to themselves
-  cycle1->cdr = &*cycle1;
-  cycle2->cdr = &*cycle2;
+  set_cdr(cycle1, cycle1);
+  set_cdr(cycle2, cycle2);
 
   // Cyclic structures with same pattern should be equal
   EXPECT_TRUE(opi::equal(cycle1, cycle2));
 
   // Create a different cyclic structure: (b . <cycle>)
   opi::value cycle3 = opi::pair(opi::sym("b"), opi::nil);
-  cycle3->cdr = &*cycle3;
+  set_cdr(cycle3, cycle3);
 
   // Different cyclic structures should not be equal
   EXPECT_FALSE(opi::equal(cycle1, cycle3));

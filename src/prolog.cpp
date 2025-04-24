@@ -23,6 +23,7 @@
 
 
 opi::prolog::prolog()
+: m_depth {0}
 {
   // Define `=` as builtin
   add_predicate(list("=", "X", "X"), True);

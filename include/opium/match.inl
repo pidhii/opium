@@ -55,7 +55,7 @@ opi::match::_match(value pat, value expr, Mapping &result) const
       value pit = pat, eit = expr;
       for (; pit->t == tag::pair; pit = cdr(pit))
       {
-        if (pit->cdr->t == tag::pair and issym(car(cdr(pit)), "..."))
+        if (cdr(pit)->t == tag::pair and issym(car(cdr(pit)), "..."))
         // When followed by ellipsis, match as many consecutive elements of
         //  `expr` with the pattern as possible
         {

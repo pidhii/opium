@@ -298,11 +298,11 @@ TEST_F(PrologTest, InsertCellsPredicate)
   
   EXPECT_EQ(second->t, opi::tag::pair);
   EXPECT_TRUE(opi::issym(opi::car(second), opi::CELL));
-  EXPECT_EQ(second->cdr->t, opi::tag::ptr);
+  EXPECT_EQ(cdr(second)->t, opi::tag::ptr);
   
   EXPECT_EQ(third->t, opi::tag::pair);
   EXPECT_TRUE(opi::issym(opi::car(third), opi::CELL));
-  EXPECT_EQ(third->cdr->t, opi::tag::ptr);
+  EXPECT_EQ(cdr(third)->t, opi::tag::ptr);
 }
 
 // Test insert-cells with evaluation

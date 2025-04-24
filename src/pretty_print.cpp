@@ -100,6 +100,11 @@ opi::pretty_printer::_print_block(std::ostream &os, opi::value stmt, int indent,
 
 opi::scheme_formatter::scheme_formatter()
 {
+  const match beginmatch {list("begin"), list("begin", dot, "body")};
+  append_rule(beginmatch, [](const auto &, value fm) {
+    return pretty_printer::format_block(false, 2, fm);
+  });
+
   append_rule(match {list("if"), list("if", "cond", "then", "else")},
               [&](const auto &ms) {
                 const value expr =

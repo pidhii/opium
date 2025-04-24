@@ -27,8 +27,13 @@
 #include "opium/source_location.hpp"
 #include "opium/pretty_print.hpp"
 #include "opium/logging.hpp"
+#include "opium/utilities/separate_stack_executor.hpp"
+#include "opium/utilities/state_saver.hpp"
 
 #include <functional>
+#include <gc/gc.h>
+
+#include <unistd.h>
 
 
 namespace opi {
@@ -103,6 +108,35 @@ void
 prolog::make_true(predicate_runtime &ert, value e, Cont cont,
                   NTVHandler ntvhandler) const
 {
+  utl::state_saver _ {m_depth};
+  // if ((++m_depth) % 2000 == 0)
+  if ((++m_depth) % 5000 == 0)
+  {
+    warning("switching stack (depth = {})", m_depth);
+    bool i_disabled_gc = false;
+    if (not GC_is_disabled())
+    {
+      warning("disabling GC");
+      GC_disable();
+      i_disabled_gc = true;
+    }
+
+    utl::guarded_stack stack {4000};
+    warning("jumping onto new stack");
+    utl::separate_stack_executor exec {stack.stack_pointer(), stack.size()};
+    exec(std::bind(&prolog::make_true<Cont, NTVHandler>, this, std::ref(ert), e,
+                   cont, ntvhandler));
+
+    if (i_disabled_gc)
+    {
+      warning("switching back GC");
+      GC_enable();
+    }
+
+    return;
+  }
+
+#ifndef OPIUM_RELEASE_BUILD
   if (loglevel >= loglevel::debug)
   {
     std::ostringstream message;
@@ -133,6 +167,7 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
     if (not messagestr.empty())
       debug("make_true {}", messagestr);
   }
+#endif
 
   switch (e->t)
   {
@@ -214,47 +249,6 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
         const value result = car(cdr(cdr(e)));
         const value elements = prolog_impl::elements_of(l);
         return make_true(ert, list("=", result, elements), cont, ntvhandler);
-      }
-      else if (issym(car(e), "query"))
-      { // FIXME: there seem to be bugs related to preservation of bindings
-        // TODO: move to a separate function
-
-        // Gather arguments
-        value goal = car(cdr(e));
-        const value result = car(cdr(cdr(e)));
-
-        // Create auxiliary derived predicate_runtime
-        predicate_runtime crt = _create_derived_prt(ert);
-
-        // Prepare continuation that will be accumulating query results
-        cell *tmp = crt.make_var();
-        const value tmpvar = cons(CELL, ptr(tmp));
-        value acc = nil;
-        std::function<void()> query = [&]() {
-          const value tmpval = reconstruct(tmp, [&](cell *c) {
-            cell *newcell = ert.make_var();
-            unify(c, newcell);
-            return cons(CELL, ptr(newcell));
-          });
-          acc = cons(tmpval, acc);
-        };
-
-        // Insert placeholder variable that would hold query results in the goal
-        if (goal->t == tag::pair)
-          goal = append(goal, list(tmpvar));
-        else
-          goal = list(goal, tmpvar);
-        debug("query goal: {}", reconstruct(goal, stringify_unbound_variables));
-
-        // Run the query
-        make_true(crt, goal, query, ntvhandler);
-        crt.mark_dead();
-        
-        // Bind accumulated results with result-argument
-        const value bindexpr = list("=", result, acc);
-        make_true(ert, bindexpr, cont, ntvhandler);
-
-        return;
       }
       else if (issym(car(e), "call"))
       {
@@ -379,21 +373,23 @@ prolog::_make_or_true(predicate_runtime &ert, value clauses, Cont cont,
                       NTVHandler ntvhandler) const
 {
   debug("looping over OR-branches");
-  indent _ {};
+  // indent _ {};
   const std::string hrule (30, '/');
-  for (int cnt = 0; const value clause : range(clauses))
+  for ([[maybe_unused]] int cnt = 0; const value clause : range(clauses))
   {
+#ifndef OPIUM_RELEASE_BUILD
     std::ostringstream buf;
     buf << std::format("\n\e[38;5;4;1m{} BRANCH {}\e[0m\n", hrule, hrule);
-    for (int i = 0; const value expr : range(clauses))
+    for (int i = 0; const value clause : range(clauses))
     {
-      buf << std::format("{} {}\n", i++ == cnt ? "\e[38;5;4;1m->\e[0m" : "-", expr);
+      buf << std::format("{} {}\n", i++ == cnt ? "\e[38;5;4;1m->\e[0m" : "-", clause);
       source_location location;
-      if (get_location(expr, location))
+      if (get_location(clause, location))
         buf << display_location(location, 2, i-1 == cnt ? "\e[38;5;4;1m" : "", "\e[2m");
     }
     debug("{}\n", buf.str());
     cnt ++;
+#endif
 
     // Create auxiliary derived predicate_runtime
     predicate_runtime crt = _create_derived_prt(ert);
@@ -419,12 +415,12 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
     const value signature = eargs;
 
     const value body = insert_cells(prt, pred.body());
-    // debug("make predicate true:\n{}{} :-\n  {}", pred.name(),
-    //       reconstruct(pargs, stringify_unbound_variables),
-    //       pprint_pl(reconstruct(body, stringify_unbound_variables), 2));
 
-    debug("\e[38;5;2mmatch\e[0m on {}{}", pred.name(),
-          reconstruct(signature, stringify_unbound_variables));
+    if (global_flags.contains("DebugPredicateMatches"))
+    {
+      debug("\e[38;5;2mmatch\e[0m on {}{}", pred.name(),
+            reconstruct(signature, stringify_unbound_variables));
+    }
 
     if (prt.try_sign(&pred, signature, ert, ntvhandler))
     {
@@ -432,6 +428,7 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
     }
     else
     {
+#ifndef OPIUM_RELEASE_BUILD
       if (loglevel >= loglevel::debug)
       { // Messaage about signature clash
         std::ostringstream message;
@@ -452,6 +449,7 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
         // Display the message
         debug("{}", message.str());
       }
+#endif
 
       cont();
     }

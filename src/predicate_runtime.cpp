@@ -22,6 +22,7 @@
 #include "opium/source_location.hpp"
 #include "opium/stl/unordered_map.hpp"
 #include "opium/value.hpp"
+#include "opium/utilities/execution_timer.hpp"
 
 #include <cstring>
 
@@ -86,7 +87,7 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
     {
       opi::value result = cons("quasiquote", opi::nil);
       mem.emplace(&*expr, result);
-      result->cdr = &*_insert_cells(prt, cdr(expr), mem, quasiquote_level + 1);
+      set_cdr(result, _insert_cells(prt, cdr(expr), mem, quasiquote_level + 1));
       copy_location(expr, result);
       return result;
     }
@@ -113,7 +114,7 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
     { // Drop one quasiquote level but otherwize preserve the datum
       opi::value result = cons("unquote", opi::nil);
       mem.emplace(&*expr, result);
-      result->cdr = &*_insert_cells(prt, cdr(expr), mem, quasiquote_level - 1);
+      set_cdr(result, _insert_cells(prt, cdr(expr), mem, quasiquote_level - 1));
       copy_location(expr, result);
       return result;
     }
@@ -146,8 +147,8 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
   {
     result = cons(opi::nil, opi::nil);
     mem.emplace(&*expr, result);
-    result->car = &*_insert_cells(prt, car(expr), mem, quasiquote_level);
-    result->cdr = &*_insert_cells(prt, cdr(expr), mem, quasiquote_level);
+    set_car(result, _insert_cells(prt, car(expr), mem, quasiquote_level));
+    set_cdr(result, _insert_cells(prt, cdr(expr), mem, quasiquote_level));
     copy_location(expr, result);
   }
   else
@@ -161,6 +162,7 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
 opi::value
 opi::insert_cells(predicate_runtime &prt, value expr)
 {
+  execution_timer _ {"insert_cells()"};
   opi::stl::unordered_map<object *, value> mem;
   return _insert_cells(prt, expr, mem, 0);
 }
@@ -312,16 +314,17 @@ _is_tag(opi::value x)
 
 static bool
 _match_arguments(opi::predicate_runtime &prt, const opi::predicate_runtime &ert,
-                 opi::value pexpr, opi::value eexpr, opi::value mem)
+                 opi::value pexpr, opi::value eexpr,
+                 opi::stl::unordered_set<opi::value> &mem)
 {
   opi::cell *c1, *c2;
 
   // Test if was already called with these arguments and return imediately if so
-  const opi::value argspair = cons(pexpr, eexpr);
-  if (member(argspair, mem))
+  const opi::value theseargs = cons(pexpr, eexpr);
+  if (mem.contains(theseargs))
     return true;
   // Otherwize, remember the argument pair
-  mem = cons(argspair, mem);
+  mem.insert(theseargs);
 
   // Expand variables whenever possible
   if (_is_cell(eexpr, c1) and opi::get_value(c1, eexpr))
@@ -360,11 +363,16 @@ bool
 opi::match_arguments(opi::predicate_runtime &prt,
                      const opi::predicate_runtime &ert, opi::value pexpr,
                      opi::value eexpr)
-{ return _match_arguments(prt, ert, pexpr, eexpr, opi::nil); }
-
+{
+  execution_timer _ {"match_arguments()"};
+  opi::stl::unordered_set<value> mem;
+  return _match_arguments(prt, ert, pexpr, eexpr, mem);
+}
 
 static bool
-_equivalent(opi::value x, opi::value y, opi::value expandmem, opi::value &equivmem)
+_equivalent(opi::value x, opi::value y,
+            opi::stl::unordered_set<opi::value> &argmem,
+            opi::stl::unordered_map<void *, void *> &equivmem)
 {
   opi::value tmp = opi::nil;
   opi::cell *c1, *c2;
@@ -372,14 +380,15 @@ _equivalent(opi::value x, opi::value y, opi::value expandmem, opi::value &equivm
   // If asked for equivalence of (X, Y) to prove the same equivalence of (X, Y)
   // the answer is "yes"
   const opi::value theseargs = opi::cons(x, y);
-  if (opi::member(theseargs, expandmem))
+  if (argmem.contains(theseargs))
     return true;
+  argmem.insert(theseargs);
 
   // Expand variables
   if (_is_cell(x, c1) and opi::get_value(c1, tmp))
-    return _equivalent(tmp, y, opi::cons(theseargs, expandmem), equivmem);
+    return _equivalent(tmp, y, argmem, equivmem);
   if (_is_cell(y, c1) and opi::get_value(c1, tmp))
-    return _equivalent(x, tmp, opi::cons(theseargs, expandmem), equivmem);
+    return _equivalent(x, tmp, argmem, equivmem);
 
   // Unbound variables:
   // 1) Assert that unbound variable is not equivalent to any (particular) value
@@ -394,13 +403,15 @@ _equivalent(opi::value x, opi::value y, opi::value expandmem, opi::value &equivm
       if (c1 == c2)
         return true;
       // Assert identification if already present
-      if (assoc(ptr(c1), equivmem, tmp))
-        return tmp->ptr == c2;
-      if (assoc(ptr(c2), equivmem, tmp))
-        return tmp->ptr == c1;
+      
+      if (auto it = equivmem.find(c1); it != equivmem.end())
+        return it->second == c2;
+      if (auto it = equivmem.find(c2); it != equivmem.end())
+        return it->second == c1;
+
       // Identify new pair of variables with each-other
-      equivmem = cons(cons(ptr(c1), ptr(c2)), equivmem);
-      equivmem = cons(cons(ptr(c2), ptr(c1)), equivmem);
+      equivmem[c1] = c2;
+      equivmem[c2] = c1;
       return true;
     }
     else
@@ -414,8 +425,8 @@ _equivalent(opi::value x, opi::value y, opi::value expandmem, opi::value &equivm
     return false;
   if (x->t == opi::tag::pair)
   {
-    return _equivalent(car(x), car(y), opi::cons(theseargs, expandmem), equivmem)
-       and _equivalent(cdr(x), cdr(y), opi::cons(theseargs, expandmem), equivmem);
+    return _equivalent(car(x), car(y), argmem, equivmem)
+       and _equivalent(cdr(x), cdr(y), argmem, equivmem);
   }
   else
     return opi::equal(x, y);
@@ -424,9 +435,11 @@ _equivalent(opi::value x, opi::value y, opi::value expandmem, opi::value &equivm
 bool
 opi::equivalent(value x, value y)
 {
-  value expandmem = nil;
-  value equivmem = nil;
-  return _equivalent(x, y, expandmem, equivmem);
+  execution_timer _ {"equivalent()"};
+
+  opi::stl::unordered_map<void*, void*> equivmem;
+  opi::stl::unordered_set<value> argmem;
+  return _equivalent(x, y, argmem, equivmem);
 }
 
 

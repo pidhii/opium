@@ -99,7 +99,6 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode,
   to_prolog.set_up_prolog(pl);
 
   // TODO: find a better way
-  execution_timer extract_timer {"type extraction from support predicates"};
   int warned = false;
   for (const auto &[predicatename, predicate] : pl.predicates())
   {
@@ -117,7 +116,6 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode,
       }
     }
   }
-  extract_timer.stop();
 
   execution_timer prolog_generation_timer {"Prolog generation"};
   const value plcode = list(range(to_prolog.transform_block(ppcode))

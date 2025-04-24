@@ -58,6 +58,9 @@ class execution_timer {
    */
   ~execution_timer();
 
+  static void
+  report_global_stats();
+
   /**
    * Start the timer
    */
@@ -88,13 +91,10 @@ class execution_timer {
     return std::chrono::duration_cast<Duration>(m_total_duration);
   }
 
-  private:
-  /**
-   * @brief Report the elapsed time
-   */
   void
-  _report() const;
+  report() const;
 
+  private:
   std::string m_name;
   bool m_running;
   std::chrono::time_point<std::chrono::high_resolution_clock> m_start_time;

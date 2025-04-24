@@ -312,6 +312,7 @@ main(int argc, char **argv)
   else
     read_eval_print_loop(parser, pl);
   
+  execution_timer::report_global_stats();
 
   return EXIT_SUCCESS;
 }

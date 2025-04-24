@@ -24,6 +24,7 @@
 #pragma once
 
 #include "opium/predicate_runtime.hpp"
+#include "opium/utilities/execution_timer.hpp"
 
 #include <cassert>
 
@@ -62,7 +63,7 @@ struct _reconstructor {
     if (x->t == opi::tag::pair)
     {
       if (opi::issym(car(x), CELL))
-        return _reconstruct(static_cast<opi::cell *>(x->cdr->ptr));
+        return _reconstruct(static_cast<opi::cell *>(cdr(x)->ptr));
       else
       {
         // Avoid infinite recursion
@@ -72,8 +73,9 @@ struct _reconstructor {
         // Create and memorize placeholder-pair to be filled in later
         value result = cons(nil, nil);
         pairmem.emplace(x, result);
-        result->car = &*_reconstruct(car(x));
-        result->cdr = &*_reconstruct(cdr(x));
+        set_car(result, _reconstruct(car(x)));
+        set_cdr(result, _reconstruct(cdr(x)));
+        copy_location(x, result);
         return result;
       }
     }
@@ -107,8 +109,9 @@ struct _reconstructor {
           const value newcdr = _reconstruct(cdr(x->val));
           assert(&*newcar);
           assert(&*newcdr);
-          val->car = &*newcar;
-          val->cdr = &*newcdr;
+          set_car(val, newcar);
+          set_cdr(val, newcdr);
+          copy_location(x->val, val);
           return val;
         }
         else
@@ -129,6 +132,7 @@ template <opi::unbound_variable_handler UVHandle>
 opi::value
 opi::reconstruct(cell *x, UVHandle uvhandler)
 {
+  execution_timer _ {"reconstruct()"};
   return opi::detail::_reconstructor<std::remove_cvref_t<UVHandle>> {uvhandler}
       ._reconstruct(x);
 }
@@ -138,6 +142,7 @@ template <opi::unbound_variable_handler UVHandle>
 opi::value
 opi::reconstruct(value x, UVHandle uvhandler)
 {
+  execution_timer _ {"reconstruct()"};
   return detail::_reconstructor<std::remove_cvref_t<UVHandle>> {uvhandler}
       ._reconstruct(x);
 }

@@ -208,7 +208,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       // and accumulate transformed expression in results
       utl::state_saver _ {m_target};
       m_target = type;
-      result = cons((*this)(expr), result);
+      result = append(result, list((*this)(expr)));
     }
 
     // Process body and accumulate in results
@@ -255,7 +255,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       // accumulate resulting Prolog expression to the `result`
       utl::state_saver _ {m_target};
       m_target = length(types) == 1 ? car(types) : types;
-      result = cons((*this)(expr), result);
+      result = append(result, list((*this)(expr)));
     }
 
     // Process body and accumulate in results
@@ -348,6 +348,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value function_template =
         list("quasiquote", list("#dynamic-function-dispatch", ident, plparams,
                                 plresult, plbody));
+    copy_location(fm, function_template);
 
     return list("=", proxyvar, function_template);
   });
@@ -725,12 +726,20 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out, bool lvalue)
         const value clause =
             variant.code == nil ? bind
                                 : cons("and", append(variant.code, list(bind)));
+        if (not has_location(variant.type))
+        {
+          warning("type without location: {}", variant.type);
+          throw bad_code {"Type without location"};
+        }
         copy_location(variant.type, clause);
         clauses = cons(clause, clauses);
       }
-      *out++ = cons("or", clauses);
+      const value orexpr = cons("or", clauses);
+      *out++ = orexpr;
+      copy_location(ident, orexpr);
 
       // Return temporary bound in the or expression
+      copy_location(ident, tmpvar);
       return tmpvar;
     }
   }
