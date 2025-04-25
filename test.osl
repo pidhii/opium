@@ -21,8 +21,10 @@ push(vec, x) = {
   capacity = length(vec#data)
   if vec#size == capacity then
   {
-    newcapacity = if capacity == 0 then 1 else capacity*2
-    set vec#data = copyArray(vec#data, 0, newcapacity)
+    if capacity == 0 then
+      set vec#data = makeArray(1, 0)
+    else
+      set vec#data = copyArray(vec#data, 0, capacity * 2)
   }
   
   // Append new element and increment vector size
@@ -59,11 +61,10 @@ type vectorIterator(T) = {
   cur num
 }
 
-iter(vec, from) = vectorIterator(vec#data, vec#size, from)
-iter(vec) = vectorIterator(vec#data, vec#size, 0)
+iter(vec vector(T), from num) = vectorIterator(vec#data, vec#size, from)
+iter(vec vector(T)) = vectorIterator(vec#data, vec#size, 0)
 
-next(it) = {
-  if false then set it = vectorIterator(it#data, it#max, it#cur)
+next(it vectorIterator(T)) = {
   if it#cur < it#max then {
     result = it#data[it#cur]
     set it#cur = it#cur + 1
@@ -77,6 +78,7 @@ vec = vector()
 vec.push(1)
 vec.push(2)
 vec.push(3)
+vec.push(4)
 
 require "itertools"
 
@@ -84,11 +86,25 @@ println("vector:")
 it = vec.iter()
 println("it =", it)
 println("next(it) =", next(it))
-it.forEach(x => println("-", x))
 
 // println("vector data:")
 // vec#data.iter().forEach(x => println("-", x))
 // vec.iter().forEach(x => println("-", x))
 // vec.iter().map(x => x * 2).forEach(x => println("-", x))
 
-vec.iter().map(x => x * 2).forEach(x => println("-", x))
+even(x) =
+  if x == 0 then true
+  else odd(x - 1)
+
+odd(x) =
+  if x == 0 then false
+  else even(x - 1)
+
+#pragma prolog {
+  (predicate (result-of (modulo num num) num))
+}
+
+println("calculating huge sum")
+n = 1_000_000_0
+summ = range(0, n).map(x => x*3).filter(x => modulo(x, 2) == 0).foldLeft(0, +)
+println("sum:", summ)

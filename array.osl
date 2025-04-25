@@ -7,7 +7,9 @@ require "base"
 //
 #pragma scheme-translator {
   (inline
-    (import (srfi :43))
+    (cond-expand
+      (chicken (import vector-lib))
+      (guile   (import (srfi :43))))
 
     ;; Constructors
     (define array vector)
@@ -69,11 +71,10 @@ type arrayIterator(T) = {
   cur num
 }
 
-iter(arr, from) = arrayIterator(arr, from)
-iter(arr) = arrayIterator(arr, 0)
+iter(arr array(T), from) = arrayIterator(arr, from)
+iter(arr array(T)) = arrayIterator(arr, 0)
 
-next(it) = {
-  if false then it = arrayIterator(it#arr, 0)
+next(it arrayIterator(T)) = {
   if it#cur < arrayLength(it#arr) then {
     result = it#arr[it#cur]
     set it#cur = it#cur + 1

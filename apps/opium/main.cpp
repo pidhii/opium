@@ -135,7 +135,7 @@ strip_escape_sequences(const std::string &input)
 static void
 write_scheme_script(std::ostream &os, opi::value script)
 {
-  os << "(import (srfi :11))\n\n";
+  os << "(cond-expand (guile (import (srfi :11))) (else))\n\n";
   for (const opi::value expr : range(script))
     os << strip_escape_sequences(pprint_scm(expr)) << "\n\n";
 }

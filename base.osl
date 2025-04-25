@@ -1,6 +1,9 @@
 
 #pragma scheme-translator {
-  (inline (import (srfi :9) (srfi :11)))
+  (inline
+    (cond-expand
+      (guile (import (srfi :9) (srfi :11)))
+      (else)))
 }
 
 ////

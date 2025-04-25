@@ -21,6 +21,7 @@
 #include "opium/stl/vector.hpp"
 #include "opium/lisp_parser.hpp"
 #include "opium/utilities/ranges.hpp"
+#include "opium/utilities/state_saver.hpp"
 
 #include <unordered_set>
 #include <fstream>
@@ -47,6 +48,8 @@ parse(std::FILE *file, bool reset_includes = false);
 
 }
 
+size_t g_fileoffs_left;
+size_t g_fileoffs_right;
 
 static opi::value
 mangle_type_constructor(opi::value ctor)
@@ -296,7 +299,11 @@ load_file(const std::filesystem::path &path)
   void
   yyerror(YYLTYPE *loc_p, yyscan_t scnner, const char *what)
   {
-    opi::error("parse error: {}", what);
+    opi::source_location location;
+    location.source = "test.opi";
+    location.start = g_fileoffs_left;
+    location.end = g_fileoffs_right;
+    opi::error("parse error: {}\n{}", what, opi::display_location(location));
   }
 
 
@@ -314,6 +321,7 @@ load_file(const std::filesystem::path &path)
 %token PRAGMA_
 %token TYPE
 %token SET
+%token OF
 
 %right '|'
 
@@ -346,6 +354,7 @@ load_file(const std::filesystem::path &path)
 %type TypeDef TypeSign CtorSign ListOfCtorSigns TypeParam ListOfTypeParams ListOfFields
 %type If
 %type Lambda
+%type ExprWithOptTypeParam
 
 %nonassoc AFTER_APPLY
 %left APPLY
@@ -528,11 +537,23 @@ ListOfFields
   | IDENT TypeParam ',' ListOfFields { $$ = cons(list($1, $2), $4); }
 ;
 
+/*ListOfExprs*/
+  /*: { $$ = nil; }*/
+  /*| Expr { $$ = list($1); }*/
+  /*| Expr ',' ListOfExprs { $$ = cons($1, $3); }*/
+/*;*/
+
 ListOfExprs
   : { $$ = nil; }
-  | Expr { $$ = list($1); }
-  | Expr ',' ListOfExprs { $$ = cons($1, $3); }
+  | ExprWithOptTypeParam { $$ = list($1); }
+  | ExprWithOptTypeParam ',' ListOfExprs { $$ = cons($1, $3); }
 ;
+
+ExprWithOptTypeParam
+  : Expr
+  | Expr TypeParam { $$ = list($1, $2); }
+;
+
 
 MatchClauses
   :  MatchClause { $$ = list($1); }
@@ -598,6 +619,10 @@ namespace opi::osl {
 opi::value
 parse(std::FILE *file, bool reset_includes)
 {
+  opi::utl::state_saver _ {g_fileoffs_left, g_fileoffs_right};
+  g_fileoffs_left = 0;
+  g_fileoffs_right = 0;
+
   opi::value result;
 
   opi::value *result_ptr_save = &result;

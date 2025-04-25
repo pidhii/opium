@@ -1,6 +1,7 @@
 %{
 
 #include "osl_parser.hpp"
+#include "location.hh"
 
 #include "opium/logging.hpp"
 #include "opium/value.hpp"
@@ -19,8 +20,16 @@ remove_underscores(const char* text) {
 }
 
 
-#define YY_DECL extern "C" int yylex(opi::value *yylval_p, void *loc_p, yyscan_t yyscanner)
+#define YY_DECL extern "C" int yylex(opi::value *yylval_p, yy::location *loc_p, yyscan_t yyscanner)
 #define yylval (*yylval_p)
+
+extern size_t g_fileoffs_left;
+extern size_t g_fileoffs_right;
+#define YY_USER_ACTION \
+  g_fileoffs_left = g_fileoffs_right; \
+  g_fileoffs_right += yyleng;
+
+
 
 %}
 
@@ -57,6 +66,7 @@ where return WHERE;
 set return SET;
 
 type return TYPE;
+of return OF;
 
 \" {
   BEGIN(STRING);

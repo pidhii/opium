@@ -1,4 +1,5 @@
 require "base"
+require "error"
 
 
 forEach(it, f) =
@@ -7,14 +8,22 @@ forEach(it, f) =
   | Nothing() -> []
 
 
+foldLeft(it, z, f) =
+  match next(it) in
+  | Some(x) -> foldLeft(it, f(z, x), f)
+  | otherwize -> z
 
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                           map - iterator
+//
 type mapIterator(Iter, Func) = {
   inner Iter,
   func  Func
 }
 
-next(it) = {
-  if false then set it = mapIterator(it#inner, it#func)
+next(it mapIterator(Iter, Func)) = {
   match next(it#inner) in
   | Some(x) -> Some(it#func(x))
   | Nothing() -> Nothing()
@@ -22,7 +31,36 @@ next(it) = {
 
 map(it, f) = mapIterator(it, f)
 
-// map(it, f) =
-//   match next(it) in
-//   | Some(x) -> f(x) : map(it, f)
-//   | Nothing() -> []
+
+////////////////////////////////////////////////////////////////////////////////
+//                         filter - iterator
+//
+type filterIterator(Iter, Func) = {
+  inner Iter,
+  pred  Func
+}
+
+next(it filterIterator(Iter, Func)) = {
+  match next(it#inner) in
+  | Some(x) -> if it#pred(x) then Some(x) else next(it)
+  | Nothing() -> Nothing()
+}
+
+filter(it, pred) = filterIterator(it, pred)
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                         range - iterator
+//
+type rangeIterator() = { from num, to num }
+
+next(it rangeIterator()) = {
+  result = it#from
+  if result < it#to then {
+    set it#from = result + 1
+    Some(result)
+  }
+  else Nothing()
+}
+
+range(from, to) = rangeIterator(from, to)
