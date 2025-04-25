@@ -137,10 +137,16 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
 
     // Replace function arguments with unique identifiers
     value newxs = nil;
-    for (const value ident : range(xs))
+    for (value ident : range(xs))
     {
       const value newident = m_gensym();
-      newxs = append(newxs, list(newident));
+      if (issym(ident))
+        newxs = append(newxs, list(newident));
+      else
+      {
+        newxs = append(newxs, list(cons(newident, cdr(ident))));
+        ident = car(ident);
+      }
       m_alist = cons(cons(ident, newident), m_alist);
       // Copy original identifier location
       copy_location(ident, newident);
@@ -169,10 +175,16 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
 
     // Replace function arguments with unique identifiers
     value newxs = nil;
-    for (const value ident : range(xs))
+    for (value ident : range(xs))
     {
       const value newident = m_gensym();
-      newxs = append(newxs, list(newident));
+      if (issym(ident))
+        newxs = append(newxs, list(newident));
+      else
+      {
+        newxs = append(newxs, list(cons(newident, cdr(ident))));
+        ident = car(ident);
+      }
       m_alist = cons(cons(ident, newident), m_alist);
       // Copy original identifier location
       copy_location(ident, newident);

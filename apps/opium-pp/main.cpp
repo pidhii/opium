@@ -36,19 +36,6 @@
 #include <filesystem>
 #include <regex>
 
-/**
- * Strip ANSI escape sequences from a string
- * 
- * \param input The input string containing escape sequences
- * \return The string with escape sequences removed
- */
-std::string
-strip_escape_sequences(const std::string &input)
-{
-  // Regex to match escape sequences starting with '\e' and ending with 'm'
-  static const std::regex escape_seq_regex("\\\e\\[[^m]*m");
-  return std::regex_replace(input, escape_seq_regex, "");
-}
 
 /**
  * Utility function to print two multi-line strings side-by-side
@@ -82,7 +69,7 @@ print_side_by_side(const std::string &left, const std::string &right,
   size_t max_left_width = min_left_width;
   for (const auto& line : left_lines) 
   {
-    std::string stripped_line = strip_escape_sequences(line);
+    std::string stripped_line = opi::strip_escape_sequences(line);
     max_left_width = std::max(max_left_width, stripped_line.length());
   }
   
@@ -94,7 +81,7 @@ print_side_by_side(const std::string &left, const std::string &right,
     if (i < left_lines.size())
     {
       std::string original_line = left_lines[i];
-      std::string stripped_line = strip_escape_sequences(original_line);
+      std::string stripped_line = opi::strip_escape_sequences(original_line);
       
       out << original_line;
       // Pad to max width (accounting for escape sequences)

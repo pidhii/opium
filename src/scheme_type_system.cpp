@@ -19,6 +19,7 @@
 
 #include "opium/scheme/scheme_type_system.hpp"
 #include "opium/logging.hpp"
+#include "opium/predicate_runtime.hpp"
 #include "opium/scheme/scheme_emitter_context.hpp"
 #include "opium/scheme/scheme_emitter.hpp"
 #include "opium/source_location.hpp"
@@ -33,32 +34,23 @@ opi::generate_function_template_body(scheme_emitter_context &ctx,
   assert(instantiation->t == tag::pair);
   assert(issym(car(instantiation), "#dynamic-function-dispatch"));
 
-  const value paramtypes = car(cdr(cdr(instantiation)));
-  const value resulttype = car(cdr(cdr(cdr(instantiation))));
+  predicate_runtime prt;
+  if (not match_arguments(prt, insert_cells(prt, type_template), instantiation))
+  {
+    error("failed to match instantion on template");
+    throw bad_code {"Template specialization failure"};
+  }
 
-  const value paramsymbols = car(cdr(cdr(type_template)));
-  const value resultsymbol = car(cdr(cdr(cdr(type_template))));
-  const value plbody       = car(cdr(cdr(cdr(cdr(type_template)))));
+  query_result results;
+  for (const value varname : prt.variables())
+    results[varname].emplace(reconstruct(prt[varname]));
 
-  const value parambind = list("=", paramsymbols, paramtypes);
-  const value resultbind = list("=", resultsymbol, resulttype);
-  const value expr = list("and", parambind, resultbind, plbody);
+  stl::deque<value> tape;
+  scheme_emitter emitter {ctx, results};
+  for (const value expr : range(ppbody))
+    emitter.emit(expr, std::back_inserter(tape));
 
-  debug("generating specialized body:\n"
-        "\tinstantiation = {}\n"
-        "\ttemplate      = {}\n"
-        "\tresult expr   = {}",
-      instantiation, type_template, pprint_pl(expr));
-
-  // Emit body within a nested context
-  code_tape localtape;
-  scheme_emitter_context localctx {ctx, localtape};
-  value specialbody = emit_scheme(localctx, expr, ppbody).first;
-
-  // Merge any accompanying code into the body
-  specialbody = append(list(localtape), specialbody);
-
-  return specialbody;
+  return list(tape);
 }
 
 
@@ -142,6 +134,7 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
   const value cellularized = insert_cells(prt, plcode);
   ctx.pl().make_true(prt, cellularized, save_results, trace_nonterminals);
   query_timer.stop();
+  query_timer.report();
 
   if (not success)
   {

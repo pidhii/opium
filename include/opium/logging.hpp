@@ -25,6 +25,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <set>
+#include <regex>
 
 
 namespace opi {
@@ -99,18 +100,47 @@ struct add_indent {
   size_t m_indent;
 };
 
+
+/**
+ * Strip ANSI escape sequences from a string
+ * 
+ * \param input The input string containing escape sequences
+ * \return The string with escape sequences removed
+ */
+inline std::string
+strip_escape_sequences(const std::string &input)
+{
+  // Regex to match escape sequences starting with '\e' and ending with 'm'
+  static const std::regex escape_seq_regex("\\\e\\[[^m]*m");
+  return std::regex_replace(input, escape_seq_regex, "");
+}
+
+
 /**
  * Insert indentation for each line of multiline string
  */
 template <typename Indent>
 [[nodiscard]] std::string
-indent_lines(Indent&& indent, const std::string &string)
+indent_lines(Indent &&indent, const std::string &string,
+             [[maybe_unused]] size_t max_length = 0)
 {
   std::istringstream input {string};
   std::ostringstream output;
   std::string line;
   while (std::getline(input, line))
-    output << std::forward<Indent>(indent) << line << "\n";
+  {
+#ifndef OPIUM_RELEASE_BUILD
+    std::string strippedline = strip_escape_sequences(line);
+    if (max_length > 0 and strippedline.length() > max_length)
+    {
+      strippedline.erase(max_length - 1);
+      std::ranges::copy("…", std::back_inserter(strippedline));
+      output << std::forward<Indent>(indent) << strippedline << "\n";
+    }
+    else
+#endif
+      output << std::forward<Indent>(indent) << line << "\n";
+  }
   return output.str();
 }
 
@@ -123,7 +153,7 @@ debug([[maybe_unused]] std::format_string<Args...> fmt, [[maybe_unused]] Args &&
   {
     const std::string message = std::format(fmt, std::forward<Args>(args)...);
     const auto indent = add_indent(logging_indent + 7 /* for log name */);
-    const std::string indented_message = indent_lines(indent, message);
+    const std::string indented_message = indent_lines(indent, message, 150);
     std::cerr << "opium \e[7;1mdebug\e[0m"
               << indented_message.substr(65, std::string::npos);
   }
@@ -138,7 +168,7 @@ info(std::format_string<Args...> fmt, Args &&...args)
   {
     const std::string message = std::format(fmt, std::forward<Args>(args)...);
     const auto indent = add_indent(logging_indent + 4 /* for log name */);
-    const std::string indented_message = indent_lines(indent, message);
+    const std::string indented_message = indent_lines(indent, message, 150);
     std::cerr << "opium " << indented_message.substr(33, std::string::npos);
   }
 }
@@ -151,7 +181,7 @@ warning(std::format_string<Args...> fmt, Args &&...args)
   {
     const std::string message = std::format(fmt, std::forward<Args>(args)...);
     const auto indent = add_indent(logging_indent + 8 /* for log name */);
-    const std::string indented_message = indent_lines(indent, message);
+    const std::string indented_message = indent_lines(indent, message, 150);
     std::cerr << "opium \e[38;5;3;1mwarning\e[0m"
               << indented_message.substr(76, std::string::npos);
   }
@@ -165,7 +195,7 @@ error(std::format_string<Args...> fmt, Args &&...args)
   {
     const std::string message = std::format(fmt, std::forward<Args>(args)...);
     const auto indent = add_indent(logging_indent + 7 /* for log name */);
-    const std::string indented_message = indent_lines(indent, message);
+    const std::string indented_message = indent_lines(indent, message, 150);
     std::cerr << "opium \e[38;5;1;1merror\e[0m"
               << indented_message.substr(65, std::string::npos);
   }

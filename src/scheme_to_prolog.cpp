@@ -324,9 +324,16 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
     // Translate function parameters into (local) type variables
     value plparams = nil;
-    for (const value x : range(params))
+    for (value x : range(params))
     {
-      const value xtype = _generate_type_and_copy_location(x);
+      value xtype;
+      if (issym(x))
+        xtype = _generate_type_and_copy_location(x);
+      else
+      {
+        xtype = car(cdr(x));
+        x = car(x);
+      }
       plparams = cons(xtype, plparams);
       m_alist = cons(cons(x, xtype), m_alist);
     }
@@ -679,11 +686,16 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out, bool lvalue)
       const value functemplate = _unquote_times(cdr(type), nlevelsabove);
       static size_t counter = 0; // FIXME
       const value proxy = sym(std::format("Instance_{}", counter++));
+      // Wrap template into a quote if we are nested to avoid name collisions
+      // between the template we are handling and the surrounding scope
+      value qfunctemplate = functemplate;
+      if (nlevelsabove > 0)
+        qfunctemplate = list("quote", functemplate);
       // Fail this (branch of) query if template was not declared yet
       // (otherwize, `call` would get a variable as a Goal and throw)
       code = list(
         list("if", list("nonvar", functemplate),
-                   list("insert-cells", functemplate, proxy),
+                   list("insert-cells", qfunctemplate, proxy),
                    False)
       );
       type = proxy;

@@ -206,6 +206,15 @@ bool
 equivalent(value x, value y);
 
 
+/**
+ * Test two patterns with variables (cells) for equivalence up to variable
+ * bindings
+ * 
+ * \ingroup prolog
+ */
+bool
+equivalent_up_to_bindings(value x, value y);
+
 class predicate_runtime;
 template <typename T>
 concept nonterminal_variable_handler =
@@ -424,7 +433,6 @@ class predicate_runtime {
  * Match arguments between predicate runtime environments
  * 
  * \param[in,out] prt Predicate runtime environment
- * \param[in,out] ert External runtime environment
  * \param pexpr Predicate expression
  * \param eexpr External expression
  * \return true if arguments match, false otherwise
@@ -432,8 +440,7 @@ class predicate_runtime {
  * \ingroup prolog
  */
 bool
-match_arguments(predicate_runtime &prt, const predicate_runtime &ert,
-                value pexpr, value eexpr);
+match_arguments(predicate_runtime &prt, value pexpr, value eexpr);
 
 
 /**

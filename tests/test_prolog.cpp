@@ -211,25 +211,25 @@ TEST_F(PrologTest, MatchArguments)
   opi::predicate_runtime prt, ert;
 
   // Test matching simple values
-  EXPECT_TRUE(opi::match_arguments(prt, ert, opi::sym("a"), opi::sym("a")));
+  EXPECT_TRUE(opi::match_arguments(prt, opi::sym("a"), opi::sym("a")));
 
-  EXPECT_FALSE(opi::match_arguments(prt, ert, opi::sym("a"), opi::sym("b")));
+  EXPECT_FALSE(opi::match_arguments(prt, opi::sym("a"), opi::sym("b")));
 
   // Test matching variables
-  EXPECT_TRUE(opi::match_arguments(prt, ert,
+  EXPECT_TRUE(opi::match_arguments(prt,
                                    opi::insert_cells(prt, opi::sym("X")),
                                    opi::insert_cells(ert, opi::sym("Y"))));
 
   // Test matching lists
   EXPECT_TRUE(
-      opi::match_arguments(prt, ert, opi::list("a", "b"), opi::list("a", "b")));
+      opi::match_arguments(prt, opi::list("a", "b"), opi::list("a", "b")));
 
   EXPECT_FALSE(
-      opi::match_arguments(prt, ert, opi::list("a", "b"), opi::list("a", "c")));
+      opi::match_arguments(prt, opi::list("a", "b"), opi::list("a", "c")));
 
   // Test matching with variables in lists
   const opi::value X = opi::insert_cells(prt, opi::sym("X"));
-  EXPECT_TRUE(opi::match_arguments(prt, ert, opi::list("a", X),
+  EXPECT_TRUE(opi::match_arguments(prt, opi::list("a", X),
                                    opi::list("a", opi::sym("b"))));
 
   // After matching, X should be bound to b

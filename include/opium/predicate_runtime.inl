@@ -25,6 +25,7 @@
 
 #include "opium/predicate_runtime.hpp"
 #include "opium/utilities/execution_timer.hpp"
+#include "opium/logging.hpp"
 
 #include <cassert>
 
@@ -147,6 +148,9 @@ opi::reconstruct(value x, UVHandle uvhandler)
       ._reconstruct(x);
 }
 
+
+// #define USE_EQUIVALENCE
+
 template <opi::nonterminal_variable_handler NTVHandler>
 bool
 opi::predicate_runtime::try_sign(const void *preduid, value signature,
@@ -158,11 +162,18 @@ opi::predicate_runtime::try_sign(const void *preduid, value signature,
     if (preduid == prt->m_preduid)
     {
       assert(prt->m_preduid != nullptr);
+
+#ifdef USE_EQUIVALENCE
+      // const bool isequiv = equivalent(signature, prt->m_signature);
+      // warning("test equivalence -> {}, where\na = {}\nb = {}", isequiv,
+      //         reconstruct(signature, ignore_unbound_variables),
+      //         reconstruct(prt->m_signature, ignore_unbound_variables));
+
       if (equivalent(signature, prt->m_signature))
       {
         // Do the actual match as we may be dealing with recursive types instead
         // if just non-terminals
-        const bool ok = match_arguments(*this, *prt, signature, prt->m_signature);
+        const bool ok = match_arguments(*this, signature, prt->m_signature);
         assert(ok and "Failed to match equivalent signatures");
 
         // Process non-terminal variables
@@ -183,6 +194,35 @@ opi::predicate_runtime::try_sign(const void *preduid, value signature,
         }
         return false; // Notify about signature clash
       }
+#else
+      predicate_runtime tmp;
+      if (match_arguments(tmp, signature, prt->m_signature))
+      {
+        // Own cells from `tmp`
+        std::ranges::copy(tmp.m_terms, std::back_inserter(m_terms));
+        std::ranges::copy(tmp.m_varmap | std::views::values, std::back_inserter(m_terms));
+        tmp.m_terms.clear();
+        tmp.m_varmap.clear();
+
+        // Process non-terminal variables
+        if constexpr (not std::is_same_v<NTVHandler, ignore_nonterminal_variables>)
+        {
+          for (const value var : variables())
+          {
+            // Variables present in signature but not bound by `match_arguments`
+            // are regarded as non-terminal (computation of their type will not
+            // terminate).
+            // Use `reconstruct` to scan for (possibly) nested unbound variables
+            // variables and trigger user-handler (`ntvhandler`) on each of them.
+            reconstruct((*this)[var], [&](cell *x) {
+              ntvhandler(*this, x);
+              return nil;
+            });
+          }
+        }
+        return false; // Notify about signature clash
+      }
+#endif
     }
   }
 

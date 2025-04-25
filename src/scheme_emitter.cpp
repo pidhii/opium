@@ -108,6 +108,15 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
   const value temppat = list("template", cons("ident", "parms"), dot, "body");
   const auto temprule = [this](const auto &ms, value fm) {
     const value identifier = ms.at("ident");
+    const value params = ms.at("parms");
+    const value body = ms.at("body");
+
+    // FIXME (ugly)
+    value fixedparams = nil;
+    for (const value param : range(params))
+      fixedparams = append(fixedparams, list(issym(param) ? param : car(param)));
+    const value cleandef =
+        list("template", cons(identifier, fixedparams), dot, body);
 
     // Register this identifier as a reference to a function template 
     // NOTE: concrete overload referenced by the identifier is subject to be
@@ -119,7 +128,7 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
     // Register all the pieces of information need for generation of function
     // template specializations in future
     const value typetemplate = _find_code_type(fm);
-    m_ctx.register_template(identifier, {fm, typetemplate, m_ctx});
+    m_ctx.register_template(identifier, {cleandef, typetemplate, m_ctx});
 
     return m_dont_emit_symbol;
   };

@@ -123,20 +123,16 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
   if (_is_quotation_form(expr, "unquote-splicing"))
     throw opi::bad_code {std::format("Unimplemented syntax: {}", expr), expr};
 
-  if (_is_quotation_form(expr, "quote"))
+  if (quasiquote_level == 0 and _is_quotation_form(expr, "quote"))
   {
     // Validate expression
     if (length(cdr(expr)) != 1)
       throw opi::bad_code {
           std::format("Invalid quasiquote expression: {}", expr), expr};
 
-    if (quasiquote_level == 0)
-    {
-      const opi::value result = car(cdr(expr));
-      copy_location(expr, result);
-    }
-    else
-      return expr;
+    const opi::value result = car(cdr(expr));
+    copy_location(expr, result);
+    return result;
   }
 
   opi::value result = opi::nil;
@@ -313,9 +309,8 @@ _is_tag(opi::value x)
 { return opi::issym(x) and opi::sym_name(x)[0] == '#'; }
 
 static bool
-_match_arguments(opi::predicate_runtime &prt, const opi::predicate_runtime &ert,
-                 opi::value pexpr, opi::value eexpr,
-                 opi::stl::unordered_set<opi::value> &mem)
+_match_arguments(opi::predicate_runtime &prt, opi::value pexpr,
+                 opi::value eexpr, opi::stl::unordered_set<opi::value> &mem)
 {
   opi::cell *c1, *c2;
 
@@ -328,9 +323,9 @@ _match_arguments(opi::predicate_runtime &prt, const opi::predicate_runtime &ert,
 
   // Expand variables whenever possible
   if (_is_cell(eexpr, c1) and opi::get_value(c1, eexpr))
-    return _match_arguments(prt, ert, pexpr, eexpr, mem);
+    return _match_arguments(prt, pexpr, eexpr, mem);
   if (_is_cell(pexpr, c1) and opi::get_value(c1, pexpr))
-    return _match_arguments(prt, ert, pexpr, eexpr, mem);
+    return _match_arguments(prt, pexpr, eexpr, mem);
 
   // Unify or assign variables
   if (_is_cell(eexpr, c1))
@@ -350,8 +345,8 @@ _match_arguments(opi::predicate_runtime &prt, const opi::predicate_runtime &ert,
   switch (pexpr->t)
   {
     case opi::tag::pair:
-      return _match_arguments(prt, ert, opi::car(pexpr), opi::car(eexpr), mem)
-         and _match_arguments(prt, ert, opi::cdr(pexpr), opi::cdr(eexpr), mem);
+      return _match_arguments(prt, opi::car(pexpr), opi::car(eexpr), mem)
+         and _match_arguments(prt, opi::cdr(pexpr), opi::cdr(eexpr), mem);
 
     default:
       return opi::equal(pexpr, eexpr);
@@ -360,13 +355,12 @@ _match_arguments(opi::predicate_runtime &prt, const opi::predicate_runtime &ert,
 
 
 bool
-opi::match_arguments(opi::predicate_runtime &prt,
-                     const opi::predicate_runtime &ert, opi::value pexpr,
+opi::match_arguments(opi::predicate_runtime &prt, opi::value pexpr,
                      opi::value eexpr)
 {
   execution_timer _ {"match_arguments()"};
   opi::stl::unordered_set<value> mem;
-  return _match_arguments(prt, ert, pexpr, eexpr, mem);
+  return _match_arguments(prt, pexpr, eexpr, mem);
 }
 
 static bool
@@ -399,11 +393,11 @@ _equivalent(opi::value x, opi::value y,
     {
       c1 = opi::find(c1);
       c2 = opi::find(c2);
-      // Variable is always identified to it-self
+      // Variable is always equivalent to it-self
       if (c1 == c2)
         return true;
+
       // Assert identification if already present
-      
       if (auto it = equivmem.find(c1); it != equivmem.end())
         return it->second == c2;
       if (auto it = equivmem.find(c2); it != equivmem.end())
@@ -440,6 +434,15 @@ opi::equivalent(value x, value y)
   opi::stl::unordered_map<void*, void*> equivmem;
   opi::stl::unordered_set<value> argmem;
   return _equivalent(x, y, argmem, equivmem);
+}
+
+bool
+opi::equivalent_up_to_bindings(value x, value y)
+{
+  execution_timer _ {"equivalent_up_to_bindings()"};
+
+  predicate_runtime tempns; // temporary frame for bindings
+  return match_arguments(tempns, x, y);
 }
 
 

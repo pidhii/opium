@@ -109,8 +109,8 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
                   NTVHandler ntvhandler) const
 {
   utl::state_saver _ {m_depth};
-  // if ((++m_depth) % 2000 == 0)
-  if ((++m_depth) % 5000 == 0)
+  if ((++m_depth) % 2000 == 0)
+  // if ((++m_depth) % 5000 == 0)
   {
     warning("switching stack (depth = {})", m_depth);
     bool i_disabled_gc = false;
@@ -195,14 +195,14 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
 
         // Insert cells
         // NOTE: use separate runtime to separate variable names scope
-        predicate_runtime tmpprt {&ert};
-        const value resultexpr = insert_cells(tmpprt, recoexpr);
+        predicate_runtime tempns {&ert};
+        const value resultexpr = insert_cells(tempns, recoexpr);
 
         // Bind result and continue
-        make_true(tmpprt, list("=", resultexpr, result), cont, ntvhandler);
+        make_true(tempns, list("=", resultexpr, result), cont, ntvhandler);
 
-        // Clean up the temporary runtime
-        tmpprt.mark_dead();
+        // Roll back
+        tempns.mark_dead();
 
         return;
       }
@@ -298,7 +298,8 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
         }
         catch (const error &exn)
         {
-          throw error {std::format("{}\nin expression {}", exn.what(),
+          opi::error("{}", exn.display());
+          throw error {std::format("unhandled exception",
                                    reconstruct(e, ignore_unbound_variables)),
                        e};
         }
@@ -410,7 +411,7 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
 
   const value pargs = insert_cells(prt, list(pred.arguments()));
 
-  if (match_arguments(prt, ert, pargs, eargs))
+  if (match_arguments(prt, pargs, eargs))
   {
     const value signature = eargs;
 
