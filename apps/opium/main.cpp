@@ -252,10 +252,8 @@ main(int argc, char **argv)
     value in = parser.parse_all(inputfile, inputpath);
 
     // Collect and erase pragmas
-    opi::execution_timer pragma_timer {"extraction of pragmas"};
     pragmas pragmas;
     in = filter_pragmas(in, pragmas);
-    pragma_timer.stop();
 
     // Run extra prolog expressions
     for (const value plexpr : pragmas["prolog"])
