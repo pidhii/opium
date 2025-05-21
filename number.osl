@@ -10,14 +10,17 @@
   (predicate (result-of (difference num num . Nums) num) (all num Nums))
   (predicate (result-of (product num . Nums) num) (all num Nums))
   (predicate (result-of (divide num num . Nums) num) (all num Nums))
+  (predicate (result-of (modulo num num) num))
 
   ;; Builtin comparison predicates for numbers
-  (predicate (result-of (numEqual . Nums) bool) (all num Nums))
-  (predicate (result-of (numNotEqual . Nums) bool) (all num Nums))
-  (predicate (result-of (numLessThen . Nums) bool) (all num Nums))
-  (predicate (result-of (numGreaterThen . Nums) bool) (all num Nums))
-  (predicate (result-of (numLessEqual . Nums) bool) (all num Nums))
-  (predicate (result-of (numGreaterEqual . Nums) bool) (all num Nums))
+  (predicate (result-of (numeq . Nums) bool) (all num Nums))
+  (predicate (result-of (numlt . Nums) bool) (all num Nums))
+  (predicate (result-of (numgt . Nums) bool) (all num Nums))
+  (predicate (result-of (numle . Nums) bool) (all num Nums))
+  (predicate (result-of (numge . Nums) bool) (all num Nums))
+
+  ;; Conversions
+  (predicate (result-of (num2str num) str))
 }
 //
 #pragma scheme-translator {
@@ -29,22 +32,31 @@
     (define divide /)
 
     ;; Builtin comparison predicates for numbers
-    (define numEqual =)
-    (define (numNotEqual . xs) (not (apply = xs)))
-    (define numLessThen <)
-    (define numGreaterThen >)
-    (define numLessEqual <=)
-    (define numGreaterEqual >=))
+    (define numeq =)
+    (define numlt <)
+    (define numgt >)
+    (define numle <=)
+    (define numge >=)
+
+    ;; Conversions
+    (define num2str number->string)
+  )
 }
+
 // Arithmetic operations
 x + y = sum(x, y)
 x - y = difference(x, y)
 x * y = product(x, y)
 x / y = divide(x, y)
+x % y = modulo(x, y)
+
 // Number comparison
-x == y = numEqual(x, y)
-x != y = numNotEqual(x, y)
-x < y = numLessThen(x, y)
-x <= y = numLessEqual(x, y)
-x > y = numGreaterThen(x, y)
-x >= y = numGreaterEqual(x, y)
+x == y = numeq(x, y)
+x != y = not numeq(x, y)
+x < y = numlt(x, y)
+x <= y = numle(x, y)
+x > y = numgt(x, y)
+x >= y = numge(x, y)
+
+// Conversions
+string(x num) = num2str(x)

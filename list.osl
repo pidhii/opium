@@ -1,0 +1,24 @@
+require "base"
+require "itertools"
+
+
+#pragma prolog {
+  (predicate (result-of (reverseList (list T)) (list T)))
+  (predicate (result-of (appendLists (list T) (list T)) (list T)))
+  (predicate (result-of (listLength (list T)) num))
+}
+#pragma scheme-translator {
+  (inline
+    (define appendLists append)
+    (define reverseList reverse)
+    (define listLength length))
+}
+
+length(l list(T)) = listLength(l)
+
+reverse(l list(T)) = reverseList(l)
+
+append(l1 list(T), l2 list(T)) = appendLists(l1, l2)
+append(l list(T), x T) = appendLists(l, [x])
+
+list(l list(T)) = l

@@ -24,9 +24,37 @@
 #include "opium/utilities/ranges.hpp"
 
 
+opi::value
+opi::scheme_emitter::_unfold_pattern_type(opi::value pattern) const
+{
+  if (pattern->t == opi::tag::pair)
+  {
+    const opi::value ctor = car(pattern);
+    const opi::value args = cdr(pattern);
+    opi::value newargs = opi::nil;
+    for (const opi::value arg : range(args))
+      newargs = append(newargs, list(_find_code_type(arg)));
+    return cons(ctor, newargs);
+  }
+  else
+    return pattern;
+}
+
+
 opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &query)
 : m_dont_emit_symbol {"<dont-emit>"}, m_query_result {query}, m_ctx {ctx}
 {
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                               annotate-type
+  const match asstypematch {list("annotate-type"),
+                            list("annotate-type", "expr", "type")};
+  m_transformer.prepend_rule(asstypematch, [this](const auto &ms) {
+    const value expr = ms.at("expr");
+
+    // Just forward the `expr`
+    return m_transformer(expr);
+  });
+
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                        declare-template-overload
   m_transformer.prepend_rule(
@@ -60,14 +88,17 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
     {
       value conditions = nil;
       value valuesbindings = nil;
-      for (const auto [pattern, expr] : utl::zip(range(rowpatterns), range(newexprs)))
+      for (const auto [pattern, expr] :
+           utl::zip(range(rowpatterns), range(newexprs)))
       {
         // Use predicate test for every non-wildcard pattern, and bind everything
         // with let-values
         if (pattern->t == tag::pair)
         {
           const value exprtype = _find_code_type(expr);
-          const case_to_scheme &rule = m_ctx.find_case_rule(pattern, exprtype);
+          const value patterntype = _unfold_pattern_type(pattern);
+          const case_to_scheme &rule =
+              m_ctx.find_case_rule(patterntype, exprtype);
           // Create new condition to guard the branch
           const value newcond = list(rule.predicate, expr);
           conditions = append(conditions, list(newcond));
@@ -199,7 +230,14 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
 
     // instantiate
     if (m_ctx.identifier_refers_to_function_template(x))
-      return instantiate_function_template(m_ctx, type);
+    {
+      try { return instantiate_function_template(m_ctx, type); }
+      catch (const bad_code &exn)
+      {
+        error("Failed to materialize {}", x);
+        throw bad_code {exn.what(), x};
+      }
+    }
     else
       return x;
 
@@ -216,7 +254,7 @@ opi::scheme_emitter::_find_code_type(value code) const
   {
     const auto &possibilities = it->second;
     if (possibilities.size() != 1)
-      throw code_transformation_error {
+      throw bad_code {
           std::format("Ambiguous type: {}", list(possibilities)), code};
     return *possibilities.begin();
   }

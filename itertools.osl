@@ -2,51 +2,107 @@ require "base"
 require "error"
 
 
-forEach(it, f) =
-  match next(it) in
-  | Some(x) -> { f(x) forEach(it, f) }
-  | Nothing() -> []
+#pragma prolog {
+  (predicate (result-of (coerce Fn) (fn Args Result))
+    (result-of (Fn . Args) Result))
+
+  (predicate (result-of ((fn Args Result) . Args) Result))
+}
+#pragma scheme-translator {
+  (inline
+    (define (coerce x) x))
+}
 
 
-foldLeft(it, z, f) =
-  match next(it) in
-  | Some(x) -> foldLeft(it, f(z, x), f)
-  | otherwize -> z
+foreach(it, f) = match next(it) in
+| Some(x)   -> { f(x) foreach(it, f) }
+| Nothing() -> []
 
+
+foldl(it, z, f) = match next(it) in
+| Some(x)   -> foldl(it, f(z, x), f)
+| otherwize -> z
+
+find(it, p) = match next(it) in
+| Some(x)   -> if p(x) then Some(x) else find(it, p)
+| Nothing() -> Nothing()
+
+
+// class iterator(T, Iter) =
+//   (it Iter) { next(it) :: maybe(T) }
+// #pragma prolog {
+//   (predicate (iterator.0))
+
+//   (predicate (iterator T Iter)
+//     (result-of (next Iter) Tmp)
+//     (= Tmp (maybe T)))
+// }
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                           list - iterator
+//
+type listIterator(T) = { l list(T) }
+
+iter(l list(T)) =
+  listIterator(l)
+
+next(it listIterator(T)) =
+  match it#l in
+  | x : xs -> { set it#l = xs Some(x) }
+  | otherwize -> Nothing()
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //                           map - iterator
 //
-type mapIterator(Iter, Func) = {
+type mapIterator(Iter, T, U) = {
   inner Iter,
-  func  Func
+  func  fn(T) -> U,
 }
 
-next(it mapIterator(Iter, Func)) = {
+next(it mapIterator(Iter, T, U)) = {
   match next(it#inner) in
   | Some(x) -> Some(it#func(x))
   | Nothing() -> Nothing()
 }
 
-map(it, f) = mapIterator(it, f)
+map(it, f) = mapIterator(it, coerce(f))
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                           while - iterator
+//
+type whileIterator(Iter, T) = {
+  inner Iter,
+  pred  fn(T) -> bool,
+  isdone  bool,
+}
+
+next(it whileIterator(Iter, T)) =
+  if it#isdone then Nothing()
+  else match next(it#inner) in
+  | Some(x) -> if it#pred(x) then Some(x) else { set it#isdone = true Nothing() }
+  | otherwize -> Nothing()
+
+while(it, p) = whileIterator(it, coerce(p), false)
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //                         filter - iterator
 //
-type filterIterator(Iter, Func) = {
+type filterIterator(Iter, T) = {
   inner Iter,
-  pred  Func
+  pred  fn(T) -> bool,
 }
 
-next(it filterIterator(Iter, Func)) = {
+next(it filterIterator(Iter, T)) = {
   match next(it#inner) in
   | Some(x) -> if it#pred(x) then Some(x) else next(it)
   | Nothing() -> Nothing()
 }
 
-filter(it, pred) = filterIterator(it, pred)
+filter(it, pred) = filterIterator(it, coerce(pred))
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -56,7 +112,8 @@ type rangeIterator() = { from num, to num }
 
 next(it rangeIterator()) = {
   result = it#from
-  if result < it#to then {
+  if result < it#to then
+  {
     set it#from = result + 1
     Some(result)
   }

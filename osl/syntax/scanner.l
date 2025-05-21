@@ -20,15 +20,18 @@ remove_underscores(const char* text) {
 }
 
 
-#define YY_DECL extern "C" int yylex(opi::value *yylval_p, yy::location *loc_p, yyscan_t yyscanner)
+#define YY_DECL extern "C" int yylex(opi::value *yylval_p, range_location *loc_p, yyscan_t yyscanner)
 #define yylval (*yylval_p)
 
 extern size_t g_fileoffs_left;
 extern size_t g_fileoffs_right;
 #define YY_USER_ACTION \
-  g_fileoffs_left = g_fileoffs_right; \
-  g_fileoffs_right += yyleng;
+  loc_p->left = loc_p->right; \
+  loc_p->right = loc_p->left + yyleng;
 
+
+opi::source_location
+make_location(const range_location &loc);
 
 
 %}
@@ -50,6 +53,10 @@ extern size_t g_fileoffs_right;
 
 require return REQUIRE;
 
+for return FOR;
+break return BREAK;
+continue return CONTINUE;
+
 match return MATCH;
 in    return IN;
 
@@ -58,6 +65,10 @@ then return THEN;
 else return ELSE;
 
 otherwize return OTHERWIZE;
+
+and return AND;
+or return OR;
+not return NOT;
 
 let return LET;
 letrec return LETREC;
@@ -68,40 +79,50 @@ set return SET;
 type return TYPE;
 of return OF;
 
+fn return FN;
+
 \" {
   BEGIN(STRING);
   return BEGIN_STRING;
 }
 <STRING>[^\\"]+ {
   yylval = str(yytext);
+  opi::set_location(yylval, make_location(*loc_p));
   return STRING_CHUNK;
 }
 <STRING>\\n {
   yylval = str("\n");
+  opi::set_location(yylval, make_location(*loc_p));
   return STRING_CHUNK;
 }
 <STRING>\\t {
   yylval = str("\t");
+  opi::set_location(yylval, make_location(*loc_p));
   return STRING_CHUNK;
 }
 <STRING>\\r {
   yylval = str("\r");
+  opi::set_location(yylval, make_location(*loc_p));
   return STRING_CHUNK;
 }
 <STRING>\\e {
   yylval = str("\e");
+  opi::set_location(yylval, make_location(*loc_p));
   return STRING_CHUNK;
 }
 <STRING>\\\\ {
   yylval = str("\\");
+  opi::set_location(yylval, make_location(*loc_p));
   return STRING_CHUNK;
 }
 <STRING>\\\" {
   yylval = str("\"");
+  opi::set_location(yylval, make_location(*loc_p));
   return STRING_CHUNK;
 }
 <STRING>\\. {
   yylval = str(yytext + 1);
+  opi::set_location(yylval, make_location(*loc_p));
   return STRING_CHUNK;
 }
 <STRING>\" {
@@ -119,64 +140,82 @@ of return OF;
 
 <PRAGMA>[-_a-zA-Z0-9]+ {
   yylval = sym(yytext);
+  opi::set_location(yylval, make_location(*loc_p));
   return IDENT;
 }
 
 <PRAGMA>\{[^\}]*\} {
   const std::string text {yytext+1, (size_t)yyleng-2};
   yylval = str(text);
+  opi::set_location(yylval, make_location(*loc_p));
   BEGIN(INITIAL);
   return STRING_CHUNK;
 }
 
 
-true { yylval = True; return BOOLEAN; }
-false { yylval = False; return BOOLEAN; }
+true {
+  yylval = True;
+  opi::set_location(yylval, make_location(*loc_p));
+  return BOOLEAN;
+}
+false {
+  yylval = False;
+  opi::set_location(yylval, make_location(*loc_p));
+  return BOOLEAN;
+}
 
 0[xX][0-9a-fA-F_]+ {
   std::string cleaned = remove_underscores(yytext);
   yylval = num(std::stoll(cleaned, nullptr, 16));
+  opi::set_location(yylval, make_location(*loc_p));
   return INTEGER;
 }
 
 0[0-7_]+ {
   std::string cleaned = remove_underscores(yytext);
   yylval = num(std::stoll(cleaned, nullptr, 8));
+  opi::set_location(yylval, make_location(*loc_p));
   return INTEGER;
 }
 
 [0-9_]+ {
   std::string cleaned = remove_underscores(yytext);
   yylval = num(std::stoll(cleaned));
+  opi::set_location(yylval, make_location(*loc_p));
   return INTEGER;
 }
 
 \.[0-9][0-9_]*([eE][+-]?[0-9][0-9_]*)? {
   std::string cleaned = remove_underscores(yytext);
   yylval = num(std::stod(cleaned));
+  opi::set_location(yylval, make_location(*loc_p));
   return FLOAT;
 }
 
 [0-9][0-9_]*\.[0-9_]*([eE][+-]?[0-9][0-9_]*)? {
   std::string cleaned = remove_underscores(yytext);
   yylval = num(std::stod(cleaned));
+  opi::set_location(yylval, make_location(*loc_p));
   return FLOAT;
 }
 
 [0-9][0-9_]*[eE][+-]?[0-9][0-9_]* {
   std::string cleaned = remove_underscores(yytext);
   yylval = num(std::stod(cleaned));
+  opi::set_location(yylval, make_location(*loc_p));
   return FLOAT;
 }
 
 [_a-z][_a-zA-Z0-9]* {
   yylval = opi::sym(yytext);
+  opi::set_location(yylval, make_location(*loc_p));
   return IDENT;
 }
 
 
 [A-Z][_a-zA-Z0-9]* {
   yylval = opi::sym(yytext);
+  opi::set_location(yylval, make_location(*loc_p));
   return CAPIDENT;
 }
 

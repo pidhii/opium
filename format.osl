@@ -1,0 +1,26 @@
+require "string"
+
+#pragma prolog {
+  (predicate (result-of (osl_format str . _) str))
+  (predicate (result-of (osl_printf str . _) void))
+}
+
+#pragma scheme-translator {
+  (inline
+    (cond-expand 
+      (chicken (import (chicken format)))
+      (else))
+
+    (define (osl_format fmt . args)
+      (let ((applargs (append (list #f fmt) args)))
+        (apply format applargs)))
+        
+    (define (osl_printf fmt . args)
+      (let ((applargs (append (list #t fmt) args)))
+        (apply format applargs)))
+  )
+}
+
+format = osl_format
+
+printf = osl_printf

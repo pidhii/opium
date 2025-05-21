@@ -1,0 +1,64 @@
+require "array"
+require "error"
+
+
+type vector(T) = {
+  data array(T),
+  size num
+}
+
+vector() = vector(makeUninitializedArray(0), 0)
+
+
+push(vec vector(T), x) = {
+  // Check if we have enough space for the new element and reallocate array with
+  // doubled capacity if current space is not sufficient
+  capacity = length(vec#data)
+  if vec#size == capacity then
+  {
+    if capacity == 0 then
+      set vec#data = makeArray(1, 0)
+    else
+      set vec#data = copyArray(vec#data, 0, capacity * 2)
+  }
+  
+  // Append new element and increment vector size
+  set vec#data[vec#size] = x
+  set vec#size = vec#size + 1
+}
+
+
+vec[k] =
+  if k >= vec#size then
+    error("vector index out of range:", k, vec)
+  else
+    vec#data[k]
+
+set vec[k] = x =
+  if k >= vec#size then
+    error("vector index out of range:", k, vec)
+  else
+    set vec#data[k] = x
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                            vector - iterator
+//
+type vectorIterator(T) = {
+  data array(T),
+  max num,
+  cur num,
+}
+
+next(it vectorIterator(T)) =
+  if it#cur < it#max then
+  {
+    result = it#data[it#cur]
+    set it#cur = it#cur + 1
+    Some(result)
+  }
+  else
+    Nothing()
+
+iter(vec vector(T), from num) = vectorIterator(vec#data, vec#size, from)
+iter(vec vector(T)) = vectorIterator(vec#data, vec#size, 0)

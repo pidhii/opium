@@ -40,7 +40,13 @@ template <>
 struct hash<opi::value> {
   size_t
   operator () (const opi::value &x) const noexcept
-  { return x->hash; };
+  {
+#ifdef OPIUM_HASH_CACHING
+    return x->hash;
+#else
+    return opi::hash(x);
+#endif
+  };
 };
 
 } // namespace std

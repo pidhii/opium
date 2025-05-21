@@ -1,110 +1,46 @@
-require "base"
 require "number"
 require "string"
 require "console"
-require "array"
-
-
-
-type vector(T) = {
-  data array(T),
-  size num
-}
-
-
-vector() =
-  vector(makeUninitializedArray(0), 0)
-
-push(vec, x) = {
-  // Check if we have enough space for the new element and reallocate array with
-  // doubled capacity if current space is not sufficient
-  capacity = length(vec#data)
-  if vec#size == capacity then
-  {
-    if capacity == 0 then
-      set vec#data = makeArray(1, 0)
-    else
-      set vec#data = copyArray(vec#data, 0, capacity * 2)
-  }
-  
-  // Append new element and increment vector size
-  set vec#data[vec#size] = x
-  set vec#size = vec#size + 1
-}
-
-require "error"
-
-vec[k] =
-  if k >= vec#size then
-    error("vector index out of range:", k, vec)
-  else
-    vec#data[k]
-
-set vec[k] = x =
-  if k >= vec#size then
-    error("vector index out of range:", k, vec)
-  else
-    set vec#data[k] = x
-
-forEach(vec, f) =
-  loop(0)
-  where loop(i) =
-    if i < vec#size then {
-      f(vec[i])
-      loop(i + 1)
-    } else []
-
-
-type vectorIterator(T) = {
-  data array(T),
-  max num,
-  cur num
-}
-
-iter(vec vector(T), from num) = vectorIterator(vec#data, vec#size, from)
-iter(vec vector(T)) = vectorIterator(vec#data, vec#size, 0)
-
-next(it vectorIterator(T)) = {
-  if it#cur < it#max then {
-    result = it#data[it#cur]
-    set it#cur = it#cur + 1
-    Some(result)
-  }
-  else
-    Nothing()
-}
+require "itertools"
+require "vector"
+require "list"
+require "format"
 
 vec = vector()
 vec.push(1)
 vec.push(2)
 vec.push(3)
 vec.push(4)
-
-require "itertools"
-
-println("vector:")
-it = vec.iter()
-println("it =", it)
-println("next(it) =", next(it))
-
-// println("vector data:")
-// vec#data.iter().forEach(x => println("-", x))
-// vec.iter().forEach(x => println("-", x))
-// vec.iter().map(x => x * 2).forEach(x => println("-", x))
-
-even(x) =
-  if x == 0 then true
-  else odd(x - 1)
-
-odd(x) =
-  if x == 0 then false
-  else even(x - 1)
-
-#pragma prolog {
-  (predicate (result-of (modulo num num) num))
-}
+vec.iter().foreach(x => println("-", x))
 
 println("calculating huge sum")
-n = 1_000_000_0
-summ = range(0, n).map(x => x*3).filter(x => modulo(x, 2) == 0).foldLeft(0, +)
+n = 1_000_000
+summ = range(0, n).map(x => x*3).filter(x => x % 2 == 0).foldl(0, +)
 println("sum:", summ)
+
+
+println([1, 2, 3, 4].iter().map(string).join(", "))
+iter([1, 2, 3]).map(x => x + 2).foreach(x => println("-", x))
+println([1,2,3,4].reverse())
+println([1, 2, 3].append([4, 5, 6]))
+println([1, 2, 3].append(4))
+
+println([1, 2, 3] :: list(num))
+
+add(x, y) = x + y
+println("coerced add:", (coerce(add) :: fn(num, num) -> num)(2, 3))
+
+println("find:", range(0, 10).find(x => x >= 4).unpack())
+
+
+let l =
+  for x in range(0, 20)
+  {
+    if x % 2 == 0 then
+      continue
+    if x >= 10 then
+      break ("yes")
+    println(x)
+  }
+  else "no"
+in println("loop result:", l)

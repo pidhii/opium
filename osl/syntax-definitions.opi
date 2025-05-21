@@ -1,0 +1,14 @@
+
+;; Alias for builtin (list ...) function
+(pragma prolog
+  (ensure-loaded "prolog-std.scm")
+  (predicate (result-of (oslops:list . Ts) (list T)) (all T Ts)))
+(pragma scheme-translator
+  (inline (define oslops:list list)))
+
+
+(pragma prolog
+  (predicate (result-of (void) void))
+  (predicate (result-of (values . Ts) Result)
+    (if (= Ts (Result)) #t
+        (= Result (values . Ts)))))

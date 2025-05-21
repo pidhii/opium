@@ -435,13 +435,14 @@ class predicate_runtime {
  * \param[in,out] prt Predicate runtime environment
  * \param pexpr Predicate expression
  * \param eexpr External expression
+ * \param force Match whatever possible even if some sub-structures dont match
  * \return true if arguments match, false otherwise
  * 
  * \ingroup prolog
  */
 bool
-match_arguments(predicate_runtime &prt, value pexpr, value eexpr);
-
+match_arguments(predicate_runtime &prt, value pexpr, value eexpr,
+                bool force = false);
 
 /**
  * Insert cells into an expression

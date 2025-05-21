@@ -16,12 +16,15 @@ _hash(const opi::value &x, [[maybe_unused]] std::unordered_set<void*> &mem)
     case opi::tag::ptr: return std::hash<void *> {}(x->ptr);
     case opi::tag::boolean: return std::hash<bool> {}(x->boolean);
     case opi::tag::pair: {
-      // if (not mem.emplace(&*x).second)
-      //   return 0;
-      // size_t hash = _hash(opi::value {x->_car}, mem);
-      // hash ^= _hash(cdr<false>(x), mem) + 0x9e3779b9 + (hash<<6) + (hash>>2);
+#ifdef OPIUM_HASH_CACHING
       size_t hash = car(x)->hash;
       hash ^= cdr(x)->hash + 0x9e3779b9 + (hash<<6) + (hash>>2);
+#else
+      if (not mem.emplace(&*x).second)
+        return 0;
+      size_t hash = _hash(car(x), mem);
+      hash ^= _hash(cdr<false>(x), mem) + 0x9e3779b9 + (hash<<6) + (hash>>2);
+#endif
       return hash;
     }
     default:

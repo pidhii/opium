@@ -15,7 +15,6 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#include "opium/stl/unordered_map.hpp"
 #include "repl.hpp"
 
 #include "opium/lisp_parser.hpp"
@@ -23,27 +22,22 @@
 #include "opium/prolog_repl.hpp"
 #include "opium/value.hpp"
 #include "opium/logging.hpp"
-#include "opium/pretty_print.hpp"
-#include "opium/scheme/scheme_type_system.hpp"
 #include "opium/utilities/execution_timer.hpp"
+#include "opium/opium.hpp"
 
-#include <asm-generic/errno.h>
 #include <boost/program_options.hpp>
 
 #include <cassert>
-#include <cctype>
 #include <cstdlib>
 #include <fstream>
 #include <ios>
 #include <iostream>
-#include <iterator>
 #include <unistd.h>
 #include <vector>
 #include <string>
 #include <cstring>
 #include <set>
 #include <filesystem>
-#include <utility>
 #include <regex>
 
 namespace std {
@@ -132,45 +126,6 @@ strip_escape_sequences(const std::string &input)
 }
 
 
-static void
-write_scheme_script(std::ostream &os, opi::value script)
-{
-  os << "(cond-expand (guile (import (srfi :11))) (else))\n\n";
-  for (const opi::value expr : range(script))
-    os << strip_escape_sequences(pprint_scm(expr)) << "\n\n";
-}
-
-
-using pragmas =
-    opi::stl::unordered_map<std::string, opi::stl::deque<opi::value>>;
-
-opi::value
-filter_pragmas(opi::value script, pragmas &pragmas)
-{
-  opi::stl::vector<opi::value> result;
-  opi::stl::unordered_map<opi::value, opi::value> matches;
-  for (const opi::value expr : range(script))
-  {
-    // Handle pragmas
-    if (expr->t == opi::tag::pair and car(expr) == "pragma")
-    {
-      if (length(cdr(expr)) < 2 or not issym(car(cdr(expr))))
-        throw opi::bad_code {"Invalid pragma", expr};
-
-      const std::string tag {sym_name(car(cdr(expr)))};
-      std::ranges::copy(range(cdr(cdr(expr))), std::back_inserter(pragmas[tag]));
-    }
-    else
-    {
-      // Pass all other expressions
-      result.push_back(expr);
-    }
-  }
-
-  return list(result);
-}
-
-
 int
 main(int argc, char **argv)
 {
@@ -225,9 +180,6 @@ main(int argc, char **argv)
   loglevel = parse_loglevel(verbosity);
 
   // Set global flags
-  // - DumpTypeCheck
-  // - DebugQuery
-  // - DebugQueryVars
   for (const std::string &flag : flags)
     global_flags.emplace(flag);
 
@@ -251,61 +203,7 @@ main(int argc, char **argv)
     assert(inputfile.is_open());
     value in = parser.parse_all(inputfile, inputpath);
 
-    // Collect and erase pragmas
-    pragmas pragmas;
-    in = filter_pragmas(in, pragmas);
-
-    // Run extra prolog expressions
-    for (const value plexpr : pragmas["prolog"])
-      pl << plexpr;
-
-    try
-    {
-      opi::execution_timer preprocessor_timer {"Preprocessor"};
-      scheme_preprocessor pp;
-      const value ppcode = pp.transform_block(in);
-      preprocessor_timer.stop();
-
-      info("\e[1mrunning Type Check on {}\e[0m", inputpath.c_str());
-      opi::execution_timer analyzer_timer {"Type analyzer"};
-      size_t cnt = 0;
-      const auto [out, type_map] =
-          translate_to_scheme(cnt, pl, ppcode, pragmas["scheme-translator"]);
-      analyzer_timer.stop();
-
-      // Display the source file with type annotations
-      if (varmap.contains("annotate"))
-      {
-        std::ostringstream buf2;
-        buf2 << "\e[1mtype-annotated source code:\e[0m\n```";
-        std::ifstream infile {inputpath};
-        type_map.display_source_with_types(infile, buf2);
-        buf2 << "```";
-        info("{}", buf2.str());
-      }
-
-      // Write generated Scheme script
-      if (not opath.empty())
-      {
-        info("writing Scheme script to {}", opath);
-        if (std::ofstream ofile {opath})
-          write_scheme_script(ofile, out);
-        else
-          throw std::runtime_error {
-              std::format("Failed to open file {} for writing", opath)};
-      }
-
-    }
-    catch (const bad_code &exn)
-    {
-      error("{}", exn.display());
-      exit(EXIT_FAILURE);
-    }
-    catch (const std::runtime_error &exn)
-    {
-      error("{}", exn.what());
-      exit(EXIT_FAILURE);
-    }
+    generate_scheme(in, pl, opath);
   }
   else
     read_eval_print_loop(parser, pl);

@@ -44,8 +44,8 @@ function @
 }
 
 
-@ ./install/bin/osl "$input_file" >"$osl_output"
-@ ./install/bin/opium "$osl_output" -o "$opium_output" $@
+@ ./install/bin/osl -o "$opium_output" "$input_file" $@
+# @ ./install/bin/opium "$osl_output" -o "$opium_output" $@
 
 
 function make_script
@@ -82,7 +82,8 @@ function make_chicken
   fi
 
   chicken_opium_args=()
-  chicken_opt_args=(-O5 -local -no-bound-checks -no-procedure-checks -no-argc-checks)
+  #chicken_opt_args=(-O5 -local -no-bound-checks -no-procedure-checks -no-argc-checks)
+  chicken_opt_args=()
   @ chicken-csc ${chicken_opium_args[*]} ${chicken_opt_args[*]} -output-file "$chicken_output" "$opium_output"
 
   if $run; then
@@ -104,5 +105,5 @@ if test -f TypeCheck.scm; then
 fi
 
 if test ! $save; then
-  rm "$osl_output" "$opium_output"
+  rm -f "$osl_output" "$opium_output"
 fi

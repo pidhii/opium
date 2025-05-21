@@ -50,6 +50,20 @@ opi::lisp_parser::parse(std::istream &input, const std::string &source_name)
 
 
 opi::value
+opi::lisp_parser::parse_all(const std::string &input, const std::string &source_name)
+{
+  const std::vector<token> tokens = tokenize(input, source_name);
+  size_t pos = 0;
+
+  stl::deque<value> result;
+  while (pos < tokens.size())
+    result.push_back(parse_tokens(tokens, pos));
+
+  return list(result);
+}
+
+
+opi::value
 opi::lisp_parser::parse_all(std::istream &input, const std::string &source_name)
 {
   const std::vector<token> tokens = tokenize(input, source_name);

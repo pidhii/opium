@@ -86,9 +86,10 @@ _equal(opi::value a, opi::value b, _memory_set &mem)
 bool
 opi::equal(value a, value b)
 {
+#ifdef OPIUM_HASH_CACHING
   if (a->hash != b->hash)
     return false;
-
+#endif
   _memory_set mem;
   return _equal(a, b, mem);
 }

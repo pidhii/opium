@@ -25,7 +25,6 @@
 
 #include "opium/predicate_runtime.hpp"
 #include "opium/utilities/execution_timer.hpp"
-#include "opium/logging.hpp"
 
 #include <cassert>
 
@@ -40,8 +39,7 @@ namespace opi::detail {
 template <unbound_variable_handler UVHandler>
 struct _reconstructor {
   UVHandler uvhandler; /**< Handler for unbound variables */
-  opi::stl::unordered_map<cell *, value> mem; /**< Memoization map to avoid infinite recursion */
-  opi::stl::unordered_map<value, value> pairmem;
+  opi::stl::unordered_map<void *, value> mem; /**< Memoization map to avoid infinite recursion */
 
   /**
    * Constructor
@@ -51,38 +49,6 @@ struct _reconstructor {
    */
   template <typename T>
   _reconstructor(T &&uvhandler): uvhandler {std::forward<T>(uvhandler)} { }
-
-  /**
-   * Reconstruct a value
-   * 
-   * \param x Value to reconstruct
-   * \return Reconstructed value
-   */
-  opi::value
-  _reconstruct(opi::value x)
-  {
-    if (x->t == opi::tag::pair)
-    {
-      if (opi::issym(car(x), CELL))
-        return _reconstruct(static_cast<opi::cell *>(cdr(x)->ptr));
-      else
-      {
-        // Avoid infinite recursion
-        const auto it = pairmem.find(x);
-        if (it != pairmem.end())
-          return it->second;
-        // Create and memorize placeholder-pair to be filled in later
-        value result = cons(nil, nil);
-        pairmem.emplace(x, result);
-        set_car(result, _reconstruct(car(x)));
-        set_cdr(result, _reconstruct(cdr(x)));
-        copy_location(x, result);
-        return result;
-      }
-    }
-    else
-      return x;
-  }
 
   /**
    * Reconstruct a value from a cell
@@ -95,28 +61,10 @@ struct _reconstructor {
   {
     x = find(x);
 
-    const auto it = mem.find(x);
-    if (it != mem.end())
-      return it->second;
-
     switch (x->kind)
     {
       case opi::cell::kind::value:
-        if (x->val->t == opi::tag::pair)
-        {
-          const opi::value val = opi::cons(opi::nil, opi::nil);
-          mem.emplace(x, val);
-          const value newcar = _reconstruct(car(x->val));
-          const value newcdr = _reconstruct(cdr(x->val));
-          assert(&*newcar);
-          assert(&*newcdr);
-          set_car(val, newcar);
-          set_cdr(val, newcdr);
-          copy_location(x->val, val);
-          return val;
-        }
-        else
-          return x->val;
+        return _reconstruct(x->val);
 
       case opi::cell::kind::variable:
         return uvhandler(x);
@@ -124,6 +72,41 @@ struct _reconstructor {
     std::terminate();
   }
 
+  /**
+   * Reconstruct a value
+   * 
+   * \param x Value to reconstruct
+   * \return Reconstructed value
+   */
+  opi::value
+  _reconstruct(opi::value x)
+  {
+    if (x->t == opi::tag::pair)
+    {
+      value result = nil;
+      while (x->t == opi::tag::pair and not issym(car(x), CELL))
+      {
+        auto it = mem.find(&*x);
+        if (it != mem.end())
+          return append_mut(result, it->second);
+
+        value newx = cons(nil, nil);
+        mem.emplace(&*x, newx);
+        set_car(newx, _reconstruct(car(x)));
+        copy_location(x, newx);
+
+        result = append_mut(result, newx);
+        x = cdr(x);
+      }
+
+      if (x->t == tag::pair and opi::issym(car(x), CELL))
+        return append_mut(result, _reconstruct(static_cast<opi::cell *>(cdr(x)->ptr)));
+      else
+        return append_mut(result, x);
+    }
+    else
+      return x;
+  }
 }; // struct opi::detail::_reconstructor
 
 } // namespace opi::detail

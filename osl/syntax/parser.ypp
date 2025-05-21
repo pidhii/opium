@@ -13,8 +13,13 @@
 %define api.pure full
 %param { yyscan_t scanner }
 %locations
+%define api.location.type { range_location }
 
 %{
+#include "syntax_definitions.h"
+#include "location.hh"
+#include "../osl/unroll_flow.hpp" // FIXME
+
 #include "opium/value.hpp"
 #include "opium/logging.hpp"
 #include "opium/pretty_print.hpp"
@@ -30,8 +35,6 @@
 #include <filesystem>
 #include <cassert>
 
-#include "location.hh"
-
 
 static opi::value* g_result_ptr;
 
@@ -40,21 +43,48 @@ static opi::value* g_result_ptr;
 #define YYFREE GC_free
 #define YYSTACK_USE_ALLOCA 1
 
+#define YYLLOC_DEFAULT(Cur, Rhs, N)                    \
+do {                                                   \
+  if (N)                                               \
+  {                                                    \
+    (Cur).left = YYRHSLOC(Rhs, 1).left;                \
+    (Cur).right = YYRHSLOC(Rhs, N).right;              \
+  }                                                    \
+  else                                                 \
+  {                                                    \
+    (Cur).left = (Cur).right = YYRHSLOC(Rhs, 0).right; \
+  }                                                    \
+} while (0)
+
+
 
 namespace opi::osl {
 
 opi::value
-parse(std::FILE *file, bool reset_includes = false);
+parse(const std::string &source, std::FILE *file, bool is_root = false);
 
 }
 
+static std::string g_source;
 size_t g_fileoffs_left;
 size_t g_fileoffs_right;
+
+
+struct range_location;
+static void
+bindloc(opi::value val, const range_location &loc);
+
+opi::source_location
+make_location(const range_location &loc);
+
+
 
 static opi::value
 mangle_type_constructor(opi::value ctor)
 {
-  return opi::sym("oslctor:" + std::string(opi::sym_name(ctor)));
+  const opi::value result = opi::sym("oslctor:" + std::string(opi::sym_name(ctor)));
+  copy_location(ctor, result);
+  return result;
 }
 
 
@@ -85,6 +115,8 @@ generate_record_definition(opi::value typesign, opi::value name, opi::value ctor
   {
     const opi::value gettername = opi::sym(std::format("{}-{}", ctorname, field));
     const opi::value settername = opi::sym(std::format("{}-set-{}!", ctorname, field));
+    copy_location(field, gettername);
+    copy_location(field, settername);
     accessors = append(accessors, list(list(field, gettername, settername)));
   }
 
@@ -151,37 +183,33 @@ generate_unpack_definition(opi::value recorddef, opi::value unpackname)
 }
 
 
-template <std::output_iterator<opi::value> Output>
-void
-generate_overloaded_getter(opi::value recorddef, opi::value field,
-                           opi::value name, Output output)
-{
-  const opi::value getter = field_accessors(recorddef, field).first;
-  *output++ = list("define-overload", list(name, "x"), list(getter, "x"));
-}
-
 
 template <std::output_iterator<opi::value> Output>
 static void
-generate_variant(opi::value typesign, opi::value ctorsign, Output output)
+generate_variant(opi::value typesign, opi::value ctorsign, Output output,
+                 const opi::source_location &location)
 {
   // NOTE: Don't allow overloading constructors for now
   //       (no particular reason, just a design decision; can change it later)
-  const opi::value type = car(typesign);
+  const opi::value type = issym(typesign) ? typesign : car(typesign);
   const opi::value ctorname = car(ctorsign);
   const opi::value mangledctor = mangle_type_constructor(ctorname);
   const opi::value mangledctorsign = cons(mangledctor, cdr(ctorsign));
   const size_t arity = length(cdr(ctorsign));
 
   const opi::value recordname = opi::sym(std::format("{}.{}", type, ctorname));
+  set_location(recordname, location);
   opi::value fields = opi::nil;
   for (size_t i = 0; i < arity; ++i)
   {
-    const std::string fieldname = std::format(":{}", i);
-    fields = append(fields, list(opi::sym(fieldname)));
+    const opi::value fieldname {std::format(":{}", i).c_str()};
+    set_location(fieldname, location);
+    fields = append(fields, list(fieldname));
   }
   const opi::value predname = opi::sym(std::format("{}?", recordname));
   const opi::value unpackname = opi::sym(std::format("unpack-{}", recordname));
+  set_location(predname, location);
+  set_location(unpackname, location);
 
   // Generate Scheme inlines and cases-rule
   const opi::value recorddef = generate_record_definition(typesign, recordname,
@@ -204,31 +232,36 @@ generate_variant(opi::value typesign, opi::value ctorsign, Output output)
 
 template <std::output_iterator<opi::value> Output>
 static void
-generate_variant_type(opi::value typesign, opi::value variants, Output output)
+generate_variant_type(opi::value typesign, opi::value variants, Output output,
+                      const opi::source_location &location)
 {
   for (const opi::value ctorsign : range(variants))
-    generate_variant(typesign, ctorsign, output);
+    generate_variant(typesign, ctorsign, output, location);
 }
 
 
 static opi::value
 overloaded_getter_name(opi::value fieldname)
 {
-  return opi::sym(std::format("osl:#{}", fieldname));
+  const opi::value result = opi::sym(std::format("osl:#{}", fieldname));
+  copy_location(fieldname, result);
+  return result;
 }
 
 static opi::value
 overloaded_setter_name(opi::value fieldname)
 {
-  return opi::sym(std::format("osl:#set-{}!", fieldname));
+  const opi::value result = opi::sym(std::format("osl:#set-{}!", fieldname));
+  copy_location(fieldname, result);
+  return result;
 }
 
 template <std::output_iterator<opi::value> Output>
 static void
-generate_record_type(opi::value typesign, opi::value fields, Output output)
+generate_record_type(opi::value typesign, opi::value fields, Output output,
+                     const opi::source_location &location)
 {
-  const opi::value recordname = car(typesign);
-  // const opi::value ctorname = recordname;
+  const opi::value recordname = issym(typesign) ? typesign : car(typesign);
 
   opi::value fieldnames = opi::nil;
   opi::value fieldtypes = opi::nil;
@@ -240,20 +273,32 @@ generate_record_type(opi::value typesign, opi::value fields, Output output)
 
   const opi::value mangledname = opi::sym(std::format("osl:{}", recordname));
   const opi::value predname = opi::sym(std::format("{}?", mangledname));
+  const opi::value type_name = opi::sym(std::format("<{}>", mangledname));
+  set_location(mangledname, location);
+  set_location(predname, location);
+  set_location(type_name, location);
   const opi::value recorddef =
-      generate_record_definition(typesign, opi::sym(std::format("<{}>", mangledname)),
+      generate_record_definition(typesign, type_name,
                                  mangledname, fieldnames, fieldtypes, predname,
                                  output);
-  *output++ = list("define-overload", cons(recordname, fieldnames),
-                   cons(mangledname, fieldnames));
+
+  const opi::value define_overload = "define-overload";
+  set_location(define_overload, location);
+  const opi::value ctordef = list(define_overload, cons(recordname, fieldnames),
+                                  cons(mangledname, fieldnames));
+  *output++ = ctordef;
 
   for (const opi::value fieldname : range(fieldnames))
   {
     const auto [getter, setter] = field_accessors(recorddef, fieldname);
     const opi::value ovgetter = overloaded_getter_name(fieldname);
     const opi::value ovsetter = overloaded_setter_name(fieldname);
-    *output++ = list("define-overload", list(ovgetter, "x"), list(getter, "x"));
-    *output++ = list("define-overload", list(ovsetter, "x", "v"), list(setter, "x", "v"));
+    const opi::value getterdef = list(define_overload, list(ovgetter, "x"), list(getter, "x"));
+    const opi::value setterdef = list(define_overload, list(ovsetter, "x", "v"), list(setter, "x", "v"));
+    set_location(getterdef, location);
+    set_location(setterdef, location);
+    *output++ = getterdef;
+    *output++ = setterdef;
   }
 }
 
@@ -269,7 +314,7 @@ load_file(const std::filesystem::path &path)
   {
     const std::filesystem::path curpath = std::filesystem::current_path();
     std::filesystem::current_path(dirpath);
-    const opi::value result = opi::osl::parse(file, false);
+    const opi::value result = opi::osl::parse(path, file, false);
     std::filesystem::current_path(curpath);
 
     fclose(file);
@@ -282,14 +327,53 @@ load_file(const std::filesystem::path &path)
 
 
 
+struct loop_unroller: public opi::osl::flow_unroller {
+  std::string loopname, varname;
+  opi::value breakform;
+
+  loop_unroller(const std::string &loopname, const std::string &varname,
+                opi::value breakform)
+  : loopname {loopname}, varname {varname}, breakform {breakform}
+  { }
+
+  std::pair<opi::osl::flow, opi::value>
+  make_return([[maybe_unused]] opi::value args) const override
+  {
+    throw opi::bad_code {"Unimplemented return from a loop"};
+  }
+
+  std::pair<opi::osl::flow, opi::value>
+  make_break([[maybe_unused]] opi::value args) const override
+  {
+    using namespace opi;
+    return {opi::osl::flow::branch, cons(breakform, args)};
+  }
+
+  std::pair<opi::osl::flow, opi::value>
+  make_continue([[maybe_unused]] opi::value args) const override
+  {
+    using namespace opi;
+    if (length(args) > 0)
+      throw opi::bad_code {"Invalid continue with arguments"};
+    return {opi::osl::flow::branch, list(sym(loopname), sym(varname))};
+  }
+};
+
+
 %}
 
 %code requires {
   #include "opium/value.hpp"
+  #include "opium/source_location.hpp"
 
   using namespace opi;
 
   typedef void* yyscan_t;
+
+  struct range_location {
+    size_t left = 0, right = 0;
+  };
+
 }
 
 %code {
@@ -300,9 +384,9 @@ load_file(const std::filesystem::path &path)
   yyerror(YYLTYPE *loc_p, yyscan_t scnner, const char *what)
   {
     opi::source_location location;
-    location.source = "test.opi";
-    location.start = g_fileoffs_left;
-    location.end = g_fileoffs_right;
+    location.source = g_source;
+    location.start = loc_p->left;
+    location.end = loc_p->right;
     opi::error("parse error: {}\n{}", what, opi::display_location(location));
   }
 
@@ -322,6 +406,8 @@ load_file(const std::filesystem::path &path)
 %token TYPE
 %token SET
 %token OF
+%token FN
+%token FOR BREAK CONTINUE
 
 %right '|'
 
@@ -333,11 +419,17 @@ load_file(const std::filesystem::path &path)
 %right LET LETREC WHERE
 
 %right FAT_RIGHT_ARROW
+
+%right OR
+%right AND
 %nonassoc EQ NE
 %nonassoc LT LE GT GE
+%right ':'
 %left '+' '-' '%'
 %left '*' '/'
-%left '.' ':' '#'
+%left NOT
+%nonassoc TYPE_ANNOTATION
+%left '.' '#'
 
 // =============================================================================
 //                              Structures
@@ -374,6 +466,7 @@ String
     for (const value chunk : range($2))
       std::ranges::copy(str_view(chunk), std::back_inserter(result));
     $$ = str(result);
+    bindloc($$, @$);
   }
 ;
 
@@ -387,44 +480,75 @@ ApplExpr
   | INTEGER
   | FLOAT
   | BOOLEAN
-  | String
-  | '{' SeqOfExprs '}' { $$ = cons("begin", $2); }
-  | '[' ']' { $$ = list(mangle_type_constructor("EmptyList")); }
-  | '+' { $$ = "+"; }
-  | '-' { $$ = "-"; }
-  | '*' { $$ = "*"; }
-  | '/' { $$ = "/"; }
-  | EQ { $$ = "=="; }
-  | NE { $$ = "!="; }
-  | GT { $$ = ">"; }
-  | LT { $$ = "<"; }
-  | GE { $$ = ">="; }
-  | LE { $$ = "<="; }
-  | ApplExpr '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); }
+  | String { $$ = $1; bindloc($$, @$); }
+  | '{' SeqOfExprs '}' { $$ = cons("begin", $2); bindloc($$, @$); }
+  | '[' ListOfExprs ']' %prec AFTER_APPLY {
+    if (length($2) > 0)
+      $$ = cons("oslops:list", $2);
+    else
+      $$ = list(mangle_type_constructor("EmptyList"));
+    bindloc($$, @$);
+  }
+  | '+' { $$ = "+"; bindloc($$, @$); }
+  | '-' { $$ = "-"; bindloc($$, @$); }
+  | '*' { $$ = "*"; bindloc($$, @$); }
+  | '/' { $$ = "/"; bindloc($$, @$); }
+  | '%' { $$ = "%"; bindloc($$, @$); }
+  | EQ { $$ = "=="; bindloc($$, @$); }
+  | NE { $$ = "!="; bindloc($$, @$); }
+  | GT { $$ = ">"; bindloc($$, @$); }
+  | LT { $$ = "<"; bindloc($$, @$); }
+  | GE { $$ = ">="; bindloc($$, @$); }
+  | LE { $$ = "<="; bindloc($$, @$); }
+  | ApplExpr '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); bindloc($$, @$); }
   | '(' Expr ')' %prec AFTER_APPLY { $$ = $2; }
-  | ApplExpr '.' IDENT '(' ListOfExprs ')' { $$ = list($3, $1, dot, $5); }
+  | ApplExpr '.' IDENT '(' ListOfExprs ')' {
+    $$ = list($3, $1, dot, $5);
+    bindloc($$, @$);
+  }
   | ApplExpr '#' IDENT { $$ = list(overloaded_getter_name($3), $1); }
-  | ApplExpr '[' Expr ']' { $$ = list(random_access_getter(), $1, $3); }
+  | ApplExpr '[' Expr ']' %prec APPLY {
+    const value getter = random_access_getter();
+    bindloc(getter, @$);
+    $$ = list(getter, $1, $3);
+  }
 ;
 
 Expr
   : ApplExpr
-  | Ctor '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); }
-  | SET IDENT '=' Expr { $$ = list("set!", $2, $4); }
-  | SET ApplExpr '[' Expr ']' '=' Expr { $$ = list(random_access_setter(), $2, $4, $7); }
-  | SET ApplExpr '#' IDENT '=' Expr { $$ = list(overloaded_setter_name($4), $2, $6); }
-  | Expr '=' Expr { $$ = list(issym($1) ? "define" : "define-overload", $1, $3); }
-  | Expr ':' Expr { $$ = list(mangle_type_constructor("Cons"), $1, $3); }
-  | Expr '+' Expr { $$ = list("+", $1, $3); }
-  | Expr '-' Expr { $$ = list("-", $1, $3); }
-  | Expr '*' Expr { $$ = list("*", $1, $3); }
-  | Expr '/' Expr { $$ = list("/", $1, $3); }
-  | Expr EQ Expr { $$ = list("==", $1, $3); }
-  | Expr NE Expr { $$ = list("!=", $1, $3); }
-  | Expr GT Expr { $$ = list(">", $1, $3); }
-  | Expr LT Expr { $$ = list("<", $1, $3); }
-  | Expr GE Expr { $$ = list(">=", $1, $3); }
-  | Expr LE Expr { $$ = list("<=", $1, $3); }
+  | Ctor '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); bindloc($$, @$); }
+  | SET IDENT '=' Expr { const value set = "set!"; bindloc(set, @1); $$ = list(set, $2, $4); }
+  | SET ApplExpr '[' Expr ']' '=' Expr {
+    const value setter = random_access_setter();
+    bindloc(setter, @1);
+    $$ = list(setter, $2, $4, $7);
+  }
+  | SET ApplExpr '#' IDENT '=' Expr {
+    const value setter = overloaded_setter_name($4);
+    bindloc(setter, @1);
+    $$ = list(setter, $2, $6);
+  }
+  | Expr '=' Expr {
+    const value define = issym($1) ? "define" : "define-overload";
+    bindloc(define, @$);
+    $$ = list(define, $1, $3);
+  }
+  | Expr ':' Expr { const value op = "cons"; bindloc(op, @$); $$ = list(op, $1, $3); }
+  | Expr '+' Expr { const value op = "+"; bindloc(op, @$); $$ = list(op, $1, $3); }
+  | Expr '-' Expr { const value op = "-"; bindloc(op, @$); $$ = list(op, $1, $3); }
+  | Expr '*' Expr { const value op = "*"; bindloc(op, @$); $$ = list(op, $1, $3); }
+  | Expr '/' Expr { const value op = "/"; bindloc(op, @$); $$ = list(op, $1, $3); }
+  | Expr '%' Expr { const value op = "%"; bindloc(op, @$); $$ = list(op, $1, $3); }
+  | Expr EQ Expr { const value op = "=="; bindloc(op, @$); $$ = list(op, $1, $3); }
+  | Expr NE Expr { const value op = "!="; bindloc(op, @$); $$ = list(op, $1, $3); }
+  | Expr GT Expr { const value op = ">"; bindloc(op, @$); $$ = list(op, $1, $3); }
+  | Expr LT Expr { const value op = "<"; bindloc(op, @$); $$ = list(op, $1, $3); }
+  | Expr GE Expr { const value op = ">="; bindloc(op, @$); $$ = list(op, $1, $3); }
+  | Expr LE Expr { const value op = "<="; bindloc(op, @$); $$ = list(op, $1, $3); }
+  | Expr AND Expr { const value op = "and"; bindloc(op, @$); $$ = list(op, $1, $3); }
+  | Expr OR Expr { const value op = "or"; bindloc(op, @$); $$ = list(op, $1, $3); }
+  | NOT Expr { $$ = list("not", $2); bindloc(car($$), @1); }
+  | Expr ':' ':' TypeParam %prec TYPE_ANNOTATION { $$ = list("annotate-type", $1, $4); }
   | Lambda
   | If
   | Match
@@ -436,6 +560,47 @@ Expr
     assert(isstr($3));
     std::istringstream buf {std::string(str_view($3))};
     $$ = list("pragma", $2, dot, parser.parse_all(buf));
+  }
+  | BREAK %prec AFTER_APPLY { $$ = list("break"); bindloc($$, @$); }
+  | BREAK '(' ListOfExprs ')' %prec APPLY { $$ = cons("break", $3); bindloc($$, @$); }
+  | CONTINUE %prec AFTER_APPLY { $$ = list("continue"); }
+  | FOR IDENT IN Expr Expr {
+    loop_unroller unroller {"<loop>", "<it>", "void"};
+
+    const value Nothing = mangle_type_constructor("Nothing");
+    const value Some = mangle_type_constructor("Some");
+
+    const value ifpat = list(Some, $2);
+    const value thenblock = list($5, list("<loop>", "<it>"));
+    const value thenbr = unroller.unroll_block(thenblock, nil, nil).second;
+    const value ifclause = cons(list(ifpat), thenbr);
+    const value elsepat = list(Nothing);
+    const value elsebr = list(list("void"));
+    const value elseclause = cons(list(elsepat), elsebr);
+    const value expr = list("next", "<it>");
+
+    const value loopbody = list("cases", list(expr), ifclause, elseclause);
+    const value lambda = list("lambda", list("<it>"), loopbody);
+    $$ = list("letrec", list(list("<loop>", lambda)), list("<loop>", $4));
+  }
+  | FOR IDENT IN Expr Expr ELSE Expr {
+    loop_unroller unroller {"<loop>", "<it>", "values"};
+
+    const value Nothing = mangle_type_constructor("Nothing");
+    const value Some = mangle_type_constructor("Some");
+
+    const value ifpat = list(Some, $2);
+    const value thenblock = list($5, list("<loop>", "<it>"));
+    const value thenbr = unroller.unroll_block(thenblock, nil, nil).second;
+    const value ifclause = cons(list(ifpat), thenbr);
+    const value elsepat = list(Nothing);
+    const value elsebr = list($7);
+    const value elseclause = cons(list(elsepat), elsebr);
+    const value expr = list("next", "<it>");
+
+    const value loopbody = list("cases", list(expr), ifclause, elseclause);
+    const value lambda = list("lambda", list("<it>"), loopbody);
+    $$ = list("letrec", list(list("<loop>", lambda)), list("<loop>", $4));
   }
 ;
 
@@ -467,7 +632,10 @@ Match
       else
         newclauses = append(newclauses, list(clause));
     }
-    $$ = list("cases", $2, dot, newclauses);
+    bindloc(newclauses, @4);
+    const value cases = "cases";
+    bindloc(cases, @1);
+    $$ = list(cases, $2, dot, newclauses);
   }
 ;
 
@@ -501,19 +669,35 @@ TopLvlExpr
 TypeDef
   : TYPE TypeSign '=' ListOfCtorSigns {
     opi::stl::vector<value> tape;
-    generate_variant_type($2, $4, std::back_inserter(tape));
+    source_location location;
+    location.source = g_source;
+    location.start = @$.left;
+    location.end = @$.right;
+    generate_variant_type($2, $4, std::back_inserter(tape), location);
     $$ = list(tape);
+    bindloc($$, @$);
   }
   | TYPE TypeSign '=' '{' ListOfFields '}' {
     opi::stl::vector<value> tape;
-    generate_record_type($2, $5, std::back_inserter(tape));
+    
+    opi::source_location location;
+    location.source = g_source;
+    location.start = @$.left;
+    location.end = @$.right;
+    generate_record_type($2, $5, std::back_inserter(tape), location);
     $$ = list(tape);
+    bindloc($$, @$);
   }
 ;
 
 TypeSign
   : IDENT %prec AFTER_APPLY
-  | IDENT '(' ListOfTypeParams ')' %prec APPLY { $$ = cons($1, $3); }
+  | IDENT '(' ListOfTypeParams ')' %prec APPLY { $$ = cons($1, $3); bindloc($$, @$); }
+  | FN '(' ListOfTypeParams ')' RIGHT_ARROW TypeParam {
+    const value fn = "fn";
+    bindloc(fn, @1);
+    $$ = list(fn, $3, $6);
+  }
 ;
 
 ListOfCtorSigns
@@ -521,7 +705,10 @@ ListOfCtorSigns
   | CtorSign '|' ListOfCtorSigns { $$ = cons($1, $3); }
 ;
 
-CtorSign: CAPIDENT '(' ListOfTypeParams ')' { $$ = cons($1, $3); };
+CtorSign
+  : CAPIDENT '(' ListOfTypeParams ')' {
+    $$ = cons($1, $3);
+};
 
 ListOfTypeParams
   : { $$ = nil; }
@@ -529,7 +716,10 @@ ListOfTypeParams
   | TypeParam ',' ListOfTypeParams { $$ = cons($1, $3); }
 ;
 
-TypeParam: CAPIDENT | TypeSign;
+TypeParam
+  : CAPIDENT
+  | TypeSign
+;
 
 ListOfFields
   : { $$ = nil; }
@@ -572,14 +762,23 @@ ListOfExprPatterns
 
 ExprPattern
   : AtomPattern
-  | ExprPattern ':' ExprPattern { $$ = list(mangle_type_constructor("Cons"), $1, $3); }
+  | ExprPattern ':' ExprPattern {
+    const value Cons = mangle_type_constructor("Cons");
+    bindloc(Cons, @$);
+    $$ = list(Cons, $1, $3);
+  }
 ;
 
 AtomPattern
   : IDENT
   | '(' ExprPattern ')' { $$ = $2; }
   | Ctor '(' ListOfExprPatterns ')' { $$ = cons($1, $3); }
-  | OTHERWIZE { $$ = "otherwize"; }
+  | '[' ']' {
+    const value EmptyList = mangle_type_constructor("EmptyList");
+    bindloc(EmptyList, @$);
+    $$ = list(EmptyList);
+  }
+  | OTHERWIZE { $$ = "otherwize"; bindloc($$, @$); }
 ;
 
 
@@ -591,8 +790,10 @@ ListOfBinds
 Bind
   : IDENT '=' Expr { $$ = list($1, $3); }
   | IDENT '(' ListOfExprs ')' '=' Expr {
-    const value lambda = list("lambda", $3, $6);
-    $$ = list($1, lambda);
+    const value lambda = "lambda";
+    bindloc(lambda, @$);
+    const value lambdaexpr = list(lambda, $3, $6);
+    $$ = list($1, lambdaexpr);
   }
 ;
 
@@ -614,21 +815,42 @@ extern void
 yylex_destroy(yyscan_t scanner);
 
 
+static void
+bindloc(opi::value val, const range_location &loc)
+{
+  opi::source_location location;
+  location.source = g_source;
+  location.start = loc.left;
+  location.end = loc.right;
+  opi::set_location(val, location);
+}
+
+opi::source_location
+make_location(const range_location &loc)
+{
+  opi::source_location location;
+  location.source = g_source;
+  location.start = loc.left;
+  location.end = loc.right;
+  return location;
+}
+
 namespace opi::osl {
 
 opi::value
-parse(std::FILE *file, bool reset_includes)
+parse(const std::string &source, std::FILE *file, bool is_root)
 {
-  opi::utl::state_saver _ {g_fileoffs_left, g_fileoffs_right};
+  opi::utl::state_saver _ {g_fileoffs_left, g_fileoffs_right, g_source};
   g_fileoffs_left = 0;
   g_fileoffs_right = 0;
+  g_source = source;
 
   opi::value result;
 
   opi::value *result_ptr_save = &result;
   std::swap(result_ptr_save, g_result_ptr);
 
-  if (reset_includes)
+  if (is_root)
     g_included_files.clear();
 
   yyscan_t scanner;
@@ -638,6 +860,15 @@ parse(std::FILE *file, bool reset_includes)
   yylex_destroy(scanner);
 
   std::swap(result_ptr_save, g_result_ptr);
+
+  lisp_parser parser;
+
+  if (is_root)
+  {
+    // Load auxiliary definitions used in syntax
+    const value header = parser.parse_all(osl_syntax_definitions);
+    result = append(header, result);
+  }
 
   return result;
 }

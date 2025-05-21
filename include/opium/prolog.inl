@@ -19,6 +19,16 @@
 
 /**
  * Template implementation of opium/prolog.hpp members 
+ *
+ * Used global flags:
+ * - DebugQueryLocations: trace query by locations
+ * - DebugQuery: trace expressions that query is going through
+ * - DebugQueryVars: trace values of local variables during query
+ * - DebugCall: print call goals
+ * - DebugPredicateMatches: print information about successfult matches on predicates
+ * - DebugSignatureClash: print information about predicate signature clashes
+ * - DebugPredicateFailure: print information about failures to satisfy predicates
+ * - DebugOrBranches: extra verbosity for flow of OR-expressions
  */
 #pragma once
 
@@ -108,9 +118,30 @@ void
 prolog::make_true(predicate_runtime &ert, value e, Cont cont,
                   NTVHandler ntvhandler) const
 {
+  if (e == list("and"))
+  {
+    cont();
+    return;
+  }
+
   utl::state_saver _ {m_depth};
-  if ((++m_depth) % 2000 == 0)
-  // if ((++m_depth) % 5000 == 0)
+
+  // NOTE: This Prolog interpreter is implemented as simple AST evaluator with
+  // CPS without proper tail-calls. Consequently evaluation of every single
+  // expression consumes space on the stack without releasing it untill the
+  // unwind reaches this expression. Consequently, it runs out of the stack when
+  // presented with significantly big code. The (hopefuly temprary) workaround
+  // is to dynamically allocate and use new stacks whenever depth of recursion
+  // reaches its threshold (i.e. close to running out of stack).
+  //
+  // The depth-based thresholds below are obtained by trial-and-error (FIXME)
+#ifdef OPIUM_RELEASE_BUILD
+  if ((++m_depth) % 5000 == 0)
+#else
+  // Non-release build produces much larger frames during function calls, so it
+  // consumes stack faster
+  if ((++m_depth) % 1000 == 0)
+#endif
   {
     warning("switching stack (depth = {})", m_depth);
     bool i_disabled_gc = false;
@@ -143,7 +174,7 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
 
     // Show source location whenever possible
     source_location location;
-    if (get_location(e, location))
+    if (global_flags.contains("DebugQueryLocations") and get_location(e, location))
       message << display_location(location, 2, "\e[1m", "\e[2m");
 
     // Optionaly show Prolog sources
@@ -263,7 +294,8 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
 
         // Reconstruct "Goal" as much as possible
         goal = reconstruct(goal, ignore_unbound_variables);
-        debug("call Goal: {}", goal);
+        if (global_flags.contains("DebugCall"))
+          debug("call Goal: {}", goal);
 
         if (goal->t == tag::pair)
           e = append(goal, cdr(cdr(e)));
@@ -305,9 +337,15 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
         }
 
         // Couldn't satisfy a predicate
-        if (not broke_through)
-          debug("\e[38;5;1mfailed\e[0m to satisfy predicate {}",
-                reconstruct(e, stringify_unbound_variables));
+        if (not broke_through and global_flags.contains("DebugPredicateFailure"))
+        {
+          std::ostringstream what;
+          what << "\e[38;5;1mfailed\e[0m to satisfy predicate\n";
+          source_location location;
+          if (get_location(e, location))
+            what << display_location(location, 1);
+          debug("{}", what.str());
+        }
         return;
       }
       break;
@@ -373,23 +411,27 @@ void
 prolog::_make_or_true(predicate_runtime &ert, value clauses, Cont cont,
                       NTVHandler ntvhandler) const
 {
-  debug("looping over OR-branches");
+  if (global_flags.contains("DebugOrBranches"))
+    debug("looping over OR-branches");
   // indent _ {};
   const std::string hrule (30, '/');
   for ([[maybe_unused]] int cnt = 0; const value clause : range(clauses))
   {
 #ifndef OPIUM_RELEASE_BUILD
-    std::ostringstream buf;
-    buf << std::format("\n\e[38;5;4;1m{} BRANCH {}\e[0m\n", hrule, hrule);
-    for (int i = 0; const value clause : range(clauses))
+    if (loglevel >= loglevel::debug and global_flags.contains("DebugOrBranches"))
     {
-      buf << std::format("{} {}\n", i++ == cnt ? "\e[38;5;4;1m->\e[0m" : "-", clause);
-      source_location location;
-      if (get_location(clause, location))
-        buf << display_location(location, 2, i-1 == cnt ? "\e[38;5;4;1m" : "", "\e[2m");
+      std::ostringstream buf;
+      buf << std::format("\n\e[38;5;4;1m{} BRANCH {}\e[0m\n", hrule, hrule);
+      for (int i = 0; const value clause : range(clauses))
+      {
+        buf << std::format("{} {}\n", i++ == cnt ? "\e[38;5;4;1m->\e[0m" : "-", clause);
+        source_location location;
+        if (get_location(clause, location))
+          buf << display_location(location, 2, i-1 == cnt ? "\e[38;5;4;1m" : "", "\e[2m");
+      }
+      debug("{}\n", buf.str());
+      cnt ++;
     }
-    debug("{}\n", buf.str());
-    cnt ++;
 #endif
 
     // Create auxiliary derived predicate_runtime
@@ -435,7 +477,7 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
         std::ostringstream message;
         message << "\e[38;5;3msignature clash\e[0m";
         // Optionaly show current state of local variables
-        if (global_flags.contains("make_true:debug-signature-clash"))
+        if (global_flags.contains("DebugSignatureClash"))
         {
           message << "\nwhere\n";
           message << "  signature: "

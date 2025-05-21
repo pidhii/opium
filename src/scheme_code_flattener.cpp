@@ -436,6 +436,27 @@ build_cases(const match_table &table)
 opi::scheme_code_flattener::scheme_code_flattener(symbol_generator &gensym)
 : m_gensym {gensym}
 {
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                             annotate-type
+  const match asstypematch {list("annotate-type"),
+                            list("annotate-type", "expr", "type")};
+  append_rule(asstypematch, [this](const auto &ms) {
+    const value expr = ms.at("expr");
+    const value type = ms.at("type");
+
+    // Only flatten the expr
+    if (expr->t == tag::pair)
+    {
+      const value uid = m_gensym();
+      const value newexpr = (*this)(expr);
+      return list("let", list(list(uid, newexpr)), list("annotate-type", uid, type));
+    }
+    else // Already flat
+      return list("annotate-type", expr, type);
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                cases
   const match casesmatch {
       list("cases"), list("cases", "exprs", cons("patterns", "branch"), "...")};
   prepend_rule(casesmatch, [this](const auto &ms, value) {

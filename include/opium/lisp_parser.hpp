@@ -55,6 +55,9 @@ class lisp_parser {
   parse(std::istream &input, const std::string &source_name = "<stream>");
 
   value
+  parse_all(const std::string &input, const std::string &source_name = "<string>");
+
+  value
   parse_all(std::istream &input, const std::string &source_name = "<stream>");
 
   /**

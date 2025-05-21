@@ -26,6 +26,7 @@
 #include "opium/value.hpp"
 #include "opium/utilities/ranges.hpp"
 #include "opium/lisp_parser.hpp"
+#include <iterator>
 
 
 using namespace std::placeholders;
@@ -56,6 +57,30 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   m_global_alist {nil},
   m_lambda_gensym {counter, "Lambda{}"}
 {
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                               annotate-type
+  const match asstypematch {list("annotate-type"),
+                            list("annotate-type", "expr", "type")};
+  append_rule(asstypematch, [this](const auto &ms) {
+    const value expr = ms.at("expr");
+    const value type = ms.at("type");
+
+    // Evaluate `expr` with target set to `type`
+    const value plexpr = ({
+      utl::state_saver _ {m_target};
+      m_target = type;
+      (*this)(expr);
+    });
+
+    // Don't emit extra code for dummy target
+    if (m_target == "_")
+      return plexpr;
+
+    // Otherwise, also bind current target with the `type`
+    const value bindtarget = list("=", m_target, type);
+    return list("and", plexpr, bindtarget);
+  });
+
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 cases
   const match casesmatch {
@@ -273,7 +298,8 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   //                        declare-template-overload
   // NOTE: leaks a-list
   const value ovdeclpat = list("declare-template-overload", "ovident", "ident");
-  append_rule({list("declare-template-overload"), ovdeclpat}, [this](const auto &ms) {
+  append_rule({list("declare-template-overload"), ovdeclpat},
+              [this](const auto &ms, [[maybe_unused]]value fm) {
     const value ovident = ms.at("ovident");
     const value ident = ms.at("ident");
 
@@ -282,6 +308,17 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value type = cons("#template", typevar);
     m_alist = cons(cons(ovident, type), m_alist);
     copy_location(ident, type);
+    // if (not has_location(type))
+    // {
+    //   warning("Failed to assign location to function template");
+    //   source_location location;
+    //   if (get_location(fm, location))
+    //     warning("{}", display_location(location));
+    //   else if (get_location(ovident, location))
+    //     warning("{}", display_location(location));
+    //   else if (get_location(ident, location))
+    //     warning("{}", display_location(location));
+    // }
 
     return list("and");
   });
@@ -306,7 +343,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   //                             template
   // NOTE: leaks a-list
   const value temppat = list("template", cons("ident", "params"), dot, "body");
-  append_rule({list("template"), temppat}, [this, &counter](const auto &ms, value fm) {
+  append_rule({list("template"), temppat}, [this](const auto &ms, value fm) {
     const value ident = ms.at("ident");
     const value params = ms.at("params");
     const value body = ms.at("body");
@@ -340,8 +377,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     plparams = reverse(plparams); // We were inserting at front, so now reverse
 
     // (local) Type variable to hold function return type
-    // FIXME: why does it have to generate different identifiers?
-    const value plresult = sym(std::format("Result_{}", counter++));
+    const value plresult = "Result";
 
     // Translate the body with apropriate target
     m_target = plresult;
@@ -381,22 +417,22 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     for (const value x : range(params))
     {
       const value xtype = _generate_type_and_copy_location(x);
-      plparams = cons(xtype, plparams);
+      plparams = append(plparams, list(xtype));
       m_alist = cons(cons(x, xtype), m_alist);
     }
-    plparams = reverse(plparams); // We were inserting at front, so now reverse
 
     // (local) Type variable to hold function return type
     // FIXME: why does it have to generate different identifiers?
     const value plresult = sym(std::format("Result_{}", counter++));
 
-
     // Translate the body with apropriate target
     m_target = plresult;
     const value plbody = transform_block(body);
 
-    const value type_template =
-        list("quasiquote", list("#dynamic-function-dispatch", "anonymous-lambda",
+    // Generate unique identifier for this lambda
+    const value lambdaname = sym(std::format("anonymous-lambda.{}", counter++));
+    const value functemplate =
+        list("quasiquote", list("#dynamic-function-dispatch", lambdaname,
                                 plparams, plresult, plbody));
 
     const value proxyvar = m_lambda_gensym();
@@ -405,7 +441,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     _link_code_to_type(fm, proxyvar);
     _link_code_to_type(car(fm), target);
 
-    return list("and", list("=", proxyvar, type_template),
+    return list("and", list("=", proxyvar, functemplate),
                 list("insert-cells", proxyvar, target));
   });
 
@@ -647,7 +683,11 @@ static opi::value
 _unquote_times(opi::value x, size_t n)
 {
   for (size_t i = 0; i < n; ++i)
-    x = list("unquote", x);
+  {
+    const opi::value newx = list("unquote", x);
+    copy_location(x, newx);
+    x = newx;
+  }
   return x;
 }
 
@@ -741,7 +781,11 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out, bool lvalue)
         if (not has_location(variant.type))
         {
           warning("type without location: {}", variant.type);
-          throw bad_code {"Type without location"};
+
+          source_location location;
+          if (get_location(ident, location))
+            warning("for identifier {}", display_location(location));
+          // throw bad_code {"Type without location"};
         }
         copy_location(variant.type, clause);
         clauses = cons(clause, clauses);

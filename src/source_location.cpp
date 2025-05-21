@@ -25,9 +25,11 @@
 #include <sstream>
 #include <vector>
 
+
 // Global map to store value locations
 // TODO: make it a weak-map
-static opi::stl::unordered_map<opi::object*, opi::source_location> g_value_locations;
+static opi::stl::unordered_map<opi::object *, opi::source_location>
+    g_value_locations;
 
 bool
 opi::get_location(opi::value val, opi::source_location &location)
@@ -70,7 +72,7 @@ opi::display_location(const opi::source_location &location,
                       std::string_view ctxstyle)
 {
   // If the source is not a file, handle it differently
-  if (location.source == "<string>" || location.source == "<stream>")
+  if (location.source == "<string>" or location.source == "<stream>")
     return std::format("in {}: offset {} to {}", location.source,
                        location.start, location.end);
 

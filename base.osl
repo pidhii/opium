@@ -8,6 +8,14 @@
 
 ////
 //
+// Builtin basic functions
+//
+#pragma prolog {
+  (predicate (result-of (not _) bool))
+}
+
+////
+//
 // Define cons-list:
 //
 //   type list(T) = Cons(T, list(T))
@@ -17,6 +25,7 @@
   (ensure-loaded "prolog-std.scm")
 
   ;; Constructor types
+  (predicate (result-of (cons T (list T)) (list T)))
   (predicate (result-of (oslctor:Cons T (list T)) (list T)))
   (predicate (result-of (oslctor:EmptyList) (list _)))
 
@@ -25,7 +34,6 @@
   (predicate (match-on (oslctor:EmptyList) (list _)))
 
   ;; Builtin Scheme functions for lists
-  (predicate (result-of (list . Ts) (list T)) (all T Ts))
   (predicate (result-of (car (list T)) T))
   (predicate (result-of (cdr (list T)) (list T)))
 }
@@ -39,7 +47,14 @@
   (inline
     (define (unpack-pair p) (values (car p) (cdr p)))
     (define oslctor:Cons cons)
-    (define (oslctor:EmptyList) '()))
+    (define (oslctor:EmptyList) '())
+    (define osl_list list)
+  )
 }
 
 type maybe(T) = Some(T) | Nothing()
+
+require "error"
+unpack(x maybe(T)) = match x in
+| Some(value) -> value
+| Nothing()   -> error("Unpack Nothing()")

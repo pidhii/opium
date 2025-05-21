@@ -78,6 +78,20 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
   flip_page();
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                              annotate-type
+  const match asstypematch {list("annotate-type"),
+                            list("annotate-type", "expr", "type")};
+  append_rule(asstypematch, [this](const auto &ms) {
+    const value expr = ms.at("expr");
+    const value type = ms.at("type");
+
+    // Only transform the expression
+    const value newexpr = (*this)(expr);
+
+    return list("annotate-type", newexpr, type);
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 cases
   const match casesmatch {
       list("cases"), list("cases", "exprs", cons("patterns", "branch"), "...")};
@@ -574,6 +588,7 @@ opi::scheme_unique_identifiers::transform_block(value block) const
     {
       const value decl = list("declare-template-overload",
                               group.group_identifier, templateident);
+      copy_location(templateident, decl);
       header = cons(decl, header);
     }
   }

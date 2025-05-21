@@ -1,0 +1,13 @@
+
+#pragma scheme-translator {
+  (inline
+    (cond-expand
+      (chicken
+        (import (chicken process-context))
+        (define commandline command-line-arguments))))
+}
+#pragma prolog {
+  (predicate (result-of (commandline) (list str)))
+}
+
+argv = commandline()

@@ -16,17 +16,17 @@ require "base"
     (define makeArray make-vector)
     (define makeUninitializedArray make-vector)
     (define copyArray vector-copy)
-    (define appendArrays vector-append)
+    (define arrcat vector-append)
 
     (define listToArray list->vector)
-    (define arrayToList vector->list)
+    (define arr2list vector->list)
 
     ;; Selectors
-    (define arrayLength vector-length)
-    (define arrayRef vector-ref)
+    (define arrlen vector-length)
+    (define arrref vector-ref)
 
     ;; Mutators
-    (define arraySet vector-set!)
+    (define arrset vector-set!)
     (define fillArray vector-fill!))
 }
 //
@@ -42,28 +42,29 @@ require "base"
         (= Args (num))
         (= Args (num num))
         (= Args (num num T))))
-  (predicate (result-of (appendArrays . Arrays) (array T)) (all (array T) Arrays))
+  (predicate (result-of (arrcat . Arrays) (array T)) (all (array T) Arrays))
 
   (predicate (result-of (listToArray (list T)) (array T)))
-  (predicate (result-of (arrayToList (array T)) (list T)))
+  (predicate (result-of (arr2list (array T)) (list T)))
 
   ;; Selectors
-  (predicate (result-of (arrayLength (array _)) num))
-  (predicate (result-of (arrayRef (array T) num) T))
+  (predicate (result-of (arrlen (array _)) num))
+  (predicate (result-of (arrref (array T) num) T))
 
   ;; Mutators
-  (predicate (result-of (arraySet (array T) num T) void))
+  (predicate (result-of (arrset (array T) num T) void))
   (predicate (result-of (fillArray (array T) T . Args) void)
     (or (= Args ())
         (= Args (num))
         (= Argrs (num num))))
 }
 
-length(arr) = arrayLength(arr)
+length(arr) = arrlen(arr)
+list(arr array(T)) = arr2list(arr)
 
-arr1 + arr2 = appendArrays(arr1, arr2)
-arr[k] = arrayRef(arr, k)
-set arr[k] = x = arraySet(arr, k, x)
+arr1 + arr2 = arrcat(arr1, arr2)
+arr[k] = arrref(arr, k)
+set arr[k] = x = arrset(arr, k, x)
 
 
 type arrayIterator(T) = {
@@ -75,7 +76,7 @@ iter(arr array(T), from) = arrayIterator(arr, from)
 iter(arr array(T)) = arrayIterator(arr, 0)
 
 next(it arrayIterator(T)) = {
-  if it#cur < arrayLength(it#arr) then {
+  if it#cur < arrlen(it#arr) then {
     result = it#arr[it#cur]
     set it#cur = it#cur + 1
     Some(result)

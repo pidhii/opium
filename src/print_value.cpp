@@ -17,6 +17,7 @@
  */
 
 
+#include "opium/utilities/execution_timer.hpp"
 #include "opium/value.hpp"
 
 #include <vector>
@@ -125,12 +126,21 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
 
 void
 opi::write(std::ostream &os, const opi::value &val)
-{ _print(mode::write, os, val, opi::nil, 0); }
+{
+  execution_timer _ {"write()"};
+  _print(mode::write, os, val, opi::nil, 0);
+}
 
 void
 opi::display(std::ostream &os, const opi::value &val)
-{ _print(mode::display, os, val, opi::nil, 0); }
+{
+  execution_timer _ {"display()"};
+  _print(mode::display, os, val, opi::nil, 0);
+}
 
 void
 opi::print(std::ostream &os, const opi::value &val)
-{ _print(mode::print, os, val, opi::nil, 0); }
+{
+  execution_timer _ {"print()"};
+  _print(mode::print, os, val, opi::nil, 0);
+}

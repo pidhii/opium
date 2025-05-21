@@ -109,12 +109,21 @@ if (OPIUM_SCRIPT)
   find_package (FLEX REQUIRED)
 
   set (osl_prefix ${CMAKE_SOURCE_DIR}/osl)
+
+  # Setup Bison and Felx targets
   BISON_TARGET (osl_parser ${osl_prefix}/syntax/parser.ypp ${CMAKE_BINARY_DIR}/osl_parser.cpp)
   FLEX_TARGET (osl_scanner ${osl_prefix}/syntax/scanner.l ${CMAKE_BINARY_DIR}/osl_scanner.cpp)
   ADD_FLEX_BISON_DEPENDENCY (osl_scanner osl_parser)
 
-  set (osl_syntax_src ${BISON_osl_parser_OUTPUTS} ${FLEX_osl_scanner_OUTPUTS})
-  add_executable (osl ${osl_prefix}/main.cpp ${osl_syntax_src})
+  # Setup syntax_definitions.h with contents of syntax-definitions.opi
+  file(READ "${osl_prefix}/syntax-definitions.opi" osl_syntax_definitions)
+  configure_file("${osl_prefix}/syntax_definitions.h.in"
+                 "${CMAKE_BINARY_DIR}/syntax_definitions.h" @ONLY)
+
+  # OSL executable
+  file (GLOB osl_src_files ${osl_prefix}/*.cpp)
+  set(osl_syntax_src ${BISON_osl_parser_OUTPUTS} ${FLEX_osl_scanner_OUTPUTS})
+  add_executable (osl apps/osl/main.cpp ${osl_src_files} ${osl_syntax_src})
   target_compile_options (osl PRIVATE -Wno-error=unused-function)
   target_include_directories(osl PUBLIC ${CMAKE_SOURCE_DIR}/include)
   target_include_directories(osl PUBLIC ${CMAKE_SOURCE_DIR}/eco/include)

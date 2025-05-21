@@ -61,6 +61,9 @@ struct scheme_emitter {
   value
   _find_code_type(value code) const;
 
+  value
+  _unfold_pattern_type(opi::value pattern) const;
+
   private:
   const value m_dont_emit_symbol;
   const query_result &m_query_result;

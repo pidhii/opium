@@ -1,0 +1,89 @@
+require "base"
+
+#pragma prolog { (predicate (result-of (open str str) port)) }
+#pragma scheme-translator {
+  (inline
+    (cond-expand
+
+      (guile
+        (define (open filename mode)
+          (open-file filename mode)))
+
+      (chicken
+        (import (chicken file posix) (chicken bitwise))
+
+        ;; Map mode-characters to bit-flags
+        (define (char->open-flag char)
+          (cond
+            ((string=? char "r") open/read)
+            ((string=? char "w") (+ open/write open/creat))
+            ((string=? char "a") (+ open/append open/creat))
+            ((string=? char "+") open/rdwr)
+            ((string=? char "b") open/binary)
+            ((string=? char "e") open/excl)
+            (else (error "Invalid open-flag"))))
+
+        ;; Open a file descriptor with flags decoded from the mode-string; and
+        ;; then use this file descriptor to create a PORT object
+        (define (open filename mode)
+          (let* ((modechars (map string (string->list mode)))
+                 (modeflags (map char->open-flag modechars))
+                 (resflag (foldl + 0 modeflags))
+                 (fd (file-open filename resflag)))
+              (if (= (bitwise-and open/write resflag) open/write)
+                  (if (= (bitwise-and open/append resflag) open/append)
+                      (open-output-file* fd #:append)
+                      (open-output-file* fd))
+                  (open-input-file* fd)))))
+    )
+  )
+}
+
+
+#pragma prolog {
+  (predicate (result-of (osl_readline port) str))
+  (predicate (result-of (osl_eofobject_p str) bool))
+}
+
+#pragma scheme-translator {
+  (inline
+    (cond-expand
+      (guile
+        (use-modules (ice-9 rdelim)))
+      (chicken
+        (import (chicken io))))
+        
+    (define osl_readline read-line)
+    (define osl_eofobject_p eof-object?)
+  )
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                            readline
+//
+readline(port) = {
+  line = osl_readline(port)
+  if osl_eofobject_p(line) then
+    Nothing()
+  else
+    Some(line)
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                       readline - iterator
+//
+type readlineIterator() = {
+  file port
+}
+
+next(it readlineIterator()) = {
+  line = osl_readline(it#file)
+  if osl_eofobject_p(line) then
+    Nothing()
+  else 
+    Some(line)
+}
+
+lines(file port) = readlineIterator(file)

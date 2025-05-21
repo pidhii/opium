@@ -28,6 +28,9 @@
 #include <ranges>
 #include <cassert>
 
+
+#define OPIUM_HASH_CACHING
+
 /**
  * \file value.hpp
  * Core value representation for the Opium library
@@ -248,17 +251,33 @@ pair(value car, value cdr)
   assert(&*cdr);
   ret->car = &*car;
   ret->cdr = &*cdr;
+#ifdef OPIUM_HASH_CACHING
   ret->hash = hash(ret);
+#endif
   return ret;
 }
+
+/**
+ * Create a pair (cons cell)
+ * 
+ * \param car First element
+ * \param cdr Second element
+ * \return Pair value
+ *
+ * \ingroup core
+ */
+[[nodiscard]] value
+cons(value car, value cdr);
 
 inline void
 set_car(value pair, value car)
 {
   assert(pair->t == tag::pair);
   pair->car = &*car;
+#ifdef OPIUM_HASH_CACHING
   pair->hash = 0;
   pair->hash = hash(pair);
+#endif
 }
 
 inline void
@@ -266,8 +285,10 @@ set_cdr(value pair, value cdr)
 {
   assert(pair->t == tag::pair);
   pair->cdr = &*cdr;
+#ifdef OPIUM_HASH_CACHING
   pair->hash = 0;
   pair->hash = hash(pair);
+#endif
 }
 
 extern const value True, False; /**< Boolean constants */
@@ -300,9 +321,8 @@ from(long double x)
  *
  * \ingroup core
  */
-[[nodiscard]] inline value
-from(const std::pair<value, value> &p)
-{ return pair(p.first, p.second); }
+[[nodiscard]] value
+from(const std::pair<value, value> &p);
 
 /**
  * Identity conversion
@@ -342,7 +362,7 @@ constexpr dot_t dot; /**< Dot constant */
 template <typename Head>
 [[nodiscard]] value
 list(Head head)
-{ return pair(from(head), nil); }
+{ return cons(from(head), nil); }
 
 /**
  * Create a dotted pair
@@ -357,7 +377,7 @@ list(Head head)
 template <typename Car, typename Cdr>
 [[nodiscard]] value
 list(Car car, [[maybe_unused]] dot_t _, Cdr cdr)
-{ return pair(from(car), from(cdr)); }
+{ return cons(from(car), from(cdr)); }
 
 /**
  * Create a list from multiple elements
@@ -371,7 +391,7 @@ list(Car car, [[maybe_unused]] dot_t _, Cdr cdr)
 template <typename Head, typename ...Tail>
 [[nodiscard]] value
 list(Head head, Tail&& ...tail)
-{ return pair(from(head), list(std::forward<Tail>(tail)...)); }
+{ return cons(from(head), list(std::forward<Tail>(tail)...)); }
 
 /**
  * Reverse a list
@@ -386,9 +406,28 @@ reverse(value l)
 {
   value acc = nil;
   for (; l->t == tag::pair; l = value {&*l->cdr})
-    acc = pair(value {&*l->car}, acc);
+    acc = cons(value {&*l->car}, acc);
   return acc;
 }
+
+/**
+ * Reverse a list
+ * 
+ * \param l List to reverse
+ * \param e Value at the end of the resulting list
+ * \return New list with elements of \p l in reverse order followed by \p e
+ *
+ * \ingroup core
+ */
+[[nodiscard]] inline value
+reverse(value l, value e)
+{
+  value acc = e;
+  for (; l->t == tag::pair; l = value {&*l->cdr})
+    acc = cons(value {&*l->car}, acc);
+  return acc;
+}
+
 
 /**
  * Create a list from a range
@@ -404,14 +443,14 @@ list(Range range)
   {
     value acc = nil;
     for (const value x : range | std::views::reverse)
-      acc = pair(x, acc);
+      acc = cons(x, acc);
     return acc;
   }
   else
   {
     value acc = nil;
     for (const value x : range)
-      acc = pair(x, acc);
+      acc = cons(x, acc);
     return reverse(acc);
   }
 }
@@ -587,19 +626,6 @@ equal(value a, value b);
  * \name Basic list functions
  * \{
  */
-
-/**
- * Create a pair (cons cell)
- * 
- * \param car First element
- * \param cdr Second element
- * \return Pair value
- *
- * \ingroup core
- */
-[[nodiscard]] inline value
-cons(value car, value cdr)
-{ return pair(car, cdr); }
 
 /**
  * Get the first element of a pair
@@ -778,6 +804,28 @@ append(value l, value x)
   else
     return x;
 }
+
+/**
+ * Append a value to the end of a list
+ * 
+ * \param l List to append to
+ * \param x Value to append
+ *
+ * \ingroup core
+ */
+[[nodiscard]] inline value
+append_mut(value l, value x)
+{
+  if (l->t != tag::pair)
+    return x;
+
+  value e;
+  for (e = l; cdr(e)->t == tag::pair; e = cdr(e));
+  set_cdr(e, x);
+
+  return l;
+}
+
 
 /** \} */
 

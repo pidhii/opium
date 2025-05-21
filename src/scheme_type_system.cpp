@@ -31,19 +31,28 @@ opi::generate_function_template_body(scheme_emitter_context &ctx,
                                      value instantiation, value type_template,
                                      value ppbody)
 {
+
   assert(instantiation->t == tag::pair);
   assert(issym(car(instantiation), "#dynamic-function-dispatch"));
 
   predicate_runtime prt;
-  if (not match_arguments(prt, insert_cells(prt, type_template), instantiation))
+  execution_timer t1 {"match function instantiation on template"};
+  if (not match_arguments(prt, insert_cells(prt, type_template), instantiation, true))
   {
     error("failed to match instantion on template");
+    error("template:       {}",
+          car(cdr(reconstruct(type_template, stringify_unbound_variables))));
+    error("specialization: {}",
+          car(cdr(reconstruct(instantiation, stringify_unbound_variables))));
     throw bad_code {"Template specialization failure"};
   }
+  t1.stop();
 
   query_result results;
+  execution_timer t2 {"reconstruct function instantiation types"};
   for (const value varname : prt.variables())
     results[varname].emplace(reconstruct(prt[varname]));
+  t2.stop();
 
   stl::deque<value> tape;
   scheme_emitter emitter {ctx, results};
@@ -57,6 +66,12 @@ opi::generate_function_template_body(scheme_emitter_context &ctx,
 opi::value
 opi::instantiate_function_template(scheme_emitter_context &ctx, value type)
 {
+  if (type->t != tag::pair)
+  {
+    error("Can't create template function specialization.\n"
+          "Expected #dynamic-function-dispatch structure, got {}", type);
+    throw bad_code {"Can't create template function specialization.", type};
+  }
   assert(type->t == tag::pair);
   assert(issym(car(type), "#dynamic-function-dispatch"));
 
@@ -120,6 +135,7 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
       // Reconstruct variable value
       const value cval = reconstruct(prt[varname], [&](cell *c) {
         // Store different markers for unbound terminal and non-terminal vars
+        // FIXME: breaks matching during template specialization
         if (isnonterminal(c))
           return "<nonterminal>";
         else
