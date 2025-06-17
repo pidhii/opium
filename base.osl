@@ -3,7 +3,7 @@
   (inline
     (cond-expand
       (guile (import (srfi :9) (srfi :11)))
-      (else)))
+      (chicken)))
 }
 
 ////
@@ -58,3 +58,23 @@ require "error"
 unpack(x maybe(T)) = match x in
 | Some(value) -> value
 | Nothing()   -> error("Unpack Nothing()")
+
+unpack_or(x maybe(T), default T) = match x in
+| Some(value) -> value
+| Nothing()   -> default
+
+
+////
+//
+// Function type coercion
+//
+#pragma prolog {
+  (predicate (result-of (coerce_function Fn) (fn Args Result))
+    (result-of (Fn . Args) Result))
+  (predicate (result-of ((fn Args Result) . Args) Result))
+}
+#pragma scheme-translator {
+  (inline
+    (define (coerce_function x) x))
+}
+coerce(f) = coerce_function(f)

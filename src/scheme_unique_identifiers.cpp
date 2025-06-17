@@ -142,7 +142,8 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
 
     // Get the mapped identifier created during forward-declaration
     value newidentifier = nil;
-    const bool ok = assq(identifier, m_overload_alist, newidentifier);
+    [[maybe_unused]] const bool ok =
+        assq(identifier, m_overload_alist, newidentifier);
     assert(ok && "Missing overload identifier");
     copy_location(identifier, newidentifier);
 
@@ -150,14 +151,17 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     utl::state_saver _ {m_alist};
 
     // Replace function arguments with unique identifiers
-    value newxs = nil;
+    value newxs = nil, newident;
     for (value ident : range(xs))
     {
-      const value newident = m_gensym();
       if (issym(ident))
+      {
+        newident = _into_unique_symbol(ident);
         newxs = append(newxs, list(newident));
+      }
       else
       {
+        newident = _into_unique_symbol(car(ident));
         newxs = append(newxs, list(cons(newident, cdr(ident))));
         ident = car(ident);
       }
@@ -188,14 +192,17 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     utl::state_saver _ {m_alist};
 
     // Replace function arguments with unique identifiers
-    value newxs = nil;
+    value newxs = nil, newident;
     for (value ident : range(xs))
     {
-      const value newident = m_gensym();
       if (issym(ident))
+      {
+        newident = _into_unique_symbol(ident);
         newxs = append(newxs, list(newident));
+      }
       else
       {
+        newident = _into_unique_symbol(car(ident));
         newxs = append(newxs, list(cons(newident, cdr(ident))));
         ident = car(ident);
       }
@@ -249,7 +256,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     {
       const value ident = car(idents);
       const value expr = car(exprs);
-      const value newident = m_gensym();
+      const value newident = _into_unique_symbol(ident);
       newbinds = append(newbinds, list(list(newident, T(expr))));
       newalist = cons(cons(ident, newident), newalist);
 
@@ -277,7 +284,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     {
       const value ident = car(idents);
       const value expr = car(exprs);
-      const value newident = m_gensym();
+      const value newident = _into_unique_symbol(ident);
       newbinds = append(newbinds, list(list(newident, T(expr))));
       m_alist = cons(cons(ident, newident), m_alist);
 
@@ -298,7 +305,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     // Update alist with identifiers from bindings replaced with unique symbols
     for (const value ident : range(idents))
     {
-      const value newident = m_gensym();
+      const value newident = _into_unique_symbol(ident);
       m_alist = cons(cons(ident, newident), m_alist);
 
       // Copy original identifier location
@@ -333,7 +340,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     {
       const value ident = car(idents);
       const value expr = car(exprs);
-      const value newident = m_gensym();
+      const value newident = _into_unique_symbol(ident);
       m_alist = cons(cons(ident, newident), m_alist);
       newbinds = append(newbinds, list(list(newident, T(expr))));
 
@@ -363,7 +370,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
       value newidentlist = nil;
       for (const value ident : range(identlist))
       {
-        const value newident = m_gensym();
+        const value newident = _into_unique_symbol(ident);
         newidentlist = append(newidentlist, list(newident));
         newalist = cons(cons(ident, newident), newalist);
 
@@ -397,7 +404,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
       value newidentlist = nil;
       for (const value ident : range(identlist))
       {
-        const value newident = m_gensym();
+        const value newident = _into_unique_symbol(ident);
         m_alist = cons(cons(ident, newident), m_alist);
         newidentlist = append(newidentlist, list(newident));
 
@@ -426,7 +433,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     value newargs = nil;
     for (const value ident : range(args))
     {
-      const value newident = m_gensym();
+      const value newident = _into_unique_symbol(ident);
       newargs = append(newargs, list(newident));
       m_alist = cons(cons(ident, newident), m_alist);
 
@@ -552,25 +559,26 @@ opi::scheme_unique_identifiers::transform_block(value block) const
                               std::forward_as_tuple(identifier),
                               std::forward_as_tuple())
                      .first;
-        const value groupidentifier = m_gensym();
+        const value groupidentifier = _into_unique_symbol(identifier, "ovgroup_");
         it->second.group_identifier = groupidentifier;
         m_alist = cons(cons(identifier, groupidentifier), m_alist);
       }
 
       // Generate unique identifier for this definition
-      const value newidentifier = m_gensym();
+      const value newidentifier = _into_unique_symbol(identifier, "ovinst_");
       m_overload_alist = cons(cons(identifier, newidentifier), m_overload_alist);
       copy_location(identifier, newidentifier);
 
       // Add `newidentifier` to the overload group.
       overload_group &group = it->second;
-      const bool ok = group.templates.emplace(newidentifier).second;
+      [[maybe_unused]] const bool ok =
+          group.templates.emplace(newidentifier).second;
       assert(ok && "Failed to add identifier to an overload group");
     }
     else if (try_match(expr, define_function, identifier) or
              try_match(expr, define_identifier, identifier))
     {
-      const value newidentifier = m_gensym();
+      const value newidentifier = _into_unique_symbol(identifier);
       m_alist = cons(cons(identifier, newidentifier), m_alist);
       copy_location(identifier, newidentifier);
 
@@ -605,4 +613,17 @@ opi::scheme_unique_identifiers::transform_block(value block) const
       list(range(block) | std::views::transform(std::ref(*this)));
 
   return append(header, newblock);
+}
+
+
+opi::value
+opi::scheme_unique_identifiers::_into_unique_symbol(
+    value identifier, std::string_view prefix) const
+{
+  if (not issym(identifier) or sym_name(identifier) == "")
+    throw bad_code {
+        std::format("Invalid identifier ({}{})", prefix, identifier),
+        identifier};
+  const std::string fmt = format("{}{}{{}}", prefix, identifier);
+  return m_gensym(fmt);
 }

@@ -1,0 +1,86 @@
+require "base"
+
+
+// Interface to the child process
+type process = {
+  stdout port,
+  stderr port,
+  stdin port,
+  pid num,
+}
+
+// Type of the value returned by (any variation of) wait() 
+type wait_result = {
+  pid num,     // PID or 0, if NOHANG is true and the child process has not
+               // terminated yet
+  exited bool, // True if the process exited normally or false otherwise
+  status num,  // Either the exit status, if the process terminated normally or
+               // the signal number that terminated/stopped the process.
+}
+
+#pragma scheme-translator {
+  (inline
+    (cond-expand
+      (chicken
+        (import (chicken process))
+        (define (osl_process cmd #!optional (args #f))
+          (cond
+            (args
+              (let-values (((pstdout pstdin pid pstderr) (process* cmd args)))
+                (osl:process pstdout pstderr pstdin pid)))
+            (else
+              (let-values (((pstdout pstdin pid pstderr) (process* cmd)))
+                (osl:process pstdout pstderr pstdin pid)))))
+        (define (osl_process_wait args)
+          (let-values (((pid exited status) (apply process-wait args)))
+            (osl:wait_result pid exited status)))
+        (define osl_process_sleep process-sleep)
+      )))
+}
+
+#pragma prolog {
+  (predicate (result-of (osl_process . Args) process)
+    (or (= Args (str))
+        (= Args (str (list str)))))
+
+  (predicate (result-of (osl_process_wait . Args) wait_result)
+    (or (= Args ())
+        (= Args (num))
+        (= Args (num bool))))
+
+  (predicate (result-of (osl_process_sleep num) num))
+}
+
+// run(COMMANDLINE) -> process
+// Passes COMMANDLINE to the host-system's shell that is invoked as a subprocess
+//
+// run(COMMAND, ARGUMENT-LIST) -> process
+// Invokes the COMMAND as a subprocess passing ARGUMENT-LIST as arguments
+//
+// Create a subprocess
+run = osl_process
+
+// wait() -> wait_result
+// wait(PID) -> wait_result
+// wait(PID, NOHANG) -> wait_result
+//
+// Suspends the current process until the child process with the id PID has
+// terminated using the UNIX system call waitpid(). If PID is not given, then
+// this procedure waits for any child process. If NOHANG is given and not false
+// then the current process is not suspended.
+wait() = osl_process_wait()
+wait(pid num) = osl_process_wait(pid)
+wait(pid num, nohang bool) = osl_process_wait(pid, nohang)
+
+// wait(PROCESS) -> wait_result
+// wait(PROCESS, NOHANG) -> wait_result
+//
+// Same as above but accept process object in place of the PID argument
+wait(process process) = osl_process_wait(process#pid)
+wait(process process, nohang bool) = osl_process_wait(process#pid, nohang)
+
+// sleep(SECONDS) -> num
+//
+// Puts the process to sleep for SECONDS. Returns either 0 if the time has
+// completely elapsed, or the number of remaining seconds, if a signal occurred.
+sleep = osl_process_sleep

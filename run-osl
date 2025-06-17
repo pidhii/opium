@@ -82,8 +82,8 @@ function make_chicken
   fi
 
   chicken_opium_args=()
-  #chicken_opt_args=(-O5 -local -no-bound-checks -no-procedure-checks -no-argc-checks)
-  chicken_opt_args=()
+  chicken_opt_args=(-O5 -local -no-bound-checks -no-procedure-checks -no-argc-checks)
+  #chicken_opt_args=()
   @ chicken-csc ${chicken_opium_args[*]} ${chicken_opt_args[*]} -output-file "$chicken_output" "$opium_output"
 
   if $run; then

@@ -41,6 +41,13 @@ class symbol_generator {
     return sym(std::vformat(m_format, std::make_format_args(m_counter)));
   }
 
+  value
+  operator () (std::string_view format)
+  {
+    m_counter ++;
+    return sym(std::vformat(format, std::make_format_args(m_counter)));
+  }
+
   private:
   const std::string m_format;
   size_t &m_counter;

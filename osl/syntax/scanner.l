@@ -53,9 +53,14 @@ make_location(const range_location &loc);
 
 require return REQUIRE;
 
+assert return ASSERT;
+
 for return FOR;
+do return DO;
 break return BREAK;
 continue return CONTINUE;
+return return RETURN;
+yield__ return YIELD;
 
 match return MATCH;
 in    return IN;
@@ -77,7 +82,6 @@ where return WHERE;
 set return SET;
 
 type return TYPE;
-of return OF;
 
 fn return FN;
 

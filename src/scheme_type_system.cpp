@@ -68,8 +68,16 @@ opi::instantiate_function_template(scheme_emitter_context &ctx, value type)
 {
   if (type->t != tag::pair)
   {
-    error("Can't create template function specialization.\n"
-          "Expected #dynamic-function-dispatch structure, got {}", type);
+    // TODO/FIXME: typically happens during negative assetions, so don't print
+    // error unless the type is <any>
+    if (type != "<any>")
+    {
+      error("Can't create template function specialization.\n"
+            "Expected #dynamic-function-dispatch structure, got {}", type);
+      source_location location;
+      if (get_location(type, location))
+        error("{}", display_location(location));
+    }
     throw bad_code {"Can't create template function specialization.", type};
   }
   assert(type->t == tag::pair);
@@ -180,6 +188,12 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
 void
 opi::pretty_template_instance_name(value type, std::ostream &os)
 {
+  if (type == nil)
+  {
+    os << "<>";
+    return;
+  }
+
   if (type->t != tag::pair)
   {
     // Not a template instance, return as is
@@ -202,6 +216,19 @@ opi::pretty_template_instance_name(value type, std::ostream &os)
     os << "_";
     pretty_template_instance_name(resulttype, os);
     os << ">";
+    return;
+  }
+
+  if (not issym(car(type)))
+  {
+    os << "#<";
+    for (std::string prefix = ""; const value x : range(car(type)))
+    {
+      os << prefix;
+      prefix = "_";
+      pretty_template_instance_name(x, os);
+    }
+    os << ">#";
     return;
   }
 

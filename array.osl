@@ -1,4 +1,5 @@
 require "base"
+require "error"
 
 ////
 //
@@ -59,28 +60,40 @@ require "base"
         (= Argrs (num num))))
 }
 
-length(arr) = arrlen(arr)
-list(arr array(T)) = arr2list(arr)
+length(arr array(T)) = arrlen(arr)
 
 arr1 + arr2 = arrcat(arr1, arr2)
 arr[k] = arrref(arr, k)
 set arr[k] = x = arrset(arr, k, x)
 
+list(arr array(T)) = arr2list(arr)
+
 
 type arrayIterator(T) = {
   arr array(T),
-  cur num
+  from num,
+  to num
 }
-
-iter(arr array(T), from) = arrayIterator(arr, from)
-iter(arr array(T)) = arrayIterator(arr, 0)
 
 next(it arrayIterator(T)) = {
-  if it#cur < arrlen(it#arr) then {
-    result = it#arr[it#cur]
-    set it#cur = it#cur + 1
-    Some(result)
+  if it#from < it#to then
+  {
+    result = it#arr[it#from]
+    set it#from = it#from + 1
+    return Some(result)
   }
   else
-    Nothing()
+    return Nothing()
 }
+
+
+iter(arr array(T), from num, to num) = {
+  if from < 0 or from >= arrlen(arr) then
+    error("Array indices out of range", from, arr)
+  if to < 0 or to > arrlen(arr) then
+    error("Array indices out of range", to, arr)
+  return arrayIterator(arr, from, to)
+}
+
+iter(arr array(T), from num) = iter(arr, from, arrlen(arr))
+iter(arr array(T)) = arrayIterator(arr, 0, arrlen(arr))

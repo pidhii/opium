@@ -43,6 +43,9 @@ class scheme_unique_identifiers: public ext_scheme_code_transformer {
   value
   _copy_mapped_identifier(value identifier) const;
 
+  value
+  _into_unique_symbol(value identifier, std::string_view prefix = "") const;
+
   // Helper for automatic reset of toplevel-flag in transformation rules
   value
   _T(value expr);
@@ -154,6 +157,7 @@ class scheme_to_prolog: public code_transformer {
 
   private:
   type_format_string m_type_format;
+  bool m_is_template;
   value m_target;
   value m_alist;
   value m_global_alist;

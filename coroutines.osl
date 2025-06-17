@@ -1,0 +1,34 @@
+require "base"
+
+
+#pragma scheme-translator {
+  (inline
+    (import iterators)
+    (define co_value co-value)
+    (define co_move co-move)
+    (define co_finished co-finished?))
+}
+#pragma prolog {
+  (predicate (result-of (coroutine Fn) (coroutine T))
+    (result-of (Fn (fn (T) void)) void))
+  (predicate (result-of (co_value (coroutine T)) T))
+  (predicate (result-of (co_move (coroutine T)) (coroutine T)))
+  (predicate (result-of (co_finished (coroutine _)) bool))
+}
+
+type generator(T) = {
+  co coroutine(T)
+}
+
+generator(f) = generator(coroutine(f))
+
+next(gen generator(T)) = {
+  co = gen#co
+  if co_finished(co) then
+    return Nothing()
+  else {
+    set gen#co = co_move(co)
+    return Some(co_value(co))
+  }
+}
+  

@@ -124,7 +124,11 @@ generate_record_definition(opi::value typesign, opi::value name, opi::value ctor
   const opi::value recorddef = list("define-record-type", name,
                                     cons(ctorname, fields), predname,
                                     opi::dot, accessors);
-  *output++ = list("pragma", "scheme-translator", list("inline", recorddef));
+  const opi::value fastrecorddef = list("define-record-type-variant", name,
+                                        opi::list("unsafe", "unchecked", "inline"),
+                                        cons(ctorname, fields), predname,
+                                        opi::dot, accessors);
+  *output++ = list("pragma", "scheme-translator", list("inline", recorddef, fastrecorddef));
 
   opi::value predicates = opi::nil;
 
@@ -360,6 +364,29 @@ struct loop_unroller: public opi::osl::flow_unroller {
 };
 
 
+struct function_unroller: public opi::osl::flow_unroller {
+  std::pair<opi::osl::flow, opi::value>
+  make_return([[maybe_unused]] opi::value args) const override
+  {
+    using namespace opi;
+    const value expr = args == opi::nil ? list("void") : cons("values", args);
+    return {opi::osl::flow::branch, expr};
+  }
+
+  std::pair<opi::osl::flow, opi::value>
+  make_break([[maybe_unused]] opi::value args) const override
+  {
+    throw opi::bad_code {"Unimplemented break from a function"};
+  }
+
+  std::pair<opi::osl::flow, opi::value>
+  make_continue([[maybe_unused]] opi::value args) const override
+  {
+    throw opi::bad_code {"Unimplemented continue function"};
+  }
+};
+
+
 %}
 
 %code requires {
@@ -397,6 +424,7 @@ struct loop_unroller: public opi::osl::flow_unroller {
 // =============================================================================
 //                                Tokens
 %token REQUIRE
+%token ASSERT
 %token IDENT
 %token CAPIDENT
 %right MATCH IN RIGHT_ARROW OTHERWIZE
@@ -405,9 +433,8 @@ struct loop_unroller: public opi::osl::flow_unroller {
 %token PRAGMA_
 %token TYPE
 %token SET
-%token OF
 %token FN
-%token FOR BREAK CONTINUE
+%token FOR DO BREAK CONTINUE RETURN YIELD
 
 %right '|'
 
@@ -415,6 +442,9 @@ struct loop_unroller: public opi::osl::flow_unroller {
 %right ELSE
 
 %left '='
+
+%nonassoc RETURN_VOID
+%nonassoc RETURN_VALUE
 
 %right LET LETREC WHERE
 
@@ -529,9 +559,42 @@ Expr
     $$ = list(setter, $2, $6);
   }
   | Expr '=' Expr {
-    const value define = issym($1) ? "define" : "define-overload";
+    if (issym($1))
+    { // define variable
+      const value define = "define";
+      bindloc(define, @$);
+      $$ = list("define", $1, $3);
+    }
+    else
+    {
+      const value define = "define-overload";
+      bindloc(define, @$);
+      if ($3->t == tag::pair and car($3) == "begin")
+      {
+        function_unroller unroller;
+        const value body = append(cdr($3), list(list("void")));
+        const value unrolledbody = unroller.unroll_block(body, nil, nil).second;
+        $$ = list(define, $1, dot, unrolledbody);
+      }
+      else
+      {
+        $$ = list(define, $1, $3);
+      }
+    }
+  }
+  | Expr RIGHT_ARROW TypeParam '=' Expr {
+    const value define = "define-overload";
     bindloc(define, @$);
-    $$ = list(define, $1, $3);
+    value body;
+    if ($3->t == tag::pair and car($3) == "begin")
+    {
+      function_unroller unroller;
+      const value bodyblock = append(cdr($3), list(list("void")));
+      body = unroller.unroll_block(bodyblock, nil, nil).second;
+    }
+    else
+      body = list($3);
+    $$ = list(define, $1, dot, body);
   }
   | Expr ':' Expr { const value op = "cons"; bindloc(op, @$); $$ = list(op, $1, $3); }
   | Expr '+' Expr { const value op = "+"; bindloc(op, @$); $$ = list(op, $1, $3); }
@@ -561,17 +624,20 @@ Expr
     std::istringstream buf {std::string(str_view($3))};
     $$ = list("pragma", $2, dot, parser.parse_all(buf));
   }
+  | RETURN %prec RETURN_VOID { $$ = list("return"); bindloc($$, @$); }
+  | RETURN Expr %prec RETURN_VALUE { $$ = list("return", $2); bindloc($$, @$); }
+  | YIELD Expr { const value yield = "yield"; bindloc(yield, @1); $$ = list(yield, $2); }
   | BREAK %prec AFTER_APPLY { $$ = list("break"); bindloc($$, @$); }
   | BREAK '(' ListOfExprs ')' %prec APPLY { $$ = cons("break", $3); bindloc($$, @$); }
   | CONTINUE %prec AFTER_APPLY { $$ = list("continue"); }
-  | FOR IDENT IN Expr Expr {
+  | FOR IDENT IN Expr DO Expr {
     loop_unroller unroller {"<loop>", "<it>", "void"};
 
     const value Nothing = mangle_type_constructor("Nothing");
     const value Some = mangle_type_constructor("Some");
 
     const value ifpat = list(Some, $2);
-    const value thenblock = list($5, list("<loop>", "<it>"));
+    const value thenblock = list($6, list("<loop>", "<it>"));
     const value thenbr = unroller.unroll_block(thenblock, nil, nil).second;
     const value ifclause = cons(list(ifpat), thenbr);
     const value elsepat = list(Nothing);
@@ -581,26 +647,34 @@ Expr
 
     const value loopbody = list("cases", list(expr), ifclause, elseclause);
     const value lambda = list("lambda", list("<it>"), loopbody);
-    $$ = list("letrec", list(list("<loop>", lambda)), list("<loop>", $4));
+    $$ = list("letrec", list(list("<loop>", lambda)), list("<loop>", list("iter", $4)));
   }
-  | FOR IDENT IN Expr Expr ELSE Expr {
+  | FOR IDENT IN Expr DO Expr ELSE Expr {
     loop_unroller unroller {"<loop>", "<it>", "values"};
 
     const value Nothing = mangle_type_constructor("Nothing");
     const value Some = mangle_type_constructor("Some");
 
     const value ifpat = list(Some, $2);
-    const value thenblock = list($5, list("<loop>", "<it>"));
+    const value thenblock = list($6, list("<loop>", "<it>"));
     const value thenbr = unroller.unroll_block(thenblock, nil, nil).second;
     const value ifclause = cons(list(ifpat), thenbr);
     const value elsepat = list(Nothing);
-    const value elsebr = list($7);
+    const value elsebr = list($8);
     const value elseclause = cons(list(elsepat), elsebr);
     const value expr = list("next", "<it>");
 
     const value loopbody = list("cases", list(expr), ifclause, elseclause);
     const value lambda = list("lambda", list("<it>"), loopbody);
-    $$ = list("letrec", list(list("<loop>", lambda)), list("<loop>", $4));
+    $$ = list("letrec", list(list("<loop>", lambda)), list("<loop>", list("iter", $4)));
+  }
+  | ASSERT '{' SeqOfExprs '}' {
+    $$ = list("if", False, cons("begin", $3));
+  }
+  | ASSERT NOT '{' SeqOfExprs '}' {
+    const value lambda = list("lambda", nil, dot, $4);
+    const value assertion = list("assert_thunk", lambda);
+    $$ = list("annotate-type", assertion, "assertion_failure");
   }
 ;
 

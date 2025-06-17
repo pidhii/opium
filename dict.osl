@@ -1,0 +1,115 @@
+require "base"
+
+#pragma scheme-translator {
+  (inline
+    (cond-expand
+      (chicken
+        (import srfi-69)
+        (define (makeHashTable equalfn hashfn)
+          (let ((hashfn (lambda (x bound) (modulo (hashfn x) bound))))
+            (make-hash-table #:test equalfn #:hash hashfn)))
+        (define hashTableSet hash-table-set!)
+        (define hashTableDelete hash-table-delete!)
+        (define hashTableClear hash-table-clear!)
+        (define hashTableRef hash-table-ref)
+        (define hashTableRefDefault hash-table-ref/default)
+        (define hashTableCount hash-table-size)
+        (define hashTableContains hash-table-exists?)
+        (define hashTableKeys hash-table-keys)
+        (define hashTableValues hash-table-values)
+        (define hashTableMerge hash-table-merge)
+        (define hashTableCopy hash-table-copy)
+
+        (define hashTableForEach hash-table-for-each)
+
+        (define stringHash string-hash)
+        )))
+}
+#pragma prolog {
+  (predicate (result-of (makeHashTable (fn (K K) bool) (fn (K) num)) (dict K V)))
+  (predicate (result-of (hashTableSet (dict K V) K V) void))
+  (predicate (result-of (hashTableDelete (dict K V) K) void))
+  (predicate (result-of (hashTableClear (dict K V)) void))
+  (predicate (result-of (hashTableRef (dict K V) K) V))
+  (predicate (result-of (hashTableRefDefault (dict K V) K V) V))
+  (predicate (result-of (hashTableCount (dict K V)) num))
+  (predicate (result-of (hashTableContains (dict K V) K) bool))
+  (predicate (result-of (hashTableKeys (dict K V)) (list K)))
+  (predicate (result-of (hashTableValues (dict K V)) (list V)))
+  (predicate (result-of (hashTableMerge (dict K V) (dict K V)) (dict K V)))
+  (predicate (result-of (hashTableCopy (dict K V)) (dict K V)))
+
+  (predicate (result-of (hashTableForEach (dict K V) (fn (K V) _)) void))
+
+  (predicate (result-of (stringHash str) num))
+  (predicate (result-of (numberHash num) num))
+}
+
+////
+//
+// Constructors
+//
+dict() = {
+  equalfn = coerce(==) :: fn(K, K) -> bool
+  hashfn = coerce(hash) :: fn(K) -> num
+  return makeHashTable(equalfn, hashfn)
+}
+
+copy(dict dict(K, V)) = hashTableCopy(dict)
+
+////
+//
+// Size 
+//
+length(dict dict(K, V)) = hashTableCount(dict)
+empty(dict dict(K, V)) = length(dict) == 0
+
+////
+//
+// Element access
+//
+dict[key] = {
+  assert { dict :: dict(K, V) key :: K }
+  return hashTableRef(dict, key)
+}
+get(dict dict(K, V), key K, default V) = hashTableRefDefault(dict, key, default)
+contains(dict dict(K, V), key K) = hashTableContains(dict, key)
+
+////
+//
+// Element addition
+//
+set dict[key] = val = {
+  assert { dict :: dict(K, V) key :: K val :: V }
+  hashTableSet(dict, key, val)
+}
+
+////
+//
+// Element removal
+//
+remove(dict dict(K, V), key K) = hashTableDelete(dict, key)
+clear(dict dict(K, V)) = hashTableClear(dict)
+
+////
+//
+// Iterators
+//
+keys(dict dict(K, V)) = hashTableKeys(dict)
+vals(dict dict(K, V)) = hashTableValues(dict)
+
+foreach(dict dict(K, V), f) =
+  hashTableForEach(dict, coerce(f) :: fn(K, V) -> Any)
+
+////
+//
+// Misc
+//
+d1 + d2 = hashTableMerge(d1, d2)
+
+////
+//
+// Hash functions
+//
+hash(x num) = numberHash(x)
+hash(x str) = stringHash(x)

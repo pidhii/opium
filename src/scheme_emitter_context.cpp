@@ -87,7 +87,8 @@ opi::scheme_emitter_context::register_function_template_specialization(
         "Register specialization for non-existent template {}", tag)};
   assert(m_templates.contains(tag) and
           "Template and its specialization must belong to the same context");
-  const bool ok = m_specializations.emplace(type, identifier).second;
+  [[maybe_unused]] const bool ok =
+      m_specializations.emplace(type, identifier).second;
   assert(ok and "Failed to reigster template function specialization");
 }
 

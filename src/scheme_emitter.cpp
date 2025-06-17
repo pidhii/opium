@@ -20,6 +20,7 @@
 #include "opium/scheme/scheme_emitter.hpp"
 #include "opium/scheme/scheme_emitter_context.hpp"
 #include "opium/scheme/scheme_type_system.hpp"
+#include "opium/source_location.hpp"
 #include "opium/value.hpp"
 #include "opium/utilities/ranges.hpp"
 
@@ -234,8 +235,13 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
       try { return instantiate_function_template(m_ctx, type); }
       catch (const bad_code &exn)
       {
-        error("Failed to materialize {}", x);
-        throw bad_code {exn.what(), x};
+        // TODO: typically happens during negative assetions
+        return m_dont_emit_symbol;
+        // error("Failed to materialize {}", x);
+        // source_location location;
+        // if (get_location(x, location))
+        //   error("{}", display_location(location));
+        // throw bad_code {exn.what(), x};
       }
     }
     else

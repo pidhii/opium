@@ -1,42 +1,37 @@
 require "base"
 require "error"
+require "number"
 
 
-#pragma prolog {
-  (predicate (result-of (coerce Fn) (fn Args Result))
-    (result-of (Fn . Args) Result))
-
-  (predicate (result-of ((fn Args Result) . Args) Result))
+////////////////////////////////////////////////////////////////////////////////
+//                               meta
+//
+// Every iterator is also an *iterable*
+iter(it) = {
+  assert { next(it) :: maybe(T) }
+  return it
 }
-#pragma scheme-translator {
-  (inline
-    (define (coerce x) x))
-}
 
 
+////////////////////////////////////////////////////////////////////////////////
+//                             iteration
+//
 foreach(it, f) = match next(it) in
 | Some(x)   -> { f(x) foreach(it, f) }
-| Nothing() -> []
+| Nothing() -> void()
 
 
 foldl(it, z, f) = match next(it) in
 | Some(x)   -> foldl(it, f(z, x), f)
 | otherwize -> z
 
+
+/////////////////////////////////////////////////////////////////////////////////
+//                                search
+//
 find(it, p) = match next(it) in
 | Some(x)   -> if p(x) then Some(x) else find(it, p)
 | Nothing() -> Nothing()
-
-
-// class iterator(T, Iter) =
-//   (it Iter) { next(it) :: maybe(T) }
-// #pragma prolog {
-//   (predicate (iterator.0))
-
-//   (predicate (iterator T Iter)
-//     (result-of (next Iter) Tmp)
-//     (= Tmp (maybe T)))
-// }
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -61,13 +56,13 @@ type mapIterator(Iter, T, U) = {
   func  fn(T) -> U,
 }
 
-next(it mapIterator(Iter, T, U)) = {
+next(it mapIterator(Iter, T, U)) =
   match next(it#inner) in
   | Some(x) -> Some(it#func(x))
   | Nothing() -> Nothing()
-}
 
 map(it, f) = mapIterator(it, coerce(f))
+// map(it, f) = generator { for x in it do yield f(x) }
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -96,11 +91,10 @@ type filterIterator(Iter, T) = {
   pred  fn(T) -> bool,
 }
 
-next(it filterIterator(Iter, T)) = {
+next(it filterIterator(Iter, T)) =
   match next(it#inner) in
   | Some(x) -> if it#pred(x) then Some(x) else next(it)
   | Nothing() -> Nothing()
-}
 
 filter(it, pred) = filterIterator(it, coerce(pred))
 
@@ -115,9 +109,10 @@ next(it rangeIterator()) = {
   if result < it#to then
   {
     set it#from = result + 1
-    Some(result)
+    return Some(result)
   }
-  else Nothing()
+  else
+    return Nothing()
 }
 
 range(from, to) = rangeIterator(from, to)

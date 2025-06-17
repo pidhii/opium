@@ -100,6 +100,8 @@ execution_timer::report() const
 void
 execution_timer::report_global_stats()
 {
+  std::map<std::chrono::nanoseconds, std::string, std::greater<>> entries;
+
   for (const auto &[name, duration] : g_total_duration)
   {
     const double total_ms =
@@ -131,8 +133,13 @@ execution_timer::report_global_stats()
       max_time = std::format("{:.3f} s", max_ms / 1000.0);
     
     // Report both total and max duration
-    opi::info("\e[1m{:30}\e[0m - total: {}, max: {}", name, total_time, max_time);
+    const std::string text = std::format("\e[1m{:20}\e[0m - total: {}, max: {}",
+                                         name, total_time, max_time);
+    entries.emplace(duration, text);
   }
+
+  for (const auto &[_, text] : entries)
+    info("{}", text);
 }
 
 } // namespace opi

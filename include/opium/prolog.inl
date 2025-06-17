@@ -39,6 +39,7 @@
 #include "opium/logging.hpp"
 #include "opium/utilities/separate_stack_executor.hpp"
 #include "opium/utilities/state_saver.hpp"
+#include "opium/value.hpp"
 
 #include <functional>
 #include <gc/gc.h>
@@ -106,10 +107,26 @@ _create_derived_prt(predicate_runtime &parent)
   predicate_runtime derived {&parent};
   for (const value var : parent.variables())
   {
-    const bool ok = unify(parent[var], derived[var]);
+    [[maybe_unused]] const bool ok = unify(parent[var], derived[var]);
     assert(ok and "Failed to create variable in or-clause");
   }
   return derived;
+}
+
+
+static value
+_remove_dynamic_function_dispatch_body(value x)
+{
+  if (x->t == tag::pair)
+  {
+    if (car(x) == "#dynamic-function-dispatch")
+      return list(car(x), car(cdr(x)), car(cdr(cdr(x))), car(cdr(cdr(cdr(x)))));
+    else
+      return cons(_remove_dynamic_function_dispatch_body(car(x)),
+                  _remove_dynamic_function_dispatch_body(cdr(x)));
+  }
+  else
+    return x;
 }
 
 
@@ -179,8 +196,11 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
 
     // Optionaly show Prolog sources
     if (global_flags.contains("DebugQuery"))
-      message << "\nProlog expr: "
-              << pprint_pl(reconstruct(e, stringify_unbound_variables), 13);
+    {
+      const value erec = reconstruct(e, stringify_unbound_variables);
+      const value edisp = _remove_dynamic_function_dispatch_body(erec);
+      message << "\nProlog expr: " << pprint_pl(edisp, 13);
+    }
 
     // Optionaly show current state of local variables
     if (global_flags.contains("DebugQueryVars"))
@@ -226,11 +246,11 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
 
         // Insert cells
         // NOTE: use separate runtime to separate variable names scope
-        predicate_runtime tempns {&ert};
+        predicate_runtime tempns;
         const value resultexpr = insert_cells(tempns, recoexpr);
 
         // Bind result and continue
-        make_true(tempns, list("=", resultexpr, result), cont, ntvhandler);
+        make_true(ert, list("=", resultexpr, result), cont, ntvhandler);
 
         // Roll back
         tempns.mark_dead();

@@ -38,12 +38,10 @@ opi::scheme_to_prolog::set_up_prolog(prolog &pl) const noexcept
   // Add a predicate for dynamic function specialization
   lisp_parser parser;
   const value signature = parser.parse(R"(
-    (result-of ((#dynamic-function-dispatch _ BindArgs BindResult Body) . Args) Result)
+    (result-of ((#dynamic-function-dispatch _ Args Result Body) . Args) Result)
   )");
   const value rule = parser.parse(R"(
-    (and (= BindArgs Args)
-         (= BindResult Result)
-         (call Body))
+    (call Body)
   )");
   pl.add_predicate(signature, rule);
 }
@@ -52,6 +50,7 @@ opi::scheme_to_prolog::set_up_prolog(prolog &pl) const noexcept
 opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
                                         type_format_string format)
 : m_type_format {format},
+  m_is_template {false},
   m_target {"_"},
   m_alist {nil},
   m_global_alist {nil},
@@ -343,7 +342,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   //                             template
   // NOTE: leaks a-list
   const value temppat = list("template", cons("ident", "params"), dot, "body");
-  append_rule({list("template"), temppat}, [this](const auto &ms, value fm) {
+  append_rule({list("template"), temppat}, [this, &counter](const auto &ms, value fm) {
     const value ident = ms.at("ident");
     const value params = ms.at("params");
     const value body = ms.at("body");
@@ -353,8 +352,9 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value proxyvar = _generate_type_and_copy_location(ident);
     _link_code_to_type(fm, proxyvar);
 
-    // Will revert a-list from any changes after this point
-    utl::state_saver _ {m_alist, m_target};
+    // Will revert a-list from any changes after this point.
+    utl::state_saver _ {m_alist, m_target, m_is_template};
+    m_is_template = true;
 
     // Mark beginning of the nesting by inserting a NIL value into the alist
     m_alist = cons(nil, m_alist);
@@ -377,7 +377,8 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     plparams = reverse(plparams); // We were inserting at front, so now reverse
 
     // (local) Type variable to hold function return type
-    const value plresult = "Result";
+    // FIXME: why does it have to generate different identifiers?
+    const value plresult = sym("Result");
 
     // Translate the body with apropriate target
     m_target = plresult;
@@ -407,7 +408,8 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value target = m_target;
 
     // Will revert a-list from any changes after this point
-    utl::state_saver _ {m_alist, m_target};
+    utl::state_saver _ {m_alist, m_target, m_is_template};
+    m_is_template = true;
 
     // Mark beginning of the nesting by inserting a NIL value into the alist
     m_alist = cons(nil, m_alist);
@@ -423,7 +425,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
     // (local) Type variable to hold function return type
     // FIXME: why does it have to generate different identifiers?
-    const value plresult = sym(std::format("Result_{}", counter++));
+    const value plresult = sym("Result");
 
     // Translate the body with apropriate target
     m_target = plresult;
@@ -679,12 +681,42 @@ opi::scheme_to_prolog::_generate_type_and_copy_location(value ident)
 }
 
 
-static opi::value
+[[maybe_unused]] static opi::value
 _unquote_times(opi::value x, size_t n)
 {
   for (size_t i = 0; i < n; ++i)
   {
     const opi::value newx = list("unquote", x);
+    copy_location(x, newx);
+    x = newx;
+  }
+  return x;
+}
+
+[[maybe_unused]] static opi::value
+_quote_times(opi::value x, size_t n)
+{
+  for (size_t i = 0; i < n; ++i)
+  {
+    const opi::value newx = list("quote", x);
+    copy_location(x, newx);
+    x = newx;
+  }
+  return x;
+}
+
+[[maybe_unused]] static opi::value
+_quote_unquote_times(opi::value x, size_t surroundinglevel)
+{
+  // 1. Not nested:
+  //    -> x
+  // 2. nested once
+  //    -> (quote (unquote x))
+  // 3. multiple nesting
+  //    ->  (quote (unquote (quote (unquote x))))
+  for (size_t i = 0; i < surroundinglevel; ++i)
+  {
+    const opi::value newx = list("quote", list("unquote", x));
     copy_location(x, newx);
     x = newx;
   }
@@ -723,26 +755,21 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out, bool lvalue)
       if (lvalue)
         throw bad_code {std::format("Not an lvalue: {}", ident), ident};
 
-      const value functemplate = _unquote_times(cdr(type), nlevelsabove);
       static size_t counter = 0; // FIXME
       const value proxy = sym(std::format("Instance_{}", counter++));
-      // Wrap template into a quote if we are nested to avoid name collisions
-      // between the template we are handling and the surrounding scope
-      value qfunctemplate = functemplate;
-      if (nlevelsabove > 0)
-        qfunctemplate = list("quote", functemplate);
-      // Fail this (branch of) query if template was not declared yet
-      // (otherwize, `call` would get a variable as a Goal and throw)
+      const value functemplate = _quote_unquote_times(cdr(type), nlevelsabove);
+      const value tmp = sym(std::format("Tmp_{}", counter++));
       code = list(
-        list("if", list("nonvar", functemplate),
-                   list("insert-cells", qfunctemplate, proxy),
+        list("=", tmp, functemplate),
+        list("if", list("nonvar", tmp),
+                   list("insert-cells", tmp, proxy),
                    False)
       );
       type = proxy;
       copy_location(cdr(x), proxy);
     }
     else
-      type = _unquote_times(cdr(x), nlevelsabove);
+      type = _quote_unquote_times(cdr(x), nlevelsabove);
 
     variants.push_back({type, code});
   }

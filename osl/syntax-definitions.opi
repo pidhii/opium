@@ -1,4 +1,8 @@
 
+(pragma scheme-translator
+  (inline
+    (import record-variants)))
+
 ;; Alias for builtin (list ...) function
 (pragma prolog
   (ensure-loaded "prolog-std.scm")
@@ -7,8 +11,23 @@
   (inline (define oslops:list list)))
 
 
+;; Void and values
 (pragma prolog
   (predicate (result-of (void) void))
   (predicate (result-of (values . Ts) Result)
     (if (= Ts (Result)) #t
         (= Result (values . Ts)))))
+
+;; Meta assertion
+(pragma prolog
+  (predicate (result-of (assert_thunk Thunk) Result)
+    (if (result-of (Thunk) _)
+        (= Result assertion_success)
+        (= Result assertion_failure))))
+(pragma scheme-translator
+  (inline
+    (define (assert_thunk x) x)))
+
+(pragma scheme-translator
+  (inline
+    (import iterators)))

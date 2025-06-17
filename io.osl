@@ -65,9 +65,9 @@ require "base"
 readline(port) = {
   line = osl_readline(port)
   if osl_eofobject_p(line) then
-    Nothing()
+    return Nothing()
   else
-    Some(line)
+    return Some(line)
 }
 
 
@@ -81,9 +81,9 @@ type readlineIterator() = {
 next(it readlineIterator()) = {
   line = osl_readline(it#file)
   if osl_eofobject_p(line) then
-    Nothing()
+    return Nothing()
   else 
-    Some(line)
+    return Some(line)
 }
 
 lines(file port) = readlineIterator(file)

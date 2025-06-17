@@ -1,7 +1,9 @@
 #include "unroll_flow.hpp"
 
 #include "opium/exceptions.hpp"
+#include "opium/source_location.hpp"
 #include "opium/value.hpp"
+#include "opium/logging.hpp"
 
 
 std::pair<opi::osl::flow, opi::value>
@@ -78,6 +80,9 @@ opi::osl::flow_unroller::unroll(value expr, value next) const
     else if (form == "cases")
     {
       // TODO
+      source_location location;
+      if (get_location(expr, location))
+        opi::error("Flow unroll not implemented: {}", display_location(location));
       throw bad_code {"Unimplemented", expr};
     }
     else if (form == "break")

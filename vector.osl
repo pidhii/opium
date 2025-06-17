@@ -1,5 +1,6 @@
 require "array"
 require "error"
+require "number"
 
 
 type vector(T) = {
@@ -7,17 +8,30 @@ type vector(T) = {
   size num
 }
 
+////////////////////////////////////////////////////////////////////////////////
+//                           constructors
+//
 vector() = vector(makeUninitializedArray(0), 0)
 
+vector(iterable) = {
+  result = vector()
+  for x in iterable do
+    result.push(x)
+  return result
+}
 
+
+////////////////////////////////////////////////////////////////////////////////
+//                      common vector operation
+//
 push(vec vector(T), x) = {
-  // Check if we have enough space for the new element and reallocate array with
-  // doubled capacity if current space is not sufficient
+  // Check if we have enough space for the new element and, if not, reallocate
+  // array with doubled capacity
   capacity = length(vec#data)
   if vec#size == capacity then
   {
     if capacity == 0 then
-      set vec#data = makeArray(1, 0)
+      set vec#data = makeUninitializedArray(1)
     else
       set vec#data = copyArray(vec#data, 0, capacity * 2)
   }
@@ -28,6 +42,9 @@ push(vec vector(T), x) = {
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+//                     element access and modification 
+//
 vec[k] =
   if k >= vec#size then
     error("vector index out of range:", k, vec)
@@ -42,23 +59,24 @@ set vec[k] = x =
 
 
 ////////////////////////////////////////////////////////////////////////////////
-//                            vector - iterator
+//                       common container methods
 //
-type vectorIterator(T) = {
-  data array(T),
-  max num,
-  cur num,
+length(vec vector(T)) = vec#size
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                             iterator
+//
+// NOTE: Use array iterator to iterate over the vector data.
+//
+iter(vec vector(T), from num, to num) = {
+  if from < 0 or from >= vec#size then
+    error("Vector index out of range", from, vec)
+  if to < 0 or to > vec#size then
+    error("Vector index out of range", to, vec)
+  return arrayIterator(vec#data, from, to)
 }
 
-next(it vectorIterator(T)) =
-  if it#cur < it#max then
-  {
-    result = it#data[it#cur]
-    set it#cur = it#cur + 1
-    Some(result)
-  }
-  else
-    Nothing()
-
-iter(vec vector(T), from num) = vectorIterator(vec#data, vec#size, from)
-iter(vec vector(T)) = vectorIterator(vec#data, vec#size, 0)
+iter(vec vector(T), from num) = iter(vec, from, vec#size)
+iter(vec vector(T)) = arrayIterator(vec#data, 0, vec#size)

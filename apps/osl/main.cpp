@@ -127,4 +127,6 @@ main(int argc, char **argv)
 
   prolog_repl pl;
   generate_scheme(result, pl, opath);
+  
+  execution_timer::report_global_stats();
 }

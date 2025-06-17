@@ -5,42 +5,91 @@ require "itertools"
 require "vector"
 require "list"
 require "format"
-
-vec = vector()
-vec.push(1)
-vec.push(2)
-vec.push(3)
-vec.push(4)
-vec.iter().foreach(x => println("-", x))
-
-println("calculating huge sum")
-n = 1_000_000
-summ = range(0, n).map(x => x*3).filter(x => x % 2 == 0).foldl(0, +)
-println("sum:", summ)
+require "io"
 
 
-println([1, 2, 3, 4].iter().map(string).join(", "))
-iter([1, 2, 3]).map(x => x + 2).foreach(x => println("-", x))
-println([1,2,3,4].reverse())
-println([1, 2, 3].append([4, 5, 6]))
-println([1, 2, 3].append(4))
+println("iterate over list")
+for x in [1, 2, 3, 4, 5] do
+  println("-", x)
 
-println([1, 2, 3] :: list(num))
-
-add(x, y) = x + y
-println("coerced add:", (coerce(add) :: fn(num, num) -> num)(2, 3))
-
-println("find:", range(0, 10).find(x => x >= 4).unpack())
+println("iterate over vector")
+vec = vector([1, 2, 3, 4])
+vec.push(5)
+for x in vec do
+  println("vec -", x)
 
 
-let l =
-  for x in range(0, 20)
-  {
-    if x % 2 == 0 then
-      continue
-    if x >= 10 then
-      break ("yes")
-    println(x)
-  }
-  else "no"
-in println("loop result:", l)
+require "subprocess"
+for line in run("ls -lrth")#stdout.lines() do
+  println(line)
+
+
+require "dict"
+dd = dict()
+set dd["one"] = 1
+println(dd["one"])
+
+
+require "trie"
+d = trie()
+d = d.insert("one", 1)
+println(d["one"])
+
+
+require "json"
+let j = open("test.json", "r").readjson() in
+println(dict(j))
+
+
+require "coroutines"
+dictkeys(dict) =
+  generator(yield =>
+    dict.foreach((k, v) => yield(k)))
+
+for key in dictkeys(dd) do
+  println("-", key)
+
+
+
+#pragma scheme-translator {
+  (inline
+    (import regex)
+
+    (define osl_glob_to_regexp glob->regexp)
+
+    (define (osl_string_match REGEXP STRING)
+      (let ((match (string-match REGEXP STRING)))
+        (if (not match)
+            (oslctor:Nothing)
+            (oslctor:Some
+              (map (lambda (submatch) (if (not submatch) (oslctor:Nothing) (oslctor:Some submatch)))
+                   match)))))
+
+    (define (osl_string_search REGEXP STRING)
+      (let ((match (string-search REGEXP STRING)))
+        (if (not match)
+            (oslctor:Nothing)
+            (oslctor:Some
+              (map (lambda (submatch) (if (not submatch) (oslctor:Nothing) (oslctor:Some submatch)))
+                   match)))))
+    )
+
+}
+
+#pragma prolog {
+  (predicate (result-of (osl_glob_to_regexp str) regexp))
+  (predicate (result-of (regexp str) regexp))
+  (predicate (result-of (grep regexp (list str)) (list str)))
+  (predicate (result-of (osl_string_match regexp str) (maybe (list (maybe str)))))
+  (predicate (result-of (osl_string_search regexp str) (maybe (list (maybe str)))))
+}
+
+println("testing regex")
+re = regexp("([a-z]+)([0-9]+)")
+match osl_string_search(re, "___adfasd12312") in
+| Some(ms) ->
+    for m in ms do {
+      println("-", m.unpack_or("<no-match>"))
+    }
+| otherwize -> println("didnt match")
+// println(osl_string_match(re, "asdfasdf"))

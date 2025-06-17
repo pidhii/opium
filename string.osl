@@ -1,9 +1,13 @@
+require "itertools"
+
 ////
 //
 // Builtin operations with strings
 //
 #pragma scheme-translator {
   (inline
+    (import (chicken string))
+
     (define strcat string-append)
 
     (define strref string-ref)
@@ -21,7 +25,9 @@
     (define strcigt string>?)
     (define strcige string>=?)
 
-    (define str2list string->list))
+    (define str2list string->list)
+
+    (define osl_string_chomp string-chomp))
 }
 //
 #pragma prolog {
@@ -46,15 +52,25 @@
   (predicate (result-of (strcige str str) bool))
 
   (predicate (result-of (str2list str) (list char)))
+
+  (predicate (result-of (osl_string_chomp . Args) str)
+    (or (= Args (str))
+        (= Args (str str))))
 }
 
-// String concatenation
+// STRING + STRING -> str
+//
+// Concatenate two strings
 s1 + s2 = strcat(s1, s2)
 
+// STRING[INDEX] -> char
+//
 // String element access
 s[k] = strref(s, k)
 
-// String comparison
+// STRING <cmp-op> STRING -> bool
+//
+// String comparison operators
 s1 == s2 = streq(s1, s2)
 s1 != s2 = not streq(s1, s2)
 s1 < s2 = strlt(s1, s2)
@@ -62,13 +78,25 @@ s1 > s2 = strgt(s1, s2)
 s1 <= s2 = strle(s1, s2)
 s1 >= s2 = strge(s1, s2)
 
-// Common container methods
+// lenght(STRING) -> num
+//
+// String length
 length(s str) = strlen(s)
 
 list(s str) = str2list(s)
 string(s str) = s
 
+// chomp(STRING) -> str
+// chomp(STRING, SUFFIX) -> str
+//
+// If STRING ends with SUFFIX, then this procedure returns a copy of its first
+// argument with the suffix removed, otherwise returns STRING unchanged.
+// SUFFIX defaults to "\n".
+chomp = osl_string_chomp
+
+
 join(it, sep str) =
   match next(it) in
   | Some(x) -> it.foldl(x, (acc, x) => acc + sep + x)
   | otherwize -> ""
+

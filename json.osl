@@ -1,0 +1,53 @@
+type json = JsonStructure(dict(str, json))
+          | JsonArray(list(json))
+          | JsonNumber(num)
+          | JsonString(str)
+          | JsonNull()
+
+#pragma scheme-translator {
+  (inline
+    (import json)
+
+    (define (scm->json obj)
+      (cond ((vector? obj)
+              (let* ((objl (vector->list obj))
+                     (kv->json (lambda (kv) (cons (car kv) (scm->json (cdr kv)))))
+                     (newlist (map kv->json objl)))
+                (oslctor:JsonStructure (alist->hash-table newlist))))
+            ((pair? obj) (oslctor:JsonArray (map scm->json obj)))
+            ((null? obj) (oslctor:JsonArray obj))
+            ((number? obj) (oslctor:JsonNumber obj))
+            ((string? obj) (oslctor:JsonString obj))
+            (else (error "Unsupported JSON object" obj))))
+
+    (define (readjson port)
+      (let ((obj (json-read port)))
+        (scm->json obj)))
+    )
+}
+#pragma prolog {
+  (predicate (result-of (readjson port) json))
+}
+
+read(p port) = readjson(p)
+
+
+// num
+num(j json) = match j in
+| JsonNumber(x) -> x
+| otherwize -> error("Not a number", j)
+
+// str
+str(j json) = match j in
+| JsonString(x) -> x
+| otherwize -> error("Not a string", j)
+
+// list(T)
+list(j json) = match j in
+| JsonArray(x) -> x
+| otherwize -> error("Not a list", j)
+
+// dict(str, json)
+dict(j json) = match j in
+| JsonStructure(x) -> x
+| otherwize -> error("Not a structure", j)
