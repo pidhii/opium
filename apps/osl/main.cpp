@@ -7,6 +7,8 @@
 #include <cstdlib>
 #include <regex>
 #include <filesystem>
+#include <cstdlib>
+#include <cstring>
 
 
 namespace std {
@@ -16,7 +18,9 @@ namespace fs = std::filesystem;
 namespace opi::osl {
 
 opi::value
-parse(const std::string &source, std::FILE *file, bool reset_includes = true);
+parse(const std::string &source, std::FILE *file, bool is_root = true);
+
+extern std::vector<std::string> pathes;
 
 } // namespace opi::osl
 
@@ -103,6 +107,17 @@ main(int argc, char **argv)
   for (const std::string &flag : flags)
     global_flags.emplace(flag);
 
+  // Import OSLPATH
+  if (const char *oslpath = std::getenv("OSLPATH"))
+  {
+    std::string buf = oslpath;
+    char *token = strtok(buf.data(), ":");
+    while (token != nullptr)
+    {
+      osl::pathes.emplace_back(token);
+      token = strtok(nullptr, ":");
+    }
+  }
 
   FILE *input;
   std::string inputpath;

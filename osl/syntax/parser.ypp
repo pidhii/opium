@@ -63,12 +63,13 @@ namespace opi::osl {
 opi::value
 parse(const std::string &source, std::FILE *file, bool is_root = false);
 
+std::vector<std::string> pathes = {""};
+
 }
 
 static std::string g_source;
 size_t g_fileoffs_left;
 size_t g_fileoffs_right;
-
 
 struct range_location;
 static void
@@ -317,7 +318,8 @@ load_file(const std::filesystem::path &path)
   if (FILE *file = fopen(path.c_str(), "r"))
   {
     const std::filesystem::path curpath = std::filesystem::current_path();
-    std::filesystem::current_path(dirpath);
+    if (dirpath != "")
+      std::filesystem::current_path(dirpath);
     const opi::value result = opi::osl::parse(path, file, false);
     std::filesystem::current_path(curpath);
 
@@ -727,16 +729,30 @@ TopLvlExpr
   : Expr { $$ = list($1); }
   | TypeDef
   | REQUIRE String {
-    std::filesystem::path fullpath = std::filesystem::absolute(str_view($2));
-    if (fullpath.extension() == "")
-      fullpath += ".osl";
-    if (g_included_files.contains(fullpath))
-      $$ = nil;
-    else
+    std::filesystem::path filename {str_view($2)};
+    if (filename.extension() == "")
+      filename += ".osl";
+
+    bool found = false;
+    for (const std::string &prefix : osl::pathes)
     {
-      g_included_files.emplace(fullpath);
-      $$ = load_file(fullpath);
+      std::filesystem::path fullpath = std::filesystem::path {prefix} / filename;
+      if (not std::filesystem::exists(fullpath))
+        continue;
+
+      found = true;
+      if (g_included_files.contains(fullpath))
+        $$ = nil;
+      else
+      {
+        g_included_files.emplace(fullpath);
+        $$ = load_file(fullpath);
+        break;
+      }
     }
+
+    if (not found)
+      throw opi::bad_code {"Can't find required file", $2};
   }
 ;
 
