@@ -494,7 +494,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value clauses = ms.at("clauses");
     const value newclauses =
         list(range(clauses) | std::views::transform(std::ref(*this)));
-    return cons("or", newclauses);
+    return cons("and", newclauses);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
