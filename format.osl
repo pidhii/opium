@@ -8,7 +8,7 @@ require "string"
 #pragma scheme-translator {
   (inline
     (cond-expand 
-      (chicken (import (chicken format)))
+      (chicken (import format))
       (else))
 
     (define (osl_format fmt . args)

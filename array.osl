@@ -13,13 +13,13 @@ require "error"
       (guile   (import (srfi :43))))
 
     ;; Constructors
-    (define array vector)
+    ;(define array vector)
     (define makeArray make-vector)
     (define makeUninitializedArray make-vector)
     (define copyArray vector-copy)
     (define arrcat vector-append)
 
-    (define listToArray list->vector)
+    (define list2arr list->vector)
     (define arr2list vector->list)
 
     ;; Selectors
@@ -35,7 +35,7 @@ require "error"
   (ensure-loaded "prolog-std.scm")
 
   ;; Constructors
-  (predicate (result-of (array . Ts) (array T)) (all T Ts))
+  ;(predicate (result-of (array . Ts) (array T)) (all T Ts))
   (predicate (result-of (makeArray num T) (array T)))
   (predicate (result-of (makeUninitializedArray num) (array T)))
   (predicate (result-of (copyArray (array T) . Args) (array T))
@@ -45,7 +45,7 @@ require "error"
         (= Args (num num T))))
   (predicate (result-of (arrcat . Arrays) (array T)) (all (array T) Arrays))
 
-  (predicate (result-of (listToArray (list T)) (array T)))
+  (predicate (result-of (list2arr (list T)) (array T)))
   (predicate (result-of (arr2list (array T)) (list T)))
 
   ;; Selectors
@@ -59,6 +59,8 @@ require "error"
         (= Args (num))
         (= Argrs (num num))))
 }
+
+array(l list(T)) = list2arr(l)
 
 length(arr array(T)) = arrlen(arr)
 

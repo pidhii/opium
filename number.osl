@@ -23,6 +23,7 @@ require "base"
 
   ;; Conversions
   (predicate (result-of (num2str num) str))
+  (predicate (result-of (exact2inexact num) num))
 }
 //
 #pragma scheme-translator {
@@ -42,6 +43,8 @@ require "base"
 
     ;; Conversions
     (define num2str number->string)
+
+    (define exact2inexact exact->inexact)
   )
 }
 
@@ -62,3 +65,4 @@ x >= y = numge(x, y)
 
 // Conversions
 string(x num) = num2str(x)
+inexact = exact2inexact

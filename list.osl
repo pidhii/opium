@@ -6,14 +6,18 @@ require "itertools"
   (predicate (result-of (reverseList (list T)) (list T)))
   (predicate (result-of (appendLists (list T) (list T)) (list T)))
   (predicate (result-of (listLength (list T)) num))
+  (predicate (result-of (listRef (list T) num) T))
 }
 #pragma scheme-translator {
   (inline
     (define appendLists append)
     (define reverseList reverse)
-    (define listLength length))
+    (define listLength length)
+    (define listRef list-ref)
+    )
 }
 
+l[k] = listRef(l, k)
 
 length(l list(T)) = listLength(l)
 

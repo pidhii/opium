@@ -1,4 +1,5 @@
 require "itertools"
+require "error"
 
 ////
 //
@@ -26,6 +27,11 @@ require "itertools"
     (define strcige string>=?)
 
     (define str2list string->list)
+    (define (str2num STRING)
+      (let ((result (string->number STRING)))
+        (if result
+          (oslctor:Some result)
+          (oslctor:Nothing))))
 
     (define osl_string_chomp string-chomp))
 }
@@ -52,6 +58,7 @@ require "itertools"
   (predicate (result-of (strcige str str) bool))
 
   (predicate (result-of (str2list str) (list char)))
+  (predicate (result-of (str2num str) (maybe num)))
 
   (predicate (result-of (osl_string_chomp . Args) str)
     (or (= Args (str))
@@ -85,6 +92,10 @@ length(s str) = strlen(s)
 
 list(s str) = str2list(s)
 string(s str) = s
+parse(s str) = str2num(s)
+num(s str) = match str2num(s) in
+| Some(value) -> value
+| otherwize   -> error("Not a number", s)
 
 // chomp(STRING) -> str
 // chomp(STRING, SUFFIX) -> str

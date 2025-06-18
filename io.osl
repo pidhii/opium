@@ -1,4 +1,6 @@
 require "base"
+require "string"
+require "itertools"
 
 #pragma prolog { (predicate (result-of (open str str) port)) }
 #pragma scheme-translator {
@@ -70,6 +72,8 @@ readline(port) = {
     return Some(line)
 }
 
+// Read from port until EOF
+read(port port) = port.lines().foldl("", +)
 
 ////////////////////////////////////////////////////////////////////////////////
 //                       readline - iterator
