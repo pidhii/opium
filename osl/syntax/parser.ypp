@@ -27,6 +27,7 @@
 #include "opium/lisp_parser.hpp"
 #include "opium/utilities/ranges.hpp"
 #include "opium/utilities/state_saver.hpp"
+#include "opium/utilities/path_resolver.hpp"
 
 #include <unordered_set>
 #include <fstream>
@@ -489,7 +490,7 @@ struct function_unroller: public opi::osl::flow_unroller {
 %%
 
 Entry
-  : TopLvlSeq { *g_result_ptr = $1; }
+  : TopLvlSeq { *g_result_ptr = append(*g_result_ptr, $1); }
 ;
 
 String
@@ -733,26 +734,16 @@ TopLvlExpr
     if (filename.extension() == "")
       filename += ".osl";
 
-    bool found = false;
-    for (const std::string &prefix : osl::pathes)
+    const std::filesystem::path fullpath =
+        resolve_path(filename, osl::pathes.begin(), osl::pathes.end());
+
+    if (g_included_files.contains(fullpath))
+      $$ = nil;
+    else
     {
-      std::filesystem::path fullpath = std::filesystem::path {prefix} / filename;
-      if (not std::filesystem::exists(fullpath))
-        continue;
-
-      found = true;
-      if (g_included_files.contains(fullpath))
-        $$ = nil;
-      else
-      {
-        g_included_files.emplace(fullpath);
-        $$ = load_file(fullpath);
-        break;
-      }
+      g_included_files.emplace(fullpath);
+      $$ = load_file(fullpath);
     }
-
-    if (not found)
-      throw opi::bad_code {"Can't find required file", $2};
   }
 ;
 
@@ -935,13 +926,35 @@ parse(const std::string &source, std::FILE *file, bool is_root)
   g_fileoffs_right = 0;
   g_source = source;
 
-  opi::value result;
+  opi::value result = nil;
 
   opi::value *result_ptr_save = &result;
   std::swap(result_ptr_save, g_result_ptr);
 
   if (is_root)
+  {
+    // Reset memoization on includes files
     g_included_files.clear();
+
+    // Load auxiliary definitions used in syntax
+    opi::lisp_parser parser;
+    const opi::value header = parser.parse_all(osl_syntax_definitions);
+    result = append(result, header);
+
+    // Include builtins
+    try {
+      const std::filesystem::path builtinsfilepath =
+          resolve_path("builtins.osl", osl::pathes.begin(), osl::pathes.end());
+      g_included_files.emplace(builtinsfilepath);
+      const opi::value builtins = load_file(builtinsfilepath);
+      result = append(result, builtins);
+    }
+    catch (const std::exception &exn)
+    {
+      opi::error("failed to load builtins ({})", exn.what());
+      throw exn;
+    }
+  }
 
   yyscan_t scanner;
   yylex_init(&scanner);
@@ -950,15 +963,6 @@ parse(const std::string &source, std::FILE *file, bool is_root)
   yylex_destroy(scanner);
 
   std::swap(result_ptr_save, g_result_ptr);
-
-  lisp_parser parser;
-
-  if (is_root)
-  {
-    // Load auxiliary definitions used in syntax
-    const value header = parser.parse_all(osl_syntax_definitions);
-    result = append(header, result);
-  }
 
   return result;
 }
