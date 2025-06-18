@@ -66,9 +66,28 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
       for (size_t i = 0; i < val->sym.len; ++i)
       {
         const char c = val->str.data[i];
-        if (c == '"')
-          os.put('\\');
-        os.put(c);
+        switch (c)
+        {
+          case '"':
+          case '\\':
+            os.put('\\');
+            os.put(c);
+            break;
+
+          case '\a':
+          case '\b':
+          case '\f':
+          case '\n':
+          case '\r':
+          case '\t':
+          case '\v':
+          case '\e':
+            os << std::format("\\x{:2x}", int(c));
+            break;
+
+          default:
+            os.put(c);
+        }
       }
       if (mode != mode::display)
         os << '"';

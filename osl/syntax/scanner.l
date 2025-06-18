@@ -41,6 +41,7 @@ make_location(const range_location &loc);
 %option interactive
 /*%option c++*/
 
+%x RAWSTRING
 %x STRING
 %x PRAGMA
 
@@ -94,42 +95,45 @@ fn return FN;
   opi::set_location(yylval, make_location(*loc_p));
   return STRING_CHUNK;
 }
-<STRING>\\n {
-  yylval = str("\n");
-  opi::set_location(yylval, make_location(*loc_p));
-  return STRING_CHUNK;
-}
-<STRING>\\t {
-  yylval = str("\t");
-  opi::set_location(yylval, make_location(*loc_p));
-  return STRING_CHUNK;
-}
-<STRING>\\r {
-  yylval = str("\r");
-  opi::set_location(yylval, make_location(*loc_p));
-  return STRING_CHUNK;
-}
-<STRING>\\e {
-  yylval = str("\e");
-  opi::set_location(yylval, make_location(*loc_p));
-  return STRING_CHUNK;
-}
-<STRING>\\\\ {
-  yylval = str("\\");
-  opi::set_location(yylval, make_location(*loc_p));
-  return STRING_CHUNK;
-}
-<STRING>\\\" {
-  yylval = str("\"");
+<STRING>\\['\"\\\nabfnrtve] {
+  switch (yytext[1])
+  {
+    case '\'': yylval = str("'"); break;
+    case '"': yylval = str("\""); break;
+    case '\\': yylval = str("\\"); break;
+    case '\n': yylval = str(""); break;
+    case 'a': yylval = str("\a"); break;
+    case 'b': yylval = str("\b"); break;
+    case 'f': yylval = str("\f"); break;
+    case 'n': yylval = str("\n"); break;
+    case 'r': yylval = str("\r"); break;
+    case 't': yylval = str("\t"); break;
+    case 'v': yylval = str("\v"); break;
+    case 'e': yylval = str("\e"); break;
+  }
   opi::set_location(yylval, make_location(*loc_p));
   return STRING_CHUNK;
 }
 <STRING>\\. {
-  yylval = str(yytext + 1);
+  yylval = str(yytext+1);
   opi::set_location(yylval, make_location(*loc_p));
   return STRING_CHUNK;
 }
 <STRING>\" {
+  BEGIN(INITIAL);
+  return END_STRING;
+}
+
+r\" {
+  BEGIN(RAWSTRING);
+  return BEGIN_STRING;
+}
+<RAWSTRING>[^"]+ {
+  yylval = str(yytext);
+  opi::set_location(yylval, make_location(*loc_p));
+  return STRING_CHUNK;
+}
+<RAWSTRING>\" {
   BEGIN(INITIAL);
   return END_STRING;
 }
