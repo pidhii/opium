@@ -39,6 +39,14 @@ class scheme_unique_identifiers: public ext_scheme_code_transformer {
   value
   transform_block(value block) const;
 
+  void
+  enable_values(bool enable) noexcept
+  { m_values_enabled = enable; }
+
+  bool
+  values_enabled() const noexcept
+  { return m_values_enabled; }
+
   private:
   value
   _copy_mapped_identifier(value identifier) const;
@@ -52,6 +60,7 @@ class scheme_unique_identifiers: public ext_scheme_code_transformer {
   std::function<value(value)> T;
 
   private:
+  bool m_values_enabled;
   symbol_generator &m_gensym;
   mutable value m_alist;
   mutable value m_overload_alist;

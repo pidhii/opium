@@ -142,6 +142,11 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
   }
 
   utl::state_saver _ {m_depth};
+  m_depth ++;
+
+  // Track the last evaluated expression. This is an ad-hoc method to provide
+  // user with information on the source of failure during the TypeCheck. 
+  _update_last_expr(m_depth, e);
 
   // NOTE: This Prolog interpreter is implemented as simple AST evaluator with
   // CPS without proper tail-calls. Consequently evaluation of every single
@@ -153,11 +158,11 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
   //
   // The depth-based thresholds below are obtained by trial-and-error (FIXME)
 #ifdef OPIUM_RELEASE_BUILD
-  if ((++m_depth) % 5000 == 0)
+  if (m_depth % 5000 == 0)
 #else
   // Non-release build produces much larger frames during function calls, so it
   // consumes stack faster
-  if ((++m_depth) % 1000 == 0)
+  if (m_depth % 1000 == 0)
 #endif
   {
     warning("switching stack (depth = {})", m_depth);
@@ -364,7 +369,7 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
           source_location location;
           if (get_location(e, location))
             what << display_location(location, 1);
-          debug("{}", what.str());
+          debug("[{:5}] {}", m_depth, what.str());
         }
         return;
       }

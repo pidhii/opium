@@ -1,3 +1,5 @@
+require "io"
+
 type json = JsonStructure(dict(str, json))
           | JsonArray(list(json))
           | JsonNumber(num)
@@ -20,17 +22,35 @@ type json = JsonStructure(dict(str, json))
             ((string? obj) (oslctor:JsonString obj))
             (else (error "Unsupported JSON object" obj))))
 
+    (define (json->scm obj)
+      (cond ((json.JsonStructure? obj)
+              (let* ((hashtable (oslctor:JsonStructure-:0 obj))
+                     (alist (hash-table-map hashtable
+                              (lambda (key val) (cons key (json->scm val)))))
+                     (avec (list->vector alist)))
+                avec))
+            ((json.JsonArray? obj) (map json->scm (oslctor:JsonArray-:0 obj)))
+            ((json.JsonNull? obj) (void))
+            ((json.JsonNumber? obj) (oslctor:JsonNumber-:0 obj))
+            ((json.JsonString? obj) (oslctor:JsonString-:0 obj))
+            (else (error "Unsupported JSON object" obj))))
+
+
     (define (readjson port)
       (let ((obj (json-read port)))
         (scm->json obj)))
-    )
+
+    (define (writejson JSON PORT)
+      (json-write (json->scm JSON) PORT))
+  )
 }
 #pragma prolog {
   (predicate (result-of (readjson port) json))
+  (predicate (result-of (writejson _ port) void))
 }
 
 read(p port) = readjson(p)
-
+parse_json(s str) = call_with_input_string(s, readjson) :: json
 
 // num
 num(j json) = match j in
@@ -51,3 +71,8 @@ list(j json) = match j in
 dict(j json) = match j in
 | JsonStructure(x) -> x
 | otherwize -> error("Not a structure", j)
+
+
+json_ref(j json, k str) = j.dict()[k]
+json_ref(j json, k num) = j.list()[k]
+j[k] = json_ref(j, k)

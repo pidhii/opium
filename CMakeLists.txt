@@ -129,6 +129,18 @@ if (OPIUM_SCRIPT)
   target_include_directories(osl PUBLIC ${CMAKE_SOURCE_DIR}/eco/include)
   target_link_libraries (osl opium_a eco_a)
   install (TARGETS osl DESTINATION bin)
+
+  # OSL compiler and interpreter
+  add_custom_command(
+    OUTPUT ${CMAKE_BINARY_DIR}/opium-osl
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMAND ${CMAKE_BINARY_DIR}/osl -o ${CMAKE_BINARY_DIR}/opium-osl.scm ${CMAKE_SOURCE_DIR}/opium-osl.osl
+    COMMAND chicken-csc -o ${CMAKE_BINARY_DIR}/opium-osl ${CMAKE_BINARY_DIR}/opium-osl.scm
+    BYPRODUCTS ${CMAKE_BINARY_DIR}/opium-osl.scm
+    DEPENDS osl ${CMAKE_SOURCE_DIR}/opium-osl.osl)
+  add_custom_target(opium-osl-executable ALL DEPENDS ${CMAKE_BINARY_DIR}/opium-osl)
+  install(PROGRAMS ${CMAKE_BINARY_DIR}/opium-osl DESTINATION bin)
+
 endif (OPIUM_SCRIPT)
 
 option (OPIUM_UNIT_TESTS "Enable unit tests for opium components" ON)

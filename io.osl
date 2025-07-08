@@ -91,3 +91,23 @@ next(it readlineIterator()) = {
 }
 
 lines(file port) = readlineIterator(file)
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                          string ports
+#pragma scheme-translator {
+  (inline
+    (import (chicken port))
+    (define call_with_input_string call-with-input-string)
+    (define call_with_output_string call-with-output-string)
+  )
+}
+#pragma prolog {
+  (predicate (result-of (call_with_input_string str PROC) Result)
+    (result-of (PROC port) Result))
+  (predicate (result-of (call_with_output_string PROC) str)
+    (result-of (PROC port) _))
+}
+
+// call_with_input_string(s str, proc fn(port) -> Result) -> Result
+// call_with_output_string(proc fn(port) -> _) -> str

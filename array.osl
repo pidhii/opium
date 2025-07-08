@@ -1,5 +1,6 @@
 require "base"
 require "error"
+require "list"
 
 ////
 //
@@ -62,7 +63,37 @@ require "error"
 
 array(l list(T)) = list2arr(l)
 
+array(it) = {
+  assert { next(it) :: maybe(T) }
+  return list2arr(list(it))
+}
+
 length(arr array(T)) = arrlen(arr)
+
+copy(arr array(T)) = copyArray(arr)
+
+copy(arr array(T), from num) = {
+  if from < 0 or from >= arrlen(arr) then
+    error("Array index out of range", arr, from)
+  return copyArray(arr, from)
+}
+
+copy(arr array(T), from num, to num) = {
+  if from < 0 or from >= arrlen(arr) then
+    error("Array indices out of range", arr, from, to)
+  if to < 0 or to >= arrlen(arr) or to < from then
+    error("Array indices out of range", arr, from, to)
+  copyArray(arr, from, to)
+}
+
+copy(arr array(T), from num, to num, fill T) = {
+  if from < 0 or from >= arrlen(arr) then
+    error("Array indices out of range", arr, from, to)
+  if to < 0 or to < from then
+    error("Array indices out of range", arr, from, to)
+  copyArray(arr, from, to, fill)
+}
+
 
 arr1 + arr2 = arrcat(arr1, arr2)
 arr[k] = arrref(arr, k)

@@ -1,0 +1,102 @@
+
+type mode = Run | Compile(str)
+
+////////////////////////////////////////////////////////////////////////////////
+//                   Process command-line arguments
+//
+// Default options
+mode = Run // Default mode (run without compilation)
+optimize = false // Default optimization settings (dont optimize compilation target)
+verbose = false // Default verbosity (silent)
+
+// Parse command-line
+args = getopt(argv, options)
+where options = [
+  // --help
+  option("help")
+  .docstring("print help and exit")
+  .handle(_ => {
+    println("usage: opium-osl [OPTIONS] <input-file>")
+    println("")
+    println("OPTIONS:")
+    println(help(options))
+    exit(0)
+  })
+  ,
+  option("verbose")
+  .docstring("enable verbose output")
+  .handle(_ => set verbose = true)
+  ,
+  // --run
+  option("run")
+  .docstring("run the script without compilation (default)")
+  .handle(_ => set mode = Run)
+  ,
+  // --compile=<output-filename>
+  option("compile")
+  .docstring("compile the script into executable file")
+  .value(true)
+  .handle(output_filename => set mode = Compile(output_filename))
+  ,
+  // --optimize
+  option("optimize")
+  .docstring("enable optimizations during compilation")
+  .handle(_ => set optimize = true)
+]
+
+// Expecting a single position argument which is the input filename
+if length(args) != 1 then
+  error("input file not specified")
+input = args[0]
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                             Helper functions
+//
+info(message) = {
+  if verbose then
+    println("opium-osl", message)
+}
+
+// Translate OSL into Scheme
+translate_opium_script(osl_filename, scm_filename) =
+{
+  info("translating OSL into Scheme")
+  p = run("./install/bin/osl -o " + scm_filename + " " + osl_filename)
+  rc = p.wait()#status
+  if rc != 0 then
+  {
+    println(p#stderr.read())
+    error("OSL translation failed")
+  }
+  else if verbose then
+    println(p#stderr.read())
+}
+
+// Run Scheme with Chicken Scheme interpreter
+run_scheme(scm_filename) =
+{
+  info("running Scheme script with Chicken interpreter")
+  return system("chicken-csi -s " + scm_filename)
+}
+
+// Compile Scheme with Chicken Scheme compiler
+compile_scheme(scm_filename, output_filename) =
+{
+  compile_flags = "-strict-types -o " + output_filename
+  if optimize then
+    set compile_flags = compile_flags + " -O5 -local -no-bound-checks -no-procedure-checks -no-argc-checks"
+
+  info("compiling Scheme script with Chicken compiler")
+  return system("chicken-csc " + compile_flags + " " + scm_filename)
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                                Main
+//
+scm_filename = run("mktemp")#stdout.read().chomp() // temporary file to store Scheme script
+translate_opium_script(input, scm_filename)
+match mode in
+| Run -> run_scheme(scm_filename)
+| Compile(output_filename) -> compile_scheme(scm_filename, output_filename)

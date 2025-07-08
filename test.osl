@@ -1,19 +1,12 @@
-require "number"
-require "string"
-require "console"
-require "itertools"
-require "vector"
-require "list"
-require "format"
-require "io"
 
+println(list([1,2,3,4].iter()))
 
 println("iterate over list")
 for x in [1, 2, 3, 4, 5] do
   println("-", x)
 
 println("iterate over vector")
-vec = vector([1, 2, 3, 4])
+vec = vector([1, 2, 3, 4].iter())
 vec.push(5)
 for x in vec do
   println("vec -", x)
@@ -50,46 +43,61 @@ for key in dictkeys(dd) do
   println("-", key)
 
 
-
-#pragma scheme-translator {
-  (inline
-    (import regex)
-
-    (define osl_glob_to_regexp glob->regexp)
-
-    (define (osl_string_match REGEXP STRING)
-      (let ((match (string-match REGEXP STRING)))
-        (if (not match)
-            (oslctor:Nothing)
-            (oslctor:Some
-              (map (lambda (submatch) (if (not submatch) (oslctor:Nothing) (oslctor:Some submatch)))
-                   match)))))
-
-    (define (osl_string_search REGEXP STRING)
-      (let ((match (string-search REGEXP STRING)))
-        (if (not match)
-            (oslctor:Nothing)
-            (oslctor:Some
-              (map (lambda (submatch) (if (not submatch) (oslctor:Nothing) (oslctor:Some submatch)))
-                   match)))))
-    )
-
-}
-
-#pragma prolog {
-  (predicate (result-of (osl_glob_to_regexp str) regexp))
-  (predicate (result-of (regexp str) regexp))
-  (predicate (result-of (grep regexp (list str)) (list str)))
-  (predicate (result-of (osl_string_match regexp str) (maybe (list (maybe str)))))
-  (predicate (result-of (osl_string_search regexp str) (maybe (list (maybe str)))))
-}
-
 println("testing regex")
 re = regexp("([a-z]+)([0-9]+)")
-match osl_string_search(re, "___adfasd12312") in
+match "___adfasd12312".find(re) in
 | Some(ms) ->
     for m in ms do {
-      println("-", m.unpack_or("<no-match>"))
+      println("-", m)
     }
 | otherwize -> println("didnt match")
-// println(osl_string_match(re, "asdfasdf"))
+
+
+require "argv"
+my_option = ""
+my_flag = false
+options = [
+  option("my-option")
+  .docstring("the command-line argument")
+  .required(true)
+  .value(true)
+  .handle(x => set my_option = x)
+  ,
+  option("my-flag")
+  .docstring("the flag")
+  .handle(x => set my_flag = true)
+]
+posargs = getopt(["--my-option=42", "--my-option=foo", "--my-flag", "42", "15"], options)
+println("my_option =", my_option)
+println("my_flag =", my_flag)
+println("posargs =", posargs)
+
+// require "zmq"
+
+// type message = {
+//   message str,
+// }
+
+// message(j json) = message(j["message"].str())
+// json(msg message) = {
+//   struct = dict()
+//   set struct["message"] = JsonString(msg#message)
+//   return JsonStructure(struct)
+// }
+
+// ctx = zmq_context(1)
+// sock = ctx.socket(zmq_rep)
+// sock.bind("tcp://*:4444")
+// request = sock.receive().expect("Failed to receive a request").str().parse_json()
+// println("request.message:", message(request)#message)
+// response = call_with_output_string(port => writejson(message("Hi there!").json(), port))
+// println("response:", response)
+// sock.send(response)
+
+
+type foobar = Foo | Bar
+foo = Foo
+match foo in
+| Foo -> println("This is foo")
+| Bar -> println("This is bar")
+

@@ -1,7 +1,7 @@
 %{
 
 #include "osl_parser.hpp"
-#include "location.hh"
+//#include "location.hh"
 
 #include "opium/logging.hpp"
 #include "opium/value.hpp"
@@ -187,6 +187,8 @@ false {
 }
 
 [0-9_]+ {
+  if (strcmp(yytext, "_") == 0)
+    REJECT;
   std::string cleaned = remove_underscores(yytext);
   yylval = num(std::stoll(cleaned));
   opi::set_location(yylval, make_location(*loc_p));
@@ -215,6 +217,8 @@ false {
 }
 
 [_a-z][_a-zA-Z0-9]* {
+  if (strcmp(yytext, "_") == 0)
+    REJECT;
   yylval = opi::sym(yytext);
   opi::set_location(yylval, make_location(*loc_p));
   return IDENT;
@@ -249,6 +253,7 @@ false {
 "["|"]" |
 "{"|"}" |
 "#" |
+"_" |
 "("|")" {
   return yytext[0];
 }

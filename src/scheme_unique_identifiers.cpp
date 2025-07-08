@@ -476,8 +476,13 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
           ident};
     // Lookup for identifier 
     value newident = nil;
-    if (issym(ident) and assoc(ident, m_alist, newident))
-      return sym(sym_name(newident)); // Copy it for pointer-based code tracking
+    if (issym(ident))
+    {
+      if (ident == "_")
+        return ident;
+      else if (assoc(ident, m_alist, newident))
+        return sym(sym_name(newident)); // Copy it for pointer-based code tracking
+    }
     return ident;
   });
 }

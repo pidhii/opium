@@ -1,4 +1,5 @@
 #include "opium/logging.hpp"
+#include "opium/source_location.hpp"
 #include "opium/utilities/execution_timer.hpp"
 #include "opium/pretty_print.hpp"
 #include "opium/opium.hpp"
@@ -141,7 +142,15 @@ main(int argc, char **argv)
   parse_timer.stop();
 
   prolog_repl pl;
-  generate_scheme(result, pl, opath);
+  try {
+    generate_scheme(result, pl, opath);
+  }
+  catch (...)
+  {
+    opi::source_location location;
+    if (pl.blame_list().get_blame(inputpath, location))
+      error("blame {}", display_location(location));
+  }
   
   execution_timer::report_global_stats();
 }

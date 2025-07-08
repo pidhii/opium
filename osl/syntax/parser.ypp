@@ -17,7 +17,7 @@
 
 %{
 #include "syntax_definitions.h"
-#include "location.hh"
+/*#include "location.hh"*/
 #include "../osl/unroll_flow.hpp" // FIXME
 
 #include "opium/value.hpp"
@@ -533,6 +533,11 @@ ApplExpr
   | LT { $$ = "<"; bindloc($$, @$); }
   | GE { $$ = ">="; bindloc($$, @$); }
   | LE { $$ = "<="; bindloc($$, @$); }
+  | Ctor '(' ListOfExprs ')' %prec APPLY {
+    $$ = cons($1, $3);
+    bindloc($$, @$);
+  }
+  | Ctor %prec AFTER_APPLY { $$ = list($1); }
   | ApplExpr '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); bindloc($$, @$); }
   | '(' Expr ')' %prec AFTER_APPLY { $$ = $2; }
   | ApplExpr '.' IDENT '(' ListOfExprs ')' {
@@ -549,7 +554,7 @@ ApplExpr
 
 Expr
   : ApplExpr
-  | Ctor '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); bindloc($$, @$); }
+  | '_' { $$ = "_"; }
   | SET IDENT '=' Expr { const value set = "set!"; bindloc(set, @1); $$ = list(set, $2, $4); }
   | SET ApplExpr '[' Expr ']' '=' Expr {
     const value setter = random_access_setter();
@@ -684,6 +689,7 @@ Expr
 Lambda
   : '(' ListOfExprs ')' FAT_RIGHT_ARROW Expr { $$ = list("lambda", $2, $5); }
   | IDENT FAT_RIGHT_ARROW Expr { $$ = list("lambda", list($1), $3); }
+  | '_' FAT_RIGHT_ARROW Expr { $$ = list("lambda", list("_"), $3); }
 ;
 
 If
@@ -787,9 +793,9 @@ ListOfCtorSigns
 ;
 
 CtorSign
-  : CAPIDENT '(' ListOfTypeParams ')' {
-    $$ = cons($1, $3);
-};
+  : CAPIDENT '(' ListOfTypeParams ')' %prec APPLY { $$ = cons($1, $3); }
+  | CAPIDENT %prec AFTER_APPLY { $$ = list($1); }
+;
 
 ListOfTypeParams
   : { $$ = nil; }
@@ -800,6 +806,7 @@ ListOfTypeParams
 TypeParam
   : CAPIDENT
   | TypeSign
+  | '_' { $$ = "_"; }
 ;
 
 ListOfFields
@@ -853,7 +860,8 @@ ExprPattern
 AtomPattern
   : IDENT
   | '(' ExprPattern ')' { $$ = $2; }
-  | Ctor '(' ListOfExprPatterns ')' { $$ = cons($1, $3); }
+  | Ctor %prec AFTER_APPLY { $$ = list($1); }
+  | Ctor '(' ListOfExprPatterns ')' %prec APPLY { $$ = cons($1, $3); }
   | '[' ']' {
     const value EmptyList = mangle_type_constructor("EmptyList");
     bindloc(EmptyList, @$);

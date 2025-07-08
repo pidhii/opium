@@ -5,25 +5,47 @@ require "itertools"
 #pragma prolog {
   (predicate (result-of (reverseList (list T)) (list T)))
   (predicate (result-of (appendLists (list T) (list T)) (list T)))
+  (predicate (result-of (appendListsMut (list T) (list T)) (list T)))
   (predicate (result-of (listLength (list T)) num))
   (predicate (result-of (listRef (list T) num) T))
 }
 #pragma scheme-translator {
   (inline
+    (import srfi-1)
     (define appendLists append)
+    (define appendListsMut append!)
     (define reverseList reverse)
     (define listLength length)
     (define listRef list-ref)
     )
 }
 
+list(l list(_)) = l
+
+list(iter) = {
+  assert { next(iter) :: maybe(_) }
+  return reverseList(iter.foldl([], (acc, x) => x : acc))
+}
+
 l[k] = listRef(l, k)
 
-length(l list(T)) = listLength(l)
+length(l list(_)) = listLength(l)
 
-reverse(l list(T)) = reverseList(l)
+reverse(l list(_)) = reverseList(l)
 
 append(l1 list(T), l2 list(T)) = appendLists(l1, l2)
 append(l list(T), x T) = appendLists(l, [x])
 
-list(l list(T)) = l
+
+////////////////////////////////////////////////////////////////////////////////
+//                           list - iterator
+//
+type listIterator(T) = { l list(T) }
+
+iter(l list(_)) = listIterator(l)
+
+next(it listIterator(_)) =
+  match it#l in
+  | x : xs -> { set it#l = xs Some(x) }
+  | otherwize -> Nothing()
+

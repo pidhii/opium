@@ -11,11 +11,26 @@ type vector(T) = {
 ////////////////////////////////////////////////////////////////////////////////
 //                           constructors
 //
+// -----------------------------------------------------------------------------
+// vector() -> vector
+//
+// Construct empty vector
 vector() = vector(makeUninitializedArray(0), 0)
 
-vector(iterable) = {
+// -----------------------------------------------------------------------------
+// vector(ARRAY) -> vector
+//
+// Construct vector with ARRAY as internal data buffer
+vector(arr array(T)) = vector(arr, arr.length())
+
+// -----------------------------------------------------------------------------
+// vector(ITERATOR) -> vector
+//
+// Construct vector from iterator
+vector(it) = {
+  assert { next(it) :: maybe(T) }
   result = vector()
-  for x in iterable do
+  for x in it do
     result.push(x)
   return result
 }
@@ -24,6 +39,10 @@ vector(iterable) = {
 ////////////////////////////////////////////////////////////////////////////////
 //                      common vector operation
 //
+// -----------------------------------------------------------------------------
+// push(VECTOR, VALUE)
+//
+// Append VALUE at the end of the VECTOR
 push(vec vector(T), x) = {
   // Check if we have enough space for the new element and, if not, reallocate
   // array with doubled capacity
@@ -45,31 +64,46 @@ push(vec vector(T), x) = {
 ////////////////////////////////////////////////////////////////////////////////
 //                     element access and modification 
 //
+// -----------------------------------------------------------------------------
+// VECTOR[INDEX] -> VALUE
+// 
+// Get VALUE at INDEX
 vec[k] =
   if k >= vec#size then
     error("vector index out of range:", k, vec)
   else
     vec#data[k]
 
+// -----------------------------------------------------------------------------
+// set VECTOR[INDEX] = VALUE
+//
+// Assign INDEX to VALUE
 set vec[k] = x =
   if k >= vec#size then
     error("vector index out of range:", k, vec)
   else
     set vec#data[k] = x
 
-
 ////////////////////////////////////////////////////////////////////////////////
 //                       common container methods
 //
+// -----------------------------------------------------------------------------
+// length(VECTOR) -> num
+//
+// Get vector length
 length(vec vector(T)) = vec#size
 
 
-
 ////////////////////////////////////////////////////////////////////////////////
-//                             iterator
+//                            iterators
 //
+// -----------------------------------------------------------------------------
+// iter(VECTOR, FROM, TO) -> iterator
+// iter(VECTOR, FROM) -> iterator
+// iter(VECTOR) -> iterator
+//
+// Construct iterator over vector values contained in the vector
 // NOTE: Use array iterator to iterate over the vector data.
-//
 iter(vec vector(T), from num, to num) = {
   if from < 0 or from >= vec#size then
     error("Vector index out of range", from, vec)
@@ -77,6 +111,5 @@ iter(vec vector(T), from num, to num) = {
     error("Vector index out of range", to, vec)
   return arrayIterator(vec#data, from, to)
 }
-
 iter(vec vector(T), from num) = iter(vec, from, vec#size)
 iter(vec vector(T)) = arrayIterator(vec#data, 0, vec#size)

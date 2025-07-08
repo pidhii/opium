@@ -5,7 +5,7 @@
 #pragma prolog {
   (predicate (result-of (display _) void))
   (predicate (result-of (newline) void))
-  (predicate (result-of (println . _) void))
+  (predicate (result-of (println _ . _) void))
 }
 #pragma scheme-translator {
   (inline

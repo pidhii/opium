@@ -205,7 +205,7 @@ opi::pretty_template_instance_name(value type, std::ostream &os)
   {
     const value tag = car(cdr(type));
     const value typeparams = car(cdr(cdr((type))));
-    const value resulttype = car(cdr(cdr(cdr(type))));
+    const value resulttypes = car(cdr(cdr(cdr(type))));
     os << tag << "<";
     for (std::string prefix = ""; const value type : range(typeparams))
     {
@@ -214,7 +214,7 @@ opi::pretty_template_instance_name(value type, std::ostream &os)
       pretty_template_instance_name(type, os);
     }
     os << "_";
-    pretty_template_instance_name(resulttype, os);
+    pretty_template_instance_name(resulttypes, os);
     os << ">";
     return;
   }

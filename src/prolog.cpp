@@ -36,3 +36,26 @@ opi::prolog::add_predicate(const predicate &pred)
 const opi::predicate&
 opi::prolog::add_predicate(value sig, value body)
 { return add_predicate(predicate {sig, body}); }
+
+
+void
+opi::prolog::_update_last_expr(size_t depth, value expr) const
+{
+  source_location location;
+  if (get_location(expr, location))
+  {
+    // If this is the first mention of the source, assign `expr` straight away;
+    // otherwize, only assign it if `depth` is larger or equal to the depth of
+    // what is already stored for this source
+    const std::filesystem::path fullpath =
+        std::filesystem::absolute(location.source);
+    const auto it = m_last_expr.find(fullpath);
+    if (it == m_last_expr.end())
+      m_last_expr[fullpath] = {depth, expr};
+    else if (it->second.first <= depth)
+    {
+      it->second.first = depth;
+      it->second.second = expr;
+    }
+  }
+}

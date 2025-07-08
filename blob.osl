@@ -1,0 +1,26 @@
+require "base"
+
+#pragma scheme-translator {
+  (inline
+    (import (chicken blob))
+    (define osl_make_blob make-blob)
+    (define osl_blob_size blob-size)
+    (define osl_blob_to_string blob->string)
+    (define osl_string_to_blob string->blob)
+    (define osl_blob_eq blob=?)
+  )
+}
+
+#pragma prolog {
+  (predicate (result-of (osl_make_blob num) blob))
+  (predicate (result-of (osl_blob_size blob) num))
+  (predicate (result-of (osl_blob_to_string blob) str))
+  (predicate (result-of (osl_string_to_blob str) blob))
+  (predicate (result-of (osl_blob_eq blob blob) bool))
+}
+
+blob(size num) = osl_make_blob
+length(blb blob) = osl_blob_size(blb)
+str(blb blob) = osl_blob_to_string(blb)
+blob(s str) = osl_string_to_blob(s)
+blb1 == blb2 = osl_blob_eq(blb1, blb2)

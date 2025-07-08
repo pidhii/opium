@@ -86,3 +86,13 @@ bool(x maybe(T)) = match x in
     (define (coerce_function x) x))
 }
 coerce(f) = coerce_function(f)
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                               meta
+//
+// Every iterator is also an *iterable*
+iter(it) = {
+  assert { next(it) :: maybe(T) }
+  return it
+}

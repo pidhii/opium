@@ -23,6 +23,7 @@
 #include "opium/format.hpp" // IWYU pragma: export
 #include "opium/predicate_runtime.hpp"
 #include "opium/stl/vector.hpp"
+#include "opium/stl/map.hpp"
 #include "opium/exceptions.hpp"
 
 #include <asm-generic/errno.h>
@@ -30,6 +31,7 @@
 #include <string>
 #include <cassert>
 #include <ranges>
+#include <filesystem>
 
 /**
  * \file prolog.hpp
@@ -119,6 +121,27 @@ template <typename Cont>
 concept prolog_continuation = std::regular_invocable<Cont>;
 
 
+class query_blame_list {
+  public:
+  query_blame_list(
+      const stl::map<std::string, std::pair<size_t, value>> &blame_list)
+  : m_blame_list {blame_list}
+  { }
+
+  bool
+  get_blame(const std::filesystem::path &file_path, source_location &location)
+  {
+    const std::filesystem::path fullpath = std::filesystem::absolute(file_path);
+    const auto it = m_blame_list.find(fullpath);
+    if (it == m_blame_list.end())
+      return false;
+    return get_location(it->second.second, location);
+  }
+
+  private:
+  stl::map<std::string, std::pair<size_t, value>> m_blame_list;
+};
+
 /**
  * Prolog evaluator
  * 
@@ -161,7 +184,17 @@ class prolog {
   make_true(predicate_runtime &ert, value e, Cont cont,
             NTVHandler ntvhandler = NTVHandler {}) const;
 
+  query_blame_list
+  blame_list() const
+  { return {m_last_expr}; }
+
   private:
+  // Helper function to track the deepest evaluated expression. Tracking is done
+  // separately for each file (determined from the location source of the `expr`
+  // parameter)
+  void
+  _update_last_expr(size_t depth, value expr) const;
+
   template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
   void
   _make_if_true(predicate_runtime &ert, value cond, value thenbr, value elsebr,
@@ -184,6 +217,7 @@ class prolog {
 
   private:
   mutable size_t m_depth;
+  mutable stl::map<std::string, std::pair<size_t, value>> m_last_expr;
   opi::stl::unordered_multimap<std::string, predicate> m_db; /**< Database of predicates */
 }; // class opi::prolog
 

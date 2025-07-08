@@ -3,23 +3,21 @@
   (inline
     (import regex)
 
+    (define osl_regexp regexp)
+
     (define osl_glob_to_regexp glob->regexp)
 
     (define (osl_string_match REGEXP STRING)
       (let ((match (string-match REGEXP STRING)))
         (if (not match)
             (oslctor:Nothing)
-            (oslctor:Some
-              (map (lambda (submatch) (if (not submatch) (oslctor:Nothing) (oslctor:Some submatch)))
-                   match)))))
+            (oslctor:Some (map (lambda (submatch) (or submatch "")) match)))))
 
     (define (osl_string_search REGEXP STRING)
       (let ((match (string-search REGEXP STRING)))
         (if (not match)
             (oslctor:Nothing)
-            (oslctor:Some
-              (map (lambda (submatch) (if (not submatch) (oslctor:Nothing) (oslctor:Some submatch)))
-                   match)))))
+            (oslctor:Some (map (lambda (submatch) (or submatch "")) match)))))
 
       (define (osl_string_split_fields REGEXP STRING)
         (string-split-fields REGEXP STRING #t))
@@ -29,20 +27,26 @@
 
 #pragma prolog {
   (predicate (result-of (osl_glob_to_regexp str) regexp))
-  (predicate (result-of (regexp str) regexp))
-  (predicate (result-of (grep REGEXP (list str)) (list str))
+  (predicate (result-of (osl_regexp str) regexp))
+  (predicate (result-of (osl_grep REGEXP (list str)) (list str))
     (or (= REGEXP str)
         (= REGEXP regexp)))
-  (predicate (result-of (osl_string_match REGEXP str) (maybe (list (maybe str))))
+  (predicate (result-of (osl_string_match REGEXP str) (maybe (list str)))
     (or (= REGEXP str)
         (= REGEXP regexp)))
-  (predicate (result-of (osl_string_search REGEXP str) (maybe (list (maybe str))))
+  (predicate (result-of (osl_string_search REGEXP str) (maybe (list str)))
     (or (= REGEXP str)
         (= REGEXP regexp)))
   (predicate (result-of (osl_string_split_fields REGEXP str) (list str))
     (or (= REGEXP str)
         (= REGEXP regexp)))
 }
+
+glob = osl_glob_to_regexp
+
+regexp = osl_regexp
+
+grep(l list(str), pattern) = osl_grep(pattern, l)
 
 find(string str, pattern) =
   osl_string_search(pattern, string)

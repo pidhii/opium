@@ -192,6 +192,44 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                       let-values/let*-values
+#if 0
+  const auto valuesrule = [this](const auto &ms, value fm) {
+    const value binds = ms.at("binds");
+    const value body = ms.at("body");
+
+    // Insert a wildcard placeholder at the end of every sequence of values:
+    // Scheme requires that the list of values matches actual return of the expr,
+    // meanwhile the TypeCheck of Opium allows for fewer LHS values than that in
+    // return of the RHS expr
+    value newbinds = nil;
+    for (const value bind : range(binds))
+    {
+      const value idents = car(bind);
+      const value expr = car(cdr(bind));
+
+      const value newidents = append(idents, "_");
+      const value newexpr = m_transformer(expr);
+      newbinds = append(newbinds, list(list(newidents, newexpr)));
+    }
+
+    // Transform the body
+    const value newbody =
+        list(range(body) | std::views::transform(std::ref(m_transformer)));
+
+    return list(car(fm), newbinds, dot, newbody);
+  };
+
+  const match letvalsmatch {list("let-values"),
+                            list("let-values", "binds", dot, "body")};
+  m_transformer.prepend_rule(letvalsmatch, valuesrule);
+
+  const match letstarvalsmatch {list("let*-values"),
+                                list("let*-values", "binds", dot, "body")};
+  m_transformer.prepend_rule(letstarvalsmatch, valuesrule);
+#endif
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                form
   m_transformer.append_rule({nil, list("f", dot, "xs")}, [this](const auto &ms) {
     const value f = ms.at("f");
@@ -221,7 +259,11 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
         std::ostringstream buf;
         buf << std::format("Ambiguous type {} for {}:\n", type, x);
         for (const value variant : possibilities)
-          buf << variant << "\n";
+        {
+          source_location location;
+          if (get_location(variant, location))
+            buf << "option: " << display_location(location, 1, "\e[38;5;4;1m", "\e[2m");
+        }
         error("{}", buf.str());
         throw code_transformation_error {
             std::format("Ambiguous type for {}", x), x};

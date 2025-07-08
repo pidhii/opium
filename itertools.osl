@@ -3,15 +3,6 @@ require "error"
 require "number"
 
 
-////////////////////////////////////////////////////////////////////////////////
-//                               meta
-//
-// Every iterator is also an *iterable*
-iter(it) = {
-  assert { next(it) :: maybe(T) }
-  return it
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////
 //                             iteration
@@ -32,20 +23,6 @@ foldl(it, z, f) = match next(it) in
 find(it, p) = match next(it) in
 | Some(x)   -> if p(x) then Some(x) else find(it, p)
 | Nothing() -> Nothing()
-
-
-////////////////////////////////////////////////////////////////////////////////
-//                           list - iterator
-//
-type listIterator(T) = { l list(T) }
-
-iter(l list(T)) =
-  listIterator(l)
-
-next(it listIterator(T)) =
-  match it#l in
-  | x : xs -> { set it#l = xs Some(x) }
-  | otherwize -> Nothing()
 
 
 ////////////////////////////////////////////////////////////////////////////////

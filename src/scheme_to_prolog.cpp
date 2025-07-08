@@ -37,13 +37,15 @@ opi::scheme_to_prolog::set_up_prolog(prolog &pl) const noexcept
 {
   // Add a predicate for dynamic function specialization
   lisp_parser parser;
-  const value signature = parser.parse(R"(
-    (result-of ((#dynamic-function-dispatch _ Args Result Body) . Args) Result)
-  )");
-  const value rule = parser.parse(R"(
-    (call Body)
-  )");
-  pl.add_predicate(signature, rule);
+  {
+    const value signature = parser.parse(R"(
+      (result-of ((#dynamic-function-dispatch _ Args Result Body) . Args) Result)
+    )");
+    const value rule = parser.parse(R"(
+      (call Body)
+    )");
+    pl.add_predicate(signature, rule);
+  }
 }
 
 
@@ -225,8 +227,6 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       const value type = _generate_type_and_copy_location(ident);
       m_alist = cons(cons(ident, type), m_alist);
 
-      // Save info for translator
-
       // Transform expression with target set to the identifier type and
       // accumulate resulting Prolog expression to the `result`
       // and accumulate transformed expression in results
@@ -266,7 +266,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       const value subidents = car(idents);
       const value expr = car(exprs);
 
-      value types = nil;
+      value types = "_";
       // Generate type name and add resulting identifier+type entry to the a-list
       for (const value ident : range(subidents))
       {
@@ -275,10 +275,10 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
         m_alist = cons(cons(ident, type), m_alist);
       }
 
-      // Transform expression with target set to the type-list and
+      // Transform expression with target set to the (values type ...*) and
       // accumulate resulting Prolog expression to the `result`
       utl::state_saver _ {m_target};
-      m_target = length(types) == 1 ? car(types) : types;
+      m_target = cons("values", types);
       result = append(result, list((*this)(expr)));
     }
 
@@ -342,7 +342,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   //                             template
   // NOTE: leaks a-list
   const value temppat = list("template", cons("ident", "params"), dot, "body");
-  append_rule({list("template"), temppat}, [this, &counter](const auto &ms, value fm) {
+  append_rule({list("template"), temppat}, [this](const auto &ms, value fm) {
     const value ident = ms.at("ident");
     const value params = ms.at("params");
     const value body = ms.at("body");
@@ -461,6 +461,29 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     // Set new type as target for body evaluation
     utl::state_saver _ {m_alist, m_target};
     m_target = type;
+    return transform_block(body);
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                            define-values
+  // NOTE: leaks a-list
+  const value defvalspat = list("define-values", "idents", dot, "body");
+  append_rule({list("define-values"), defvalspat}, [this](const auto &ms) {
+    const value idents = ms.at("idents");
+    const value body = ms.at("body");
+
+    // Construct (values type ...*) composed of types of `idents`
+    value types = "_";
+    for (const opi::value ident : range(idents))
+    {
+      const value type = _generate_type_and_copy_location(ident);
+      types = append(types, list(type));
+    }
+    const value values_type = cons("values", types);
+
+    // Evaluate `body` with `values_type` as a target
+    utl::state_saver _ {m_alist, m_target};
+    m_target = values_type;
     return transform_block(body);
   });
 

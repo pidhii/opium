@@ -91,11 +91,11 @@ opi::generate_scheme(opi::value in, opi::prolog_repl &pl,
   catch (const bad_code &exn)
   {
     error("{}", exn.display());
-    exit(EXIT_FAILURE);
+    throw;
   }
   catch (const std::runtime_error &exn)
   {
     error("{}", exn.what());
-    exit(EXIT_FAILURE);
+    throw;
   }
 }
