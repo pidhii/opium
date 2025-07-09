@@ -39,14 +39,21 @@ argv = commandline()
     (define (osl_add_getopt_option_required OPTION REQUIRED?)
       (getopt-option (getopt-option-name OPTION)
                      (getopt-option-docstring OPTION)
-                     (cons (list (quote required) REQUIRED?)
+                     (cons (list 'required REQUIRED?)
                            (getopt-option-properties OPTION))
                      (getopt-option-handle OPTION)))
 
     (define (osl_add_getopt_option_value OPTION VALUE?)
       (getopt-option (getopt-option-name OPTION)
                      (getopt-option-docstring OPTION)
-                     (cons (list (quote value) VALUE?)
+                     (cons `(value ,VALUE?)
+                           (getopt-option-properties OPTION))
+                     (getopt-option-handle OPTION)))
+
+    (define (osl_add_getopt_option_named_value OPTION VALUE-NAME)
+      (getopt-option (getopt-option-name OPTION)
+                     (getopt-option-docstring OPTION)
+                     (cons `(value ,`(required ,VALUE-NAME))
                            (getopt-option-properties OPTION))
                      (getopt-option-handle OPTION)))
 
@@ -57,11 +64,11 @@ argv = commandline()
                      HANDLE))
 
     (define (getopt-option->list OPTION)
-      (let* ((head (list (getopt-option-name OPTION)
-                         (getopt-option-docstring OPTION)))
-             (tail (getopt-option-properties OPTION))
-             (finallist (append head tail)))
-        finallist))
+      (let* ((result (list (getopt-option-name OPTION)))
+             (docstring (getopt-option-docstring OPTION))
+             (result (if docstring (append result (list docstring)) result))
+             (result (append result (getopt-option-properties OPTION))))
+        result))
 
     (define (call-getopt-option-handle OPTION VALUESTRING)
       ((getopt-option-handle OPTION) VALUESTRING))
@@ -93,6 +100,7 @@ argv = commandline()
   (predicate (result-of (osl_set_getopt_option_docstring getopt_option str) getopt_option))
   (predicate (result-of (osl_add_getopt_option_required getopt_option bool) getopt_option))
   (predicate (result-of (osl_add_getopt_option_value getopt_option bool) getopt_option))
+  (predicate (result-of (osl_add_getopt_option_named_value getopt_option str) getopt_option))
   (predicate (result-of (osl_add_getopt_option_handler getopt_option Handler) getopt_option)
     (result-of (Handler str) _))
   (predicate (result-of (osl_getopt (list str) (list getopt_option)) (list str)))
@@ -100,12 +108,18 @@ argv = commandline()
 }
 
 option(name str) = osl_make_getopt_option(name)
+
 docstring(opt getopt_option, docstr str) =
   osl_set_getopt_option_docstring(opt, docstr)
+
 required(opt getopt_option, yesno bool) =
   osl_add_getopt_option_required(opt, yesno)
+
 value(opt getopt_option, yesno bool) =
   osl_add_getopt_option_value(opt, yesno)
+value(opt getopt_option, value_name str) =
+  osl_add_getopt_option_named_value(opt, value_name)
+
 handle(opt getopt_option, f) =
   osl_add_getopt_option_handler(opt, f)
 

@@ -161,6 +161,7 @@ main(int argc, char **argv)
     opi::source_location location;
     if (pl.blame_list().get_blame(inputpath, location))
       error("blame {}", display_location(location));
+    return EXIT_FAILURE;
   }
   
   execution_timer::report_global_stats();

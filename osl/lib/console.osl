@@ -5,15 +5,22 @@
 #pragma prolog {
   (predicate (result-of (display _) void))
   (predicate (result-of (newline) void))
-  (predicate (result-of (println _ . _) void))
+  (predicate (result-of (println . _) void))
+  (predicate (result-of (eprintln . _) void))
 }
 #pragma scheme-translator {
   (inline
-    (define (println x . rest)
-      (display x)
-      (if (null? rest)
-          (newline)
-          (begin
-            (display " ")
-            (apply println rest)))))
+    (import (chicken port))
+
+    (define (println . args)
+      (apply print args)
+      (flush-output))
+
+    (define (eprintln . args)
+      (with-output-to-port
+        (current-error-port)
+        (lambda ()
+          (apply print args)
+          (flush-output))))
+  )
 }

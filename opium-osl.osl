@@ -16,34 +16,34 @@ args = getopt(argv, options)
 where options = [
   // --help
   option("help")
-  .docstring("print help and exit")
-  .handle(_ => {
-    println("usage: opium-osl [OPTIONS] <input-file>")
-    println("")
-    println("OPTIONS:")
-    println(help(options))
-    exit(0)
-  })
+    .docstring("print help and exit")
+    .handle(_ => {
+      println("usage: opium-osl [OPTIONS] <INPUT-FILE>")
+      println("")
+      println("OPTIONS:")
+      println(help(options))
+      exit(0)
+    })
   ,
   option("verbose")
-  .docstring("enable verbose output")
-  .handle(_ => set verbose = true)
+    .docstring("enable verbose output")
+    .handle(_ => set verbose = true)
   ,
   // --run
   option("run")
-  .docstring("run the script without compilation (default)")
-  .handle(_ => set mode = Run)
+    .docstring("run the script without compilation (default)")
+    .handle(_ => set mode = Run)
   ,
   // --compile=<output-filename>
   option("compile")
-  .docstring("compile the script into executable file")
-  .value(true)
-  .handle(output_filename => set mode = Compile(output_filename))
+    .docstring("compile the script into executable file")
+    .value("OUTPUT-FILE")
+    .handle(output_filename => set mode = Compile(output_filename))
   ,
   // --optimize
   option("optimize")
-  .docstring("enable optimizations during compilation")
-  .handle(_ => set optimize = true)
+    .docstring("enable optimizations during compilation")
+    .handle(_ => set optimize = true)
 ]
 
 // Expecting a single position argument which is the input filename
@@ -55,7 +55,8 @@ input = args[0]
 ////////////////////////////////////////////////////////////////////////////////
 //                             Helper functions
 //
-info(message) = {
+info(message) =
+{
   if verbose then
     println("opium-osl", message)
 }
@@ -64,18 +65,16 @@ info(message) = {
 translate_opium_script(osl_filename, scm_filename) =
 {
   // Resolve path for OSL modules
-  run("pkg-config")
-
   info("translating OSL into Scheme")
   command = format("./install/bin/osl -o ~A --oslpath ~A ~A",
-                 scm_filename, default_oslpath, osl_filename)
-  // info("$", command)
+                   scm_filename, default_oslpath, osl_filename)
   p = run(command)
   rc = p.wait()#status
   if rc != 0 then
   {
     p#stderr.lines().foreach(println)
-    error("OSL translation failed")
+    eprintln("OSL translation failed")
+    exit(1)
   }
   else if verbose then
     p#stderr.lines().foreach(println)

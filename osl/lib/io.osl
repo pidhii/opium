@@ -13,6 +13,7 @@ require "itertools"
 
       (chicken
         (import (chicken file posix) (chicken bitwise))
+        (import (chicken io))
 
         ;; Map mode-characters to bit-flags
         (define (char->open-flag char)
@@ -36,7 +37,16 @@ require "itertools"
                   (if (= (bitwise-and open/append resflag) open/append)
                       (open-output-file* fd #:append)
                       (open-output-file* fd))
-                  (open-input-file* fd)))))
+                  (open-input-file* fd))))
+
+        (define (osl_write_string PORT STRING)
+          (write-string STRING #f PORT))
+
+        (define (osl_write_line PORT STRING)
+          (write-line STRING PORT))
+
+        (define osl_flush flush-output)
+      )
     )
   )
 }
@@ -45,6 +55,9 @@ require "itertools"
 #pragma prolog {
   (predicate (result-of (osl_readline port) str))
   (predicate (result-of (osl_eofobject_p str) bool))
+  (predicate (result-of (osl_write_string port str) void))
+  (predicate (result-of (osl_write_line port str) void))
+  (predicate (result-of (osl_flush port) void))
 }
 
 #pragma scheme-translator {
@@ -59,6 +72,14 @@ require "itertools"
     (define osl_eofobject_p eof-object?)
   )
 }
+
+////////////////////////////////////////////////////////////////////////////////
+//                             writing
+//
+write(p port, s str) = osl_write_string(p, s)
+writeln(p port, s str) = osl_write_line(p, s)
+
+flush(p port) = osl_flush(p)
 
 
 ////////////////////////////////////////////////////////////////////////////////
