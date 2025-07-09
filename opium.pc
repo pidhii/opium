@@ -1,0 +1,11 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+includedir=${prefix}/include
+libdir=${prefix}/lib
+oslpath=@CMAKE_SOURCE_DIR@
+
+Name: osl
+Description: Opium Scripting Language
+URL: https://github.com/pidhii/opium
+Version: @CMAKE_PROJECT_VERSION@
+Cflags: -I${includedir}
+Libs: -L${libdir} -lopium

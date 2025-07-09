@@ -56,6 +56,10 @@ class prolog_repl: public prolog {
     using bad_code::bad_code;
   };
 
+  void
+  add_path_prefix(const std::filesystem::path &prefix) noexcept
+  { m_path_prefixes.emplace_back(prefix); }
+
   /**
    * Process an expression in the REPL
    * 
@@ -77,6 +81,7 @@ class prolog_repl: public prolog {
   _query(value expr);
 
   std::set<std::filesystem::path> m_loaded_pathes;
+  std::vector<std::filesystem::path> m_path_prefixes;
 }; // class opi::prolog_repl
 
 } // namespace opi

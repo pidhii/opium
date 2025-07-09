@@ -64,6 +64,7 @@ main(int argc, char **argv)
   std::vector<std::string> flags;
   std::vector<std::fs::path> load;
   std::string opath = "out.scm";
+  std::vector<std::string> extra_oslpathes;
 
   po::options_description desc {"Allowed options"};
   desc.add_options()
@@ -71,7 +72,9 @@ main(int argc, char **argv)
     ("input-file", po::value<std::fs::path>(), "input file to process")
     ("verbosity,v", po::value<std::string>(&verbosity)->implicit_value("debug"), "verbosity")
     ("flag,f", po::value<std::vector<std::string>>(&flags), "flags")
-    ("output,o", po::value<std::string>(&opath), "write Scheme script to the specified file");
+    ("output,o", po::value<std::string>(&opath), "write Scheme script to the specified file")
+    ("oslpath", po::value<std::vector<std::string>>(&extra_oslpathes),
+     "specify additional directory for filename resolution");
 
   po::positional_options_description posdesc;
   posdesc.add("input-file", 1);
@@ -108,6 +111,10 @@ main(int argc, char **argv)
   for (const std::string &flag : flags)
     global_flags.emplace(flag);
 
+  // Add fragments of OSLPATH supplied in command-line
+  for (const std::string &path : extra_oslpathes)
+    osl::pathes.emplace_back(path);
+
   // Import OSLPATH
   if (const char *oslpath = std::getenv("OSLPATH"))
   {
@@ -142,6 +149,10 @@ main(int argc, char **argv)
   parse_timer.stop();
 
   prolog_repl pl;
+  // Share path prefixes with Prolog interpreter
+  for (const std::string &prefix : osl::pathes)
+    pl.add_path_prefix(prefix);
+
   try {
     generate_scheme(result, pl, opath);
   }

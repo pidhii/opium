@@ -104,6 +104,9 @@ target_link_libraries(opium_a PUBLIC eco_a)
 target_link_libraries(opium PUBLIC eco_a)
 target_link_libraries(opium-pp PUBLIC eco_a)
 
+configure_file(${CMAKE_SOURCE_DIR}/opium.pc ${CMAKE_BINARY_DIR}/opium.pc @ONLY)
+install(FILES ${CMAKE_BINARY_DIR}/opium.pc DESTINATION lib/pkgconfig)
+
 if (OPIUM_SCRIPT)
   find_package (BISON REQUIRED)
   find_package (FLEX REQUIRED)
@@ -130,13 +133,26 @@ if (OPIUM_SCRIPT)
   target_link_libraries (osl opium_a eco_a)
   install (TARGETS osl DESTINATION bin)
 
+  # Builtin OSL libraries
+  file(GLOB osl_libs osl/lib/*)
+  install(FILES ${osl_libs} DESTINATION lib)
+
   # OSL compiler and interpreter
+  if ("${CMAKE_INSTALL_PREFIX}" EQUAL "")
+    set(OSL_LIB_DIR ${CMAKE_SOURCE_DIR}/osl/lib)
+  else ()
+    set(OSL_LIB_DIR ${CMAKE_INSTALL_PREFIX}/lib)
+  endif ()
   add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/opium-osl
     WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-    COMMAND ${CMAKE_BINARY_DIR}/osl -o ${CMAKE_BINARY_DIR}/opium-osl.scm ${CMAKE_SOURCE_DIR}/opium-osl.osl
+    COMMAND echo "'default_oslpath=\"${OSL_LIB_DIR}\"'" > ${CMAKE_BINARY_DIR}/osl-config.osl
+    COMMAND ${CMAKE_BINARY_DIR}/osl -o ${CMAKE_BINARY_DIR}/opium-osl.scm
+                                    --oslpath ${CMAKE_SOURCE_DIR}/osl/lib
+                                    --oslpath ${CMAKE_BINARY_DIR}
+                                    ${CMAKE_SOURCE_DIR}/opium-osl.osl
     COMMAND chicken-csc -o ${CMAKE_BINARY_DIR}/opium-osl ${CMAKE_BINARY_DIR}/opium-osl.scm
-    BYPRODUCTS ${CMAKE_BINARY_DIR}/opium-osl.scm
+    BYPRODUCTS ${CMAKE_BINARY_DIR}/opium-osl.scm ${CMAKE_BINARY_DIR}/osl-config.osl
     DEPENDS osl ${CMAKE_SOURCE_DIR}/opium-osl.osl)
   add_custom_target(opium-osl-executable ALL DEPENDS ${CMAKE_BINARY_DIR}/opium-osl)
   install(PROGRAMS ${CMAKE_BINARY_DIR}/opium-osl DESTINATION bin)

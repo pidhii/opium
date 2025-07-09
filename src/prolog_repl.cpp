@@ -23,6 +23,7 @@
 #include "opium/value.hpp"
 #include "opium/pretty_print.hpp"
 #include "opium/lisp_parser.hpp"
+#include "opium/utilities/path_resolver.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -65,7 +66,8 @@ opi::prolog_repl::operator << (opi::value expr)
   {
     namespace fs = std::filesystem;
     const value x = car(cdr(expr));
-    const fs::path fullpath = fs::absolute(str_view(x));
+    const fs::path fullpath = resolve_path(str_view(x), m_path_prefixes.begin(),
+                                           m_path_prefixes.end());
 
     if (not m_loaded_pathes.emplace(fullpath).second)
       // File already loaded, thus do nothing

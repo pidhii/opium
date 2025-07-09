@@ -1,3 +1,5 @@
+require "osl-config" // generated during build; contains `default_oslpath`
+
 
 type mode = Run | Compile(str)
 
@@ -61,22 +63,28 @@ info(message) = {
 // Translate OSL into Scheme
 translate_opium_script(osl_filename, scm_filename) =
 {
+  // Resolve path for OSL modules
+  run("pkg-config")
+
   info("translating OSL into Scheme")
-  p = run("./install/bin/osl -o " + scm_filename + " " + osl_filename)
+  command = format("./install/bin/osl -o ~A --oslpath ~A ~A",
+                 scm_filename, default_oslpath, osl_filename)
+  // info("$", command)
+  p = run(command)
   rc = p.wait()#status
   if rc != 0 then
   {
-    println(p#stderr.read())
+    p#stderr.lines().foreach(println)
     error("OSL translation failed")
   }
   else if verbose then
-    println(p#stderr.read())
+    p#stderr.lines().foreach(println)
 }
 
 // Run Scheme with Chicken Scheme interpreter
 run_scheme(scm_filename) =
 {
-  info("running Scheme script with Chicken interpreter")
+  info("evaluating Scheme script with Chicken interpreter")
   return system("chicken-csi -s " + scm_filename)
 }
 
