@@ -438,6 +438,7 @@ struct function_unroller: public opi::osl::flow_unroller {
 %token SET
 %token FN
 %token FOR DO BREAK CONTINUE RETURN YIELD
+%token DECLARE
 
 %right '|'
 
@@ -751,6 +752,14 @@ TopLvlExpr
       $$ = load_file(fullpath);
     }
   }
+  | DECLARE IDENT '(' ListOfTypeParams ')' RIGHT_ARROW TypeSign {
+    $$ = list(
+      list("pragma", "prolog",
+        list("predicate", list("result-of", list($2, dot, $4), $7))
+      )
+    );
+  }
+
 ;
 
 TypeDef

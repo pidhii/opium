@@ -86,6 +86,23 @@ type return TYPE;
 
 fn return FN;
 
+declare return DECLARE;
+
+identifier"!("[^)]+")" {
+  // Read whatever is between the parenthes
+  std::string text = yytext + strlen("identifier!(");
+  text.pop_back();
+
+  // Trim leading and trailing whitespaces
+  while (text.size() > 0 and std::isspace(text.front()))
+    text.erase(text.begin());
+  while (text.size() > 0 and std::isspace(text.back()))
+    text.pop_back();
+
+  yylval = sym(text);
+  return IDENT;
+}
+
 \" {
   BEGIN(STRING);
   return BEGIN_STRING;
