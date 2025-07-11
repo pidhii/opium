@@ -92,8 +92,11 @@ inline std::ranges::view auto
 prolog::predicate_branches(const std::string &name) const
 {
   const auto it = m_db.find(name);
-  if (it == m_db.end())
-    throw error {std::format("No such predicate: {}", name)};
+  // NOTE Commenting the following lines out implies change of semantics:
+  //      before) Missing predicate is an error
+  //      after) Missing predicate is query failure
+  // if (it == m_db.end())
+  //   throw error {std::format("No such predicate: {}", name)};
 
   return std::ranges::subrange(it, m_db.end()) |
          std::views::take(m_db.count(name)) |
