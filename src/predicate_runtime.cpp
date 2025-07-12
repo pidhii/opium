@@ -349,7 +349,7 @@ struct _match_arguments_impl {
     {
       case opi::tag::pair:
         return match_arguments(prt, opi::car(pexpr), opi::car(eexpr))
-          and match_arguments(prt, opi::cdr(pexpr), opi::cdr(eexpr));
+           and match_arguments(prt, opi::cdr(pexpr), opi::cdr(eexpr));
 
       default:
         if constexpr (ForceMatch)

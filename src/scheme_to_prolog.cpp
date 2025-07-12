@@ -39,25 +39,10 @@ opi::scheme_to_prolog::set_up_prolog(prolog &pl) const noexcept
   lisp_parser parser;
   {
     const value signature = parser.parse(R"(
-      (result-of ((#dynamic-function-dispatch _ Args Result Body) . Args) Result)
+      (result-of ((#dynamic-function-dispatch _ Args (R1 . Rn) Body) . Args) R1 . Rn)
     )");
     const value rule = parser.parse(R"(
       (call Body)
-    )");
-    pl.add_predicate(signature, rule);
-  }
-
-  {
-    const value signature = parser.parse(R"(
-      (result-values-of (Fn . Args) Results)
-    )");
-    const value rule = parser.parse(R"(
-      (and
-        (nonvar Fn)
-        (if (result-of (Fn . Args) Result)
-            (= Results (Result))
-            (result-of* (Fn . Args) Results))
-      )
     )");
     pl.add_predicate(signature, rule);
   }
@@ -393,10 +378,10 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
     // (local) Type variable to hold function return type
     // FIXME: why does it have to generate different identifiers?
-    const value plresult = sym("Result");
+    const value plresults = sym("Results");
 
     // Translate the body with apropriate target
-    m_targets = list(plresult, dot, "_");
+    m_targets = plresults;
     const value plbody = transform_block(body);
 
     // Wrapp it up. Instances of this template can now be created by simple
@@ -406,7 +391,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     // - variables from the higher level(s) will be captured via quasiquote(s)
     const value function_template =
         list("quasiquote", list("#dynamic-function-dispatch", ident, plparams,
-                                plresult, plbody));
+                                plresults, plbody));
     copy_location(fm, function_template);
 
     return list("=", proxyvar, function_template);
@@ -440,17 +425,17 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
     // (local) Type variable to hold function return type
     // FIXME: why does it have to generate different identifiers?
-    const value plresult = sym("Result");
+    const value plresults = sym("Results");
 
     // Translate the body with apropriate target
-    m_targets = list(plresult, dot, "_");
+    m_targets = plresults;
     const value plbody = transform_block(body);
 
     // Generate unique identifier for this lambda
     const value lambdaname = sym(std::format("anonymous-lambda.{}", counter++));
     const value functemplate =
         list("quasiquote", list("#dynamic-function-dispatch", lambdaname,
-                                plparams, plresult, plbody));
+                                plparams, plresults, plbody));
 
     const value proxyvar = m_lambda_gensym();
 
@@ -597,7 +582,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       return _to_type(atom, true, std::back_inserter(code));
     };
     const value form = list(range(cons(f, xs)) | std::views::transform(totype));
-    const value plform = list("result-values-of", form, m_targets);
+    const value plform = list("result-of", form, dot, m_targets);
     code.push_back(plform);
     copy_location(fm, plform);
 
