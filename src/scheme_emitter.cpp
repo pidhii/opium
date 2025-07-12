@@ -73,6 +73,11 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
       [this](const auto &) { return m_dont_emit_symbol; });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                              declare
+  m_transformer.prepend_rule(
+      {list("declare"), list("declare", "_")},
+      [this](const auto &) { return m_dont_emit_symbol; });
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 cases
   const match casesmatch {
       list("cases"), list("cases", "exprs", cons("patterns", "branch"), "...")};
@@ -333,25 +338,50 @@ opi::scheme_emitter::transform_inner_block_into_expression(value block)
   value binds = nil;
   for (size_t cnt = 0; const value expr : range(head))
   {
-    value bind;
+    value newbinds = nil;
     if (expr->t == tag::pair and car(expr) == "define")
     {
       const value sign = car(cdr(expr));
       const value body = cdr(cdr(expr));
 
       if (issym(sign))
-        bind = list(sign, length(body) > 1 ? cons("begin", body) : car(body));
+        newbinds = list(list(sign, length(body) > 1 ? cons("begin", body) : car(body)));
       else
       {
         const value ident = car(sign);
         const value args = cdr(sign);
-        bind = list(ident, list("lambda", args, body));
+        newbinds = list(list(ident, list("lambda", args, body)));
       }
     }
+    else if (expr->t == tag::pair and car(expr) == "define-values")
+    { // Embedding of define-values into letrec*:
+      // - for each variable create a "dummy" binding to allocate the variable
+      //   and bind it to #<unsepcified> value
+      // - and then use set-values! syntax to assign the variables
+      //
+      // It would look like:
+      //     (letrec ((x x)  ;; declare x
+      //              (y y)  ;; declare y
+      //              (_ (set-values! (x y) ...))) ;; bind x and y -variables
+      //        ...)
+      const value idents = car(cdr(expr));
+      const value body = cdr(cdr(expr));
+      // create declarations
+      for (const value ident : range(idents))
+      {
+        const value decl = list(ident, ident);
+        newbinds = append(newbinds, list(decl));
+      }
+      // create assignment
+      const value dummy = sym(std::format("_{}", cnt++));
+      const value assign = list("set-values!", idents, list("begin", dot, body));
+      const value letrecclause = list(dummy, assign);
+      newbinds = append(newbinds, list(letrecclause));
+    }
     else
-      bind = list(sym(std::format("_{}", cnt++)), expr);
+      newbinds = list(list(sym(std::format("_{}", cnt++)), expr));
 
-    binds = append(binds, list(bind));
+    binds = append(binds, newbinds);
   }
 
   return list("letrec*", binds, last);

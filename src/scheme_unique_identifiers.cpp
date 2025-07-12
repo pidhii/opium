@@ -232,6 +232,27 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     return list("define", newidentifier, dot, newbody);
   });
 
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                           define-values
+  const value defvalspat = list("define-values", "identifiers", dot, "body");
+  append_rule({list("define-values"), defvalspat}, [this](const auto &ms) {
+    const value identifiers = ms.at("identifiers");
+    const value body = ms.at("body");
+
+    // Get the mapped identifiers created during forward-declaration
+    value newidentifiers = nil;
+    for (const value identifier : range(identifiers))
+    {
+      const value newidentifier = _copy_mapped_identifier(identifier);
+      copy_location(identifier, newidentifier);
+      newidentifiers = append(newidentifiers, list(newidentifier));
+    }
+
+    // Transform body with new alist
+    const value newbody = transform_block(body);
+    return list("define-values", newidentifiers, dot, newbody);
+  });
+
   // Helper macro with common code for all let-expressions
 #define UNPACK_MATCHES_AND_SAVE_STATE(ms)                                      \
   /* Unpack matches */                                                         \
@@ -522,6 +543,13 @@ opi::scheme_unique_identifiers::transform_block(value block) const
     list("define", "identifier", dot, "body")
   };
 
+  const match define_values {
+    list("define-values"),
+    list("define-values", "identifier", dot, "body")
+  };
+
+  // Helper function for matching expression on one of the matches above and
+  // extracting the identifier(s)
   const auto try_match = [&](value expr, const match &m, value &identifier) {
     opi::stl::unordered_map<value, value> matches;
     if (m(expr, matches))
@@ -549,6 +577,9 @@ opi::scheme_unique_identifiers::transform_block(value block) const
 
   // Storage for identifiers of (non-overloaded) templates for forward declaration
   opi::stl::unordered_set<value> templates;
+
+  // Storage for all other non-template identifiers
+  opi::stl::unordered_set<value> nontemp_identifiers;
 
   // Forward-declarations for all define-family syntaxes
   for (const value expr : range(block))
@@ -580,8 +611,7 @@ opi::scheme_unique_identifiers::transform_block(value block) const
           group.templates.emplace(newidentifier).second;
       assert(ok && "Failed to add identifier to an overload group");
     }
-    else if (try_match(expr, define_function, identifier) or
-             try_match(expr, define_identifier, identifier))
+    else if (try_match(expr, define_function, identifier))
     {
       const value newidentifier = _into_unique_symbol(identifier);
       m_alist = cons(cons(identifier, newidentifier), m_alist);
@@ -589,6 +619,25 @@ opi::scheme_unique_identifiers::transform_block(value block) const
 
       // Add `newidentifier` to a list of templates
       templates.emplace(newidentifier);
+    }
+    else if (try_match(expr, define_identifier, identifier))
+    {
+      const value newidentifier = _into_unique_symbol(identifier);
+      m_alist = cons(cons(identifier, newidentifier), m_alist);
+      copy_location(identifier, newidentifier);
+
+      nontemp_identifiers.emplace(newidentifier);
+    }
+    else if (try_match(expr, define_values, identifier /* a list of identifiers */))
+    {
+      for (const value &ident : range(identifier))
+      {
+        const value newidentifier = _into_unique_symbol(ident);
+        m_alist = cons(cons(ident, newidentifier), m_alist);
+        copy_location(ident, newidentifier);
+
+        nontemp_identifiers.emplace(newidentifier);
+      }
     }
   }
 
@@ -610,6 +659,13 @@ opi::scheme_unique_identifiers::transform_block(value block) const
   for (const value templateident : templates)
   {
     const value decl = list("declare-template", templateident);
+    header = cons(decl, header);
+  }
+
+  // Declare all other identifiers
+  for (const value ident : nontemp_identifiers)
+  {
+    const value decl = list("declare", ident);
     header = cons(decl, header);
   }
 

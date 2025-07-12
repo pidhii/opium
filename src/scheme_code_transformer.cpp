@@ -127,6 +127,16 @@ opi::scheme_code_transformer::scheme_code_transformer()
     return list("define", ident, dot, newbody);
   });
 
+  const match defvalsmatch {list("define-values"),
+                            list("define-values", "idents", dot, "body")};
+  append_rule(defvalsmatch, [this](const auto &ms) {
+    const value idents = ms.at("idents");
+    const value body = ms.at("body");
+    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    return list("define-values", idents, dot, newbody);
+  });
+
+
   /**
    * Rule for lambda expressions
    * 

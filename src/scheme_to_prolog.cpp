@@ -39,7 +39,7 @@ opi::scheme_to_prolog::set_up_prolog(prolog &pl) const noexcept
   lisp_parser parser;
   {
     const value signature = parser.parse(R"(
-      (result-of ((#dynamic-function-dispatch _ Args (R1 . Rn) Body) . Args) R1 . Rn)
+      (result-of ((#dynamic-function-dispatch _ Args Results Body) . Args) . Results)
     )");
     const value rule = parser.parse(R"(
       (call Body)
@@ -339,6 +339,21 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                             declare
+  // NOTE: leaks a-list
+  const value declonepat = list("declare", "ident");
+  append_rule({list("declare"), declonepat}, [this](const auto &ms) {
+    const value ident = ms.at("ident");
+
+    // Generate types
+    const value type = _generate_type_and_copy_location(ident);
+    m_alist = cons(cons(ident, type), m_alist);
+    copy_location(ident, type);
+
+    return list("and");
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                             template
   // NOTE: leaks a-list
   const value temppat = list("template", cons("ident", "params"), dot, "body");
@@ -473,7 +488,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value body = ms.at("body");
 
     // Construct (values type ...*) composed of types of `idents`
-    value types = "_";
+    value types = nil;
     for (const opi::value ident : range(idents))
     {
       const value type = _generate_type_and_copy_location(ident);

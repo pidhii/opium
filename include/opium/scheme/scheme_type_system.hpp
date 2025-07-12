@@ -102,9 +102,9 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode,
   int warned = false;
   for (const auto &[predicatename, predicate] : pl.predicates())
   {
-    if (predicatename == "result-of" or predicatename == "result-of*")
+    if (predicatename == "result-of")
     {
-      const value signature = predicate.argument(0);
+      const value signature = car(cdr(predicate.signature()));
       if (signature->t == tag::pair and issym(car(signature)))
       {
         const value identifier = car(signature);

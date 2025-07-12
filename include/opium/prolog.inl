@@ -479,7 +479,8 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
 {
   predicate_runtime prt;
 
-  const value pargs = insert_cells(prt, list(pred.arguments()));
+  const value predicate_arguments = cdr(pred.signature());
+  const value pargs = insert_cells(prt, predicate_arguments);
 
   if (match_arguments(prt, pargs, eargs))
   {
@@ -487,11 +488,13 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
 
     const value body = insert_cells(prt, pred.body());
 
+#ifndef OPIUM_RELEASE_BUILD
     if (global_flags.contains("DebugPredicateMatches"))
     {
       debug("\e[38;5;2mmatch\e[0m on {}{}", pred.name(),
             reconstruct(signature, stringify_unbound_variables));
     }
+#endif
 
     if (prt.try_sign(&pred, signature, ert, ntvhandler))
     {
@@ -525,6 +528,14 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
       cont();
     }
   }
+#ifndef OPIUM_RELEASE_BUILD
+  else if (global_flags.contains("DebugPredicateMismatches"))
+  {
+    debug("\e[38;5;1mno match\e[0m on {}{}\npredicate: {}{}", pred.name(),
+          reconstruct(eargs, stringify_unbound_variables),
+          pred.name(), reconstruct(pargs, stringify_unbound_variables));
+  }
+#endif
   // Undo constraints introduced by match_arguments()
   prt.mark_dead();
 }

@@ -64,11 +64,9 @@ class predicate {
    */
   predicate(value sig, value body)
   : m_name {opi::car(sig)->sym.data},
+    m_args {cdr(sig)},
     m_body {body}
-  {
-    for (opi::value x : opi::range(opi::cdr(sig)))
-      m_args.emplace_back(x);
-  }
+  { }
 
   /**
    * Get name of the predicate
@@ -79,22 +77,9 @@ class predicate {
   name() const noexcept
   { return m_name; }
 
-  /**
-   * Get predicate arguments (as std::range)
-   * 
-   * \return Range of predicate arguments
-   */
-  std::ranges::range auto
-  arguments() const noexcept
-  { return m_args; }
-
-  value
-  argument(size_t i) const
-  { return m_args.at(i); }
-
   value
   signature() const noexcept
-  { return cons(sym(m_name), list(m_args)); }
+  { return cons(sym(m_name), m_args); }
 
   /**
    * Get predicate body/rule
@@ -107,7 +92,7 @@ class predicate {
 
   private:
   std::string m_name; /**< Name of the predicate */
-  opi::stl::vector<value> m_args; /**< Arguments of the predicate */
+  value m_args; /**< Arguments of the predicate */
   value m_body; /**< Body/rule of the predicate */
 }; // class opi::predicate
 
