@@ -39,7 +39,7 @@ opi::scheme_to_prolog::set_up_prolog(prolog &pl) const noexcept
   lisp_parser parser;
   {
     const value signature = parser.parse(R"(
-      (result-of ((#dynamic-function-dispatch _ Args Result Body) . Args) Result)
+      (result-of ((#dynamic-function-dispatch _ Args (R1 . Rn) Body) . Args) R1 . Rn)
     )");
     const value rule = parser.parse(R"(
       (call Body)
@@ -53,7 +53,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
                                         type_format_string format)
 : m_type_format {format},
   m_is_template {false},
-  m_target {"_"},
+  m_targets {"_"},
   m_alist {nil},
   m_global_alist {nil},
   m_lambda_gensym {counter, "Lambda{}"}
@@ -68,17 +68,17 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
     // Evaluate `expr` with target set to `type`
     const value plexpr = ({
-      utl::state_saver _ {m_target};
-      m_target = type;
+      utl::state_saver _ {m_targets};
+      m_targets = list(type, dot, "_");
       (*this)(expr);
     });
 
     // Don't emit extra code for dummy target
-    if (m_target == "_")
+    if (m_targets == "_")
       return plexpr;
 
     // Otherwise, also bind current target with the `type`
-    const value bindtarget = list("=", m_target, type);
+    const value bindtarget = list("=", m_targets, list(type));
     return list("and", plexpr, bindtarget);
   });
 
@@ -92,9 +92,9 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value branches = ms.contains("branch") ? ms.at("branch") : nil;
 
     // Save original target
-    const value origtarget = m_target;
+    const value origtargets = m_targets;
 
-    utl::state_saver _ {m_target};
+    utl::state_saver _ {m_targets};
 
     // Translate all expressions
     opi::stl::vector<value> exprproxies;
@@ -102,7 +102,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     for (const value expr : range(exprs))
     {
       const value exprproxy = sym(std::format("CaseProxy_{}", counter++));
-      m_target = exprproxy;
+      m_targets = list(exprproxy, dot, "_");
       const value plexpr = (*this)(expr);
       plexprs = append(plexprs, list(plexpr));
       exprproxies.push_back(exprproxy);
@@ -113,7 +113,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     for (const auto &[rowpatterns, branch] :
          utl::zip(range(patterns), range(branches)))
     {
-      utl::state_saver _ {m_alist, m_target};
+      utl::state_saver _ {m_alist, m_targets};
 
       // Process each pattern in the row
       value plmatches = nil;
@@ -141,7 +141,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
         }
       }
 
-      m_target = origtarget;
+      m_targets = origtargets;
       const value plbranch = transform_block(branch);
 
       // Add all matches and the branch to plcases
@@ -164,8 +164,8 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
     // <cond> must evaluate into boolean
     const value newcond = ({
-      utl::state_saver _ {m_target};
-      m_target = "bool";
+      utl::state_saver _ {m_targets};
+      m_targets = list("bool", dot, "_");
       (*this)(cond);
     });
 
@@ -184,8 +184,8 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
     // <cond> must evaluate into boolean
     const value newcond = ({
-      utl::state_saver _ {m_target};
-      m_target = "bool";
+      utl::state_saver _ {m_targets};
+      m_targets = list("bool", dot, "_");
       (*this)(cond);
     });
 
@@ -193,12 +193,12 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
     // Since there is no <else> branch this expression is only valid with a
     // wildcard target
-    if (m_target != "_")
+    if (m_targets != "_")
     {
       throw bad_code {
           std::format(
               "Can't evaluate else-less if-expression with exact target ({})",
-              m_target),
+              m_targets),
           fm};
     }
 
@@ -230,8 +230,8 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       // Transform expression with target set to the identifier type and
       // accumulate resulting Prolog expression to the `result`
       // and accumulate transformed expression in results
-      utl::state_saver _ {m_target};
-      m_target = type;
+      utl::state_saver _ {m_targets};
+      m_targets = list(type, dot, "_");
       result = append(result, list((*this)(expr)));
     }
 
@@ -277,8 +277,8 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
       // Transform expression with target set to the (values type ...*) and
       // accumulate resulting Prolog expression to the `result`
-      utl::state_saver _ {m_target};
-      m_target = cons("values", types);
+      utl::state_saver _ {m_targets};
+      m_targets = types;
       result = append(result, list((*this)(expr)));
     }
 
@@ -353,7 +353,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     _link_code_to_type(fm, proxyvar);
 
     // Will revert a-list from any changes after this point.
-    utl::state_saver _ {m_alist, m_target, m_is_template};
+    utl::state_saver _ {m_alist, m_targets, m_is_template};
     m_is_template = true;
 
     // Mark beginning of the nesting by inserting a NIL value into the alist
@@ -378,10 +378,10 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
     // (local) Type variable to hold function return type
     // FIXME: why does it have to generate different identifiers?
-    const value plresult = sym("Result");
+    const value plresults = sym("Results");
 
     // Translate the body with apropriate target
-    m_target = plresult;
+    m_targets = plresults;
     const value plbody = transform_block(body);
 
     // Wrapp it up. Instances of this template can now be created by simple
@@ -391,7 +391,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     // - variables from the higher level(s) will be captured via quasiquote(s)
     const value function_template =
         list("quasiquote", list("#dynamic-function-dispatch", ident, plparams,
-                                plresult, plbody));
+                                plresults, plbody));
     copy_location(fm, function_template);
 
     return list("=", proxyvar, function_template);
@@ -405,10 +405,10 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value body = ms.at("body");
 
     // Save current target
-    const value target = m_target;
+    const value targets = m_targets;
 
     // Will revert a-list from any changes after this point
-    utl::state_saver _ {m_alist, m_target, m_is_template};
+    utl::state_saver _ {m_alist, m_targets, m_is_template};
     m_is_template = true;
 
     // Mark beginning of the nesting by inserting a NIL value into the alist
@@ -425,26 +425,26 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
     // (local) Type variable to hold function return type
     // FIXME: why does it have to generate different identifiers?
-    const value plresult = sym("Result");
+    const value plresults = sym("Results");
 
     // Translate the body with apropriate target
-    m_target = plresult;
+    m_targets = plresults;
     const value plbody = transform_block(body);
 
     // Generate unique identifier for this lambda
     const value lambdaname = sym(std::format("anonymous-lambda.{}", counter++));
     const value functemplate =
         list("quasiquote", list("#dynamic-function-dispatch", lambdaname,
-                                plparams, plresult, plbody));
+                                plparams, plresults, plbody));
 
     const value proxyvar = m_lambda_gensym();
 
     // TODO: this is ugly
     _link_code_to_type(fm, proxyvar);
-    _link_code_to_type(car(fm), target);
+    _link_code_to_type(car(fm), car(targets)); // FIXME
 
     return list("and", list("=", proxyvar, functemplate),
-                list("insert-cells", proxyvar, target));
+                list("insert-cells", list(proxyvar), targets));
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
@@ -459,8 +459,8 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value type = _generate_type_and_copy_location(ident);
 
     // Set new type as target for body evaluation
-    utl::state_saver _ {m_alist, m_target};
-    m_target = type;
+    utl::state_saver _ {m_alist, m_targets};
+    m_targets = list(type, dot, "_");
     return transform_block(body);
   });
 
@@ -479,11 +479,10 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       const value type = _generate_type_and_copy_location(ident);
       types = append(types, list(type));
     }
-    const value values_type = cons("values", types);
 
     // Evaluate `body` with `values_type` as a target
-    utl::state_saver _ {m_alist, m_target};
-    m_target = values_type;
+    utl::state_saver _ {m_alist, m_targets};
+    m_targets = types;
     return transform_block(body);
   });
 
@@ -528,7 +527,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value ident = ms.at("ident");
     const value expr = ms.at("expr");
 
-    utl::state_saver _ {m_target};
+    utl::state_saver _ {m_targets};
 
     // Code tape for all resulting Prolog expressions
     opi::stl::vector<value> tape;
@@ -543,7 +542,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
     // Evaluate `expr`
     const value exprresult = sym(std::format("SetProxy_{}", counter++));
-    m_target = exprresult;
+    m_targets = list(exprresult, dot, "_");
     const value plexpr = (*this)(expr);
     tape.push_back(plexpr);
 
@@ -561,8 +560,8 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     opi::stl::vector<value> code;
 
     const value resexpr =
-        list("=", m_target,
-             _to_type(cdr(ms.at("x")), false, std::back_inserter(code)));
+        list("=", m_targets,
+             list(_to_type(cdr(ms.at("x")), false, std::back_inserter(code))));
     code.push_back(resexpr);
 
     assert(code.size() >= 1);
@@ -583,7 +582,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       return _to_type(atom, true, std::back_inserter(code));
     };
     const value form = list(range(cons(f, xs)) | std::views::transform(totype));
-    const value plform = list("result-of", form, m_target);
+    const value plform = list("result-of", form, dot, m_targets);
     code.push_back(plform);
     copy_location(fm, plform);
 
@@ -600,7 +599,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value x = ms.at("x");
 
     opi::stl::vector<value> code;
-    const value expr = list("=", m_target, _to_type(x, true, std::back_inserter(code)));
+    const value expr = list("=", m_targets, list(_to_type(x, true, std::back_inserter(code))));
     code.push_back(expr);
 
     assert(code.size() >= 1);
@@ -625,8 +624,8 @@ opi::scheme_to_prolog::transform_block(value block)
 
   // Evaluate the `rest`
   rest = ({
-    utl::state_saver _ {m_target};
-    m_target = "_";
+    utl::state_saver _ {m_targets};
+    m_targets = "_";
     list(range(rest) | std::views::transform(std::ref(*this)));
   });
 
