@@ -438,7 +438,7 @@ struct function_unroller: public opi::osl::flow_unroller {
 %token SET
 %token FN
 %token FOR DO BREAK CONTINUE RETURN YIELD
-%token DECLARE
+%token EXTERN
 
 %right '|'
 
@@ -467,8 +467,8 @@ struct function_unroller: public opi::osl::flow_unroller {
 
 // =============================================================================
 //                              Structures
-%type ApplExpr Expr
-%type ListOfExprs
+%type ApplExpr Expr Stmt
+%type ListOfExprs ListOfArgs
 %type SeqOfExprs
 %type TopLvlExpr
 %type Match MatchClause MatchClauses
@@ -539,7 +539,7 @@ ApplExpr
     bindloc($$, @$);
   }
   | Ctor %prec AFTER_APPLY { $$ = list($1); }
-  | ApplExpr '(' ListOfExprs ')' %prec APPLY { $$ = cons($1, $3); bindloc($$, @$); }
+  | ApplExpr '(' ListOfArgs ')' %prec APPLY { $$ = cons($1, $3); bindloc($$, @$); }
   | '(' Expr ')' %prec AFTER_APPLY { $$ = $2; }
   | ApplExpr '.' IDENT '(' ListOfExprs ')' {
     $$ = list($3, $1, dot, $5);
@@ -567,44 +567,20 @@ Expr
     bindloc(setter, @1);
     $$ = list(setter, $2, $6);
   }
-  | Expr '=' Expr {
-    if (issym($1))
-    { // define variable
-      const value define = "define";
-      bindloc(define, @$);
-      $$ = list("define", $1, $3);
-    }
-    else
-    {
-      const value define = "define-overload";
-      bindloc(define, @$);
-      if ($3->t == tag::pair and car($3) == "begin")
-      {
-        function_unroller unroller;
-        const value body = append(cdr($3), list(list("void")));
-        const value unrolledbody = unroller.unroll_block(body, nil, nil).second;
-        $$ = list(define, $1, dot, unrolledbody);
-      }
-      else
-      {
-        $$ = list(define, $1, $3);
-      }
-    }
-  }
-  | Expr RIGHT_ARROW TypeParam '=' Expr {
-    const value define = "define-overload";
-    bindloc(define, @$);
-    value body;
-    if ($3->t == tag::pair and car($3) == "begin")
-    {
-      function_unroller unroller;
-      const value bodyblock = append(cdr($3), list(list("void")));
-      body = unroller.unroll_block(bodyblock, nil, nil).second;
-    }
-    else
-      body = list($3);
-    $$ = list(define, $1, dot, body);
-  }
+  /*| Expr RIGHT_ARROW TypeParam '=' Expr {*/
+    /*const value define = "define-overload";*/
+    /*bindloc(define, @$);*/
+    /*value body;*/
+    /*if ($3->t == tag::pair and car($3) == "begin")*/
+    /*{*/
+      /*function_unroller unroller;*/
+      /*const value bodyblock = append(cdr($3), list(list("void")));*/
+      /*body = unroller.unroll_block(bodyblock, nil, nil).second;*/
+    /*}*/
+    /*else*/
+      /*body = list($3);*/
+    /*$$ = list(define, $1, dot, body);*/
+  /*}*/
   | Expr ':' Expr { const value op = "cons"; bindloc(op, @$); $$ = list(op, $1, $3); }
   | Expr '+' Expr { const value op = "+"; bindloc(op, @$); $$ = list(op, $1, $3); }
   | Expr '-' Expr { const value op = "-"; bindloc(op, @$); $$ = list(op, $1, $3); }
@@ -635,6 +611,11 @@ Expr
   }
   | RETURN %prec RETURN_VOID { $$ = list("return"); bindloc($$, @$); }
   | RETURN Expr %prec RETURN_VALUE { $$ = list("return", $2); bindloc($$, @$); }
+  | RETURN Expr ',' ListOfExprs %prec RETURN_VALUE {
+    const value values = cons($2, $4);
+    $$ = cons("return", values);
+    bindloc($$, @$);
+  }
   | YIELD Expr { const value yield = "yield"; bindloc(yield, @1); $$ = list(yield, $2); }
   | BREAK %prec AFTER_APPLY { $$ = list("break"); bindloc($$, @$); }
   | BREAK '(' ListOfExprs ')' %prec APPLY { $$ = cons("break", $3); bindloc($$, @$); }
@@ -687,8 +668,43 @@ Expr
   }
 ;
 
+Stmt
+  : Expr
+  | Expr '=' Expr {
+    if (issym($1))
+    { // define variable
+      const value define = "define";
+      bindloc(define, @$);
+      $$ = list(define, $1, $3);
+    }
+    else
+    {
+      const value define = "define-overload";
+      const value fixed_signature = $1;
+      bindloc(define, @$);
+      if ($3->t == tag::pair and car($3) == "begin")
+      {
+        function_unroller unroller;
+        const value body = append(cdr($3), list(list("void")));
+        const value unrolledbody = unroller.unroll_block(body, nil, nil).second;
+        $$ = list(define, fixed_signature, dot, unrolledbody);
+      }
+      else
+      {
+        $$ = list(define, fixed_signature, $3);
+      }
+    }
+  }
+  | Expr ',' ListOfExprs '=' Expr {
+    const value idents = cons($1, $3);
+    const value define = "define-values";
+    bindloc(define, @$);
+    $$ = list(define, idents, $5);
+  }
+;
+
 Lambda
-  : '(' ListOfExprs ')' FAT_RIGHT_ARROW Expr { $$ = list("lambda", $2, $5); }
+  : '(' ListOfArgs ')' FAT_RIGHT_ARROW Expr { $$ = list("lambda", $2, $5); }
   | IDENT FAT_RIGHT_ARROW Expr { $$ = list("lambda", list($1), $3); }
   | '_' FAT_RIGHT_ARROW Expr { $$ = list("lambda", list("_"), $3); }
 ;
@@ -725,7 +741,7 @@ Match
 
 SeqOfExprs
   : { $$ = nil; }
-  | Expr SeqOfExprs %prec AFTER_APPLY { $$ = cons($1, $2); }
+  | Stmt SeqOfExprs %prec AFTER_APPLY { $$ = cons($1, $2); }
 ;
 
 TopLvlSeq
@@ -734,7 +750,7 @@ TopLvlSeq
 ;
 
 TopLvlExpr
-  : Expr { $$ = list($1); }
+  : Stmt { $$ = list($1); }
   | TypeDef
   | REQUIRE String {
     std::filesystem::path filename {str_view($2)};
@@ -752,14 +768,13 @@ TopLvlExpr
       $$ = load_file(fullpath);
     }
   }
-  | DECLARE IDENT '(' ListOfTypeParams ')' RIGHT_ARROW TypeSign {
+  | EXTERN IDENT '(' ListOfTypeParams ')' RIGHT_ARROW ListOfTypeParams {
     $$ = list(
       list("pragma", "prolog",
-        list("predicate", list("result-of", list($2, dot, $4), $7))
+        list("predicate", list("result-of", list($2, dot, $4), dot, $7))
       )
     );
   }
-
 ;
 
 TypeDef
@@ -824,16 +839,16 @@ ListOfFields
   | IDENT TypeParam ',' ListOfFields { $$ = cons(list($1, $2), $4); }
 ;
 
-/*ListOfExprs*/
-  /*: { $$ = nil; }*/
-  /*| Expr { $$ = list($1); }*/
-  /*| Expr ',' ListOfExprs { $$ = cons($1, $3); }*/
-/*;*/
-
 ListOfExprs
   : { $$ = nil; }
+  | Expr { $$ = list($1); }
+  | Expr ',' ListOfExprs { $$ = cons($1, $3); }
+;
+
+ListOfArgs
+  : { $$ = nil; }
   | ExprWithOptTypeParam { $$ = list($1); }
-  | ExprWithOptTypeParam ',' ListOfExprs { $$ = cons($1, $3); }
+  | ExprWithOptTypeParam ',' ListOfArgs { $$ = cons($1, $3); }
 ;
 
 ExprWithOptTypeParam

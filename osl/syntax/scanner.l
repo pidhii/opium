@@ -86,7 +86,7 @@ type return TYPE;
 
 fn return FN;
 
-declare return DECLARE;
+extern return EXTERN;
 
 identifier"!("[^)]+")" {
   // Read whatever is between the parenthes
