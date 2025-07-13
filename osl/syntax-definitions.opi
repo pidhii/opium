@@ -14,9 +14,7 @@
 ;; Void and values
 (pragma prolog
   (predicate (result-of (void) void))
-  (predicate (result-of (values . Ts) Result)
-    (if (= Ts (Result)) #t
-        (= Result (values . Ts)))))
+  (predicate (result-of (values . Ts) . Ts)))
 
 ;; Meta assertion
 (pragma prolog
