@@ -54,7 +54,6 @@ require "itertools"
 
 #pragma prolog {
   (predicate (result-of (osl_readline port) str))
-  (predicate (result-of (osl_eofobject_p str) bool))
   (predicate (result-of (osl_write_string port str) void))
   (predicate (result-of (osl_write_line port str) void))
   (predicate (result-of (osl_flush port) void))
@@ -69,17 +68,44 @@ require "itertools"
         (import (chicken io))))
         
     (define osl_readline read-line)
-    (define osl_eofobject_p eof-object?)
   )
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 //                             writing
 //
+// Write string into a port
 write(p port, s str) = osl_write_string(p, s)
 writeln(p port, s str) = osl_write_line(p, s)
 
+// Flish output port
 flush(p port) = osl_flush(p)
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                            reading
+//
+extern identifier!(eof-object?)(str) -> bool
+
+// Read from port until EOF
+extern identifier!(read-string)(bool, port) -> str
+read(port port) = {
+  result = identifier!(read-string)(false, port)
+  if identifier!(eof-object?)(result) then
+    return Nothing
+  else
+    return Some(result)
+}
+
+// Read n bytes from port into a string
+extern identifier!(read-string)(num, port) -> str
+read(port port, n num) = {
+  result = identifier!(read-string)(n, port)
+  if identifier!(eof-object?)(result) then
+    return Nothing
+  else
+    return Some(result)
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -87,14 +113,12 @@ flush(p port) = osl_flush(p)
 //
 readline(port) = {
   line = osl_readline(port)
-  if osl_eofobject_p(line) then
-    return Nothing()
+  if identifier!(eof-object?)(line) then
+    return Nothing
   else
     return Some(line)
 }
 
-// Read from port until EOF
-read(port port) = port.lines().foldl("", +)
 
 ////////////////////////////////////////////////////////////////////////////////
 //                       readline - iterator
@@ -105,7 +129,7 @@ type readlineIterator() = {
 
 next(it readlineIterator()) = {
   line = osl_readline(it#file)
-  if osl_eofobject_p(line) then
+  if identifier!(eof-object?)(line) then
     return Nothing()
   else 
     return Some(line)
