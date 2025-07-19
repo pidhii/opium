@@ -826,6 +826,14 @@ append_mut(value l, value x)
   return l;
 }
 
+[[nodiscard]] inline value
+list_ref(value l, size_t k)
+{
+  while (k--)
+    l = cdr(l);
+  return car(l);
+}
+
 
 /** \} */
 

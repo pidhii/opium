@@ -438,7 +438,7 @@ struct function_unroller: public opi::osl::flow_unroller {
 %token SET
 %token FN
 %token FOR DO BREAK CONTINUE RETURN YIELD
-%token EXTERN
+%token EXTERN AS
 
 %right '|'
 
@@ -771,8 +771,23 @@ TopLvlExpr
   | EXTERN IDENT '(' ListOfTypeParams ')' RIGHT_ARROW ListOfTypeParams {
     $$ = list(
       list("pragma", "prolog",
-        list("predicate", list("result-of", list($2, dot, $4), dot, $7))
-      )
+        list("predicate", list("result-of", list($2, dot, $4), dot, $7)))
+    );
+  }
+  | EXTERN IDENT AS IDENT '(' ListOfTypeParams ')' RIGHT_ARROW ListOfTypeParams {
+    const size_t nargs = length($6);
+    stl::vector<value> wrapper_args;
+    for (size_t i = 0; i < nargs; ++i)
+    {
+      const value arg_name = sym(std::format("_{}", i));
+      const value arg_type = list_ref($6, i);
+      wrapper_args.push_back(list(arg_name, arg_type));
+    }
+    $$ = list(
+      list("pragma", "prolog",
+        list("predicate", list("result-of", list($2, dot, $6), dot, $9))),
+      list("define-overload", cons($4, list(wrapper_args)),
+        cons($2, list(std::views::all(wrapper_args) | std::views::transform(opi::car))))
     );
   }
 ;

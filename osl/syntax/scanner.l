@@ -87,6 +87,7 @@ type return TYPE;
 fn return FN;
 
 extern return EXTERN;
+as return AS;
 
 identifier"!("[^)]+")" {
   // Read whatever is between the parenthes
