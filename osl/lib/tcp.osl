@@ -1,0 +1,72 @@
+
+#pragma scheme-translator { (inline (import (chicken tcp))) }
+
+// Server
+extern identifier!(tcp-listen) as tcp_listen(num, num, str) -> tcp_listener
+extern identifier!(tcp-listen) as tcp_listen(num, num) -> tcp_listener
+extern identifier!(tcp-listen) as tcp_listen(num) -> tcp_listener
+extern identifier!(tcp-close) as close(tcp_listener) -> void
+extern identifier!(tcp-accept) as accept(tcp_listener) -> port, port // rx, tx
+extern identifier!(tcp-accept-ready?) as accept_ready(tcp_listener) -> bool
+extern identifier!(tcp-listener-port) as port(tcp_listener) -> num
+extern identifier!(tcp-listener-fileno) as fileno(tcp_listener) -> num
+
+// Client
+extern identifier!(tcp-connect) as tcp_connect(str, num) -> port, port // rx, tx
+extern identifier!(tcp-connect) as tcp_connect(str) -> port, port // rx, tx
+
+// Generic
+extern identifier!(tcp-addresses) as tcp_addresses(port) -> str, str // local-addr, remote-addr
+extern identifier!(tcp-port-numbers) as tcp_port_numbers(port) -> num, num // local-port, remote-port
+extern identifier!(tcp-abandon-port) as tcp_abandon_port(port) -> void
+
+// Sets the size of the output buffer. By default no output-buffering for TCP
+// output is done, but to improve performance by minimizing the number of TCP
+// packets, buffering may be turned on by setting this parameter to an exact
+// integer greater zero. A buffer size of zero or false turns buffering off. The
+// setting of this parameter takes effect at the time when the I/O ports for a
+// particular socket are created, i.e. when tcp-connect or tcp-accept is called.
+//
+// Note that since output is not immediately written to the associated socket,
+// you may need to call flush, once you want the output to be transmitted.
+// Closing the output port will flush automatically.
+extern identifier!(tcp-buffer-size) as get_tcp_buffer_size() -> num
+extern identifier!(tcp-buffer-size) as set_tcp_buffer_size(num) -> void
+extern identifier!(tcp-buffer-size)(bool) -> void
+disable_tcp_buffer() = identifier!(tcp-buffer-size)(false)
+
+// Determines the timeout for TCP read operations in milliseconds. A timeout of
+// false disables timeout checking. The default read timeout is 60000, i.e. 1 minute.
+// If timeout occurs while reading, a condition object of kinds (exn i/o net timeout)
+// is thrown.
+extern identifier!(tcp-read-timeout) as get_tcp_read_timeout() -> num
+extern identifier!(tcp-read-timeout) as set_tcp_read_timeout(num) -> void
+extern identifier!(tcp-read-timeout)(bool) -> void
+disable_tcp_read_timeout() = identifier!(tcp-read-timeout)(false)
+
+// Determines the timeout for TCP write operations in milliseconds. A timeout of
+// false disables timeout checking. The default write timeout is 60000, i.e. 1 minute.
+// If timeout occurs while writing, a condition object of kinds (exn i/o net timeout)
+// is thrown.
+extern identifier!(tcp-write-timeout) as get_tcp_write_timeout() -> num
+extern identifier!(tcp-write-timeout) as set_tcp_write_timeout(num) -> void
+extern identifier!(tcp-write-timeout)(bool) -> void
+disable_tcp_write_timeout() = identifier!(tcp-write-timeout)(false)
+
+// Determines the timeout for tcp-connect operations in milliseconds. A timeout
+// of false disables timeout checking and is the default. If timeout occurs
+// while trying to connect, a condition object of kinds (exn i/o net timeout) is
+// thrown.
+extern identifier!(tcp-connect-timeout) as get_tcp_connect_timeout() -> num
+extern identifier!(tcp-connect-timeout) as set_tcp_connect_timeout(num) -> void
+extern identifier!(tcp-connect-timeout)(bool) -> void
+disable_tcp_connect_timeout() = identifier!(tcp-connect-timeout)(false)
+
+// Determines the timeout for tcp-accept operations in milliseconds. A timeout
+// of false disables timeout checking and is the default. If timeout occurs
+// while waiting for connections, a condition object of kinds (exn i/o net timeout)
+// is thrown.
+extern identifier!(tcp-accept-timeout) as get_tcp_accept_timeout() -> num
+extern identifier!(tcp-accept-timeout) as set_tcp_accept_timeout(num) -> void
+extern identifier!(tcp-accept-timeout)(bool) -> void
+disable_tcp_accept_timeout() = identifier!(tcp-accept-timeout)(false)
