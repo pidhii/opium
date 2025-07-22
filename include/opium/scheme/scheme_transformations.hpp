@@ -128,8 +128,7 @@ class scheme_to_prolog: public code_transformer {
   set_up_prolog(prolog &pl) const noexcept;
 
   void
-  add_global(value ident, value type) noexcept
-  { m_global_alist = cons(cons(ident, type), m_global_alist); }
+  add_global(value ident, value type);
 
   value
   transform_block(value block);

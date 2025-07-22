@@ -679,6 +679,24 @@ opi::scheme_to_prolog::find_code_type(opi::value code) const
       std::format("No type associated to code object"), code};
 }
 
+void
+opi::scheme_to_prolog::add_global(value ident, value type)
+{
+  value registered_type;
+  if (assoc(ident, m_global_alist, registered_type))
+  {
+    if (type != registered_type)
+    {
+      throw std::logic_error {std::format(
+          "Symbol {} is already registered: old type is {}, new type is {}",
+          ident, registered_type, type)};
+    }
+    // Otherwize do nothing (don't duplicate entries in the a-list for
+    // performance conciderations)
+    return;
+  }
+  m_global_alist = cons(cons(ident, type), m_global_alist);
+}
 
 void
 opi::scheme_to_prolog::_link_code_to_type(value code, value type)
