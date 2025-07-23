@@ -104,8 +104,13 @@ opi::instantiate_function_template(scheme_emitter_context &ctx, value type)
                                                                  specialident);
 
   // Generate specialized body
-  const value specialbody = generate_function_template_body(
-      ctx, type, typetemplate, cdr(cdr(ppdefinition)));
+  // NOTE: code emmission has to be done in a dedicated local/sub -context
+  code_tape auxtape;
+  scheme_emitter_context localctx {functemplate.context, auxtape};
+  value specialbody = generate_function_template_body(
+      localctx, type, typetemplate, cdr(cdr(ppdefinition)));
+  // insert all the auxiliary code in the head of the function body
+  specialbody = append(list(auxtape), specialbody);
 
   // Create define-statement for the specialization
   const value specialsignature = cons(specialident, cdr(ppsignature));
