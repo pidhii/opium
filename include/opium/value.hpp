@@ -266,6 +266,7 @@ pair(value car, value cdr)
  *
  * \ingroup core
  */
+extern bool g_propagate_locations_on_cons;
 [[nodiscard]] value
 cons(value car, value cdr);
 

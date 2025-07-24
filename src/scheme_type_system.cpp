@@ -146,6 +146,7 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
     for (const value varname : prt.variables())
     {
       // Reconstruct variable value
+      execution_timer timer {"reconstruct query results"};
       const value cval = reconstruct(prt[varname], [&](cell *c) {
         // Store different markers for unbound terminal and non-terminal vars
         // FIXME: breaks matching during template specialization
@@ -154,6 +155,7 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
         else
           return "<any>";
       });
+      timer.stop();
       results[varname].insert(cval);
     }
   };
@@ -161,7 +163,11 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
   // Run the query
   execution_timer query_timer {"Prolog query"};
   const value cellularized = insert_cells(prt, plcode);
-  ctx.pl().make_true(prt, cellularized, save_results, trace_nonterminals);
+  { // disable location propagation for better performance
+    opi::utl::state_saver _ {g_propagate_locations_on_cons};
+    g_propagate_locations_on_cons = false;
+    ctx.pl().make_true(prt, cellularized, save_results, trace_nonterminals);
+  }
   query_timer.stop();
   query_timer.report();
 

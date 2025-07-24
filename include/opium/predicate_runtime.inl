@@ -93,7 +93,7 @@ struct _reconstructor {
         value newx = cons(nil, nil);
         mem.emplace(&*x, newx);
         set_car(newx, _reconstruct(car(x)));
-        copy_location(x, newx);
+        // copy_location(x, newx);
 
         result = append_mut(result, newx);
         x = cdr(x);

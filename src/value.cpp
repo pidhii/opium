@@ -1,10 +1,15 @@
 #include "opium/value.hpp"
 #include "opium/source_location.hpp"
 
+bool
+opi::g_propagate_locations_on_cons = true;
+
 opi::value
 opi::cons(value car, value cdr)
 {
-  const value result =  pair(car, cdr);
+  const value result = pair(car, cdr);
+  if (not g_propagate_locations_on_cons)
+    return result;
 
   source_location carlocation, cdrlocation;
   const bool hascarlocation = car != nil and get_location(car, carlocation);
