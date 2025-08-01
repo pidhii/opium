@@ -132,6 +132,7 @@ class value {
  * 
  * \ingroup core
  */
+struct source_location;
 struct object {
   /**
    * Constructor
@@ -139,10 +140,11 @@ struct object {
    * \note This constructor is unsafe
    * \param tag Type tag for the object
    */
-  object(tag tag): t {tag} { }
+  object(tag tag): t {tag}, location {nullptr} { }
 
   tag t; /**< Type tag */
   size_t hash;
+  source_location *location;
   union {
     struct { char *data; size_t len; } sym; /**< Symbol data */
     struct { char *data; size_t len; } str; /**< String data */
@@ -211,7 +213,7 @@ str(const std::string &str)
 [[nodiscard]] inline value
 num(long double val)
 {
-  value ret {make_atomic<object>(tag::num)};
+  value ret {make<object>(tag::num)};
   ret->num = val;
   ret->hash = hash(ret);
   return ret;

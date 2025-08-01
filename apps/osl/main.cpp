@@ -156,11 +156,13 @@ main(int argc, char **argv)
   try {
     generate_scheme(result, pl, opath);
   }
-  catch (...)
+  catch (const std::exception &exn)
   {
     opi::source_location location;
     if (pl.blame_list().get_blame(inputpath, location))
       error("blame {}", display_location(location));
+    else
+      error("scheme translation failed ({})", exn.what());
     return EXIT_FAILURE;
   }
   

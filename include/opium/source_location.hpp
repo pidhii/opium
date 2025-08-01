@@ -20,6 +20,8 @@
 #pragma once
 
 #include "opium/value.hpp"
+#include "opium/stl/string.hpp"
+
 #include <string>
 #include <string_view>
 
@@ -41,9 +43,24 @@ namespace opi {
  * \ingroup lisp
  */
 struct source_location {
-  std::string source; ///< Source name (filepath or "<string>")
-  size_t start;       ///< Start offset in the input stream
-  size_t end;         ///< End offset in the input stream
+  source_location() = default;
+
+  source_location(const source_location &other) = default;
+
+  source_location(const std::string_view &source_, size_t start, size_t end)
+  : source {source_.data()},
+    start {start},
+    end {end}
+  {
+    assert(strlen(source.c_str()) == source.size());
+  }
+
+  source_location&
+  operator = (const source_location &other) = default;
+
+  stl::string source; ///< Source name (filepath or "<string>")
+  size_t start; ///< Start offset in the input stream
+  size_t end;   ///< End offset in the input stream
 };
 
 /**
@@ -53,7 +70,7 @@ struct source_location {
  * \param loc Source location
  */
 void
-set_location(value val, source_location loc);
+set_location(value val, const source_location &loc);
 
 /**
  * Get the source location for a value
@@ -73,7 +90,7 @@ get_location(value val, source_location &location);
  */
 [[nodiscard]] inline bool
 has_location(value val)
-{ source_location _; return get_location(val, _); }
+{ return val->location != nullptr; }
 
 /**
  * Copy the source location to another value

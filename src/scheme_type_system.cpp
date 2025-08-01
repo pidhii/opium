@@ -163,7 +163,7 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
   // Run the query
   execution_timer query_timer {"Prolog query"};
   const value cellularized = insert_cells(prt, plcode);
-  { // disable location propagation for better performance
+  { // disable implicit location propagation for better performance
     opi::utl::state_saver _ {g_propagate_locations_on_cons};
     g_propagate_locations_on_cons = false;
     ctx.pl().make_true(prt, cellularized, save_results, trace_nonterminals);

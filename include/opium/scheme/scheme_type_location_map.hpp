@@ -33,7 +33,7 @@ struct source_location_hash {
   size_t
   operator () (const source_location &loc) const
   {
-    size_t h1 = std::hash<std::string> {}(loc.source);
+    size_t h1 = std::hash<decltype(loc.source)> {}(loc.source);
     size_t h2 = std::hash<size_t> {}(loc.start);
     size_t h3 = std::hash<size_t> {}(loc.end);
     return h1 ^ (h2 << 1) ^ (h3 << 2);

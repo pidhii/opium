@@ -89,7 +89,7 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
         opi::value result = cons("quasiquote", opi::nil);
         mem.emplace(&*expr, result);
         set_cdr(result, _insert_cells(prt, cdr(expr), mem, quasiquote_level + 1));
-        // copy_location(expr, result); // NOTE don't know, might be needed
+        copy_location(expr, result);
         return result;
       }
     }
@@ -113,7 +113,7 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
         mem.emplace(&*expr, result);
         set_cdr(result,
                 _insert_cells(prt, cdr(expr), mem, quasiquote_level - 1));
-        // copy_location(expr, result); // NOTE don't know, might be needed
+        copy_location(expr, result);
         return result;
       }
     }
@@ -138,7 +138,7 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
   {
     result = cons(opi::CELL, ptr(iswild ? prt.make_var() : prt[expr]));
     mem.emplace(&*expr, result);
-    // copy_location(expr, result); // NOTE don't know, might be needed
+    copy_location(expr, result);
     return result;
   }
   else if (expr->t == opi::tag::pair)
@@ -147,7 +147,7 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
     mem.emplace(&*expr, result);
     set_car(result, _insert_cells(prt, car(expr), mem, quasiquote_level));
     set_cdr(result, _insert_cells(prt, cdr(expr), mem, quasiquote_level));
-    // copy_location(expr, result); // NOTE don't know, might be needed
+    copy_location(expr, result);
     return result;
   }
   else

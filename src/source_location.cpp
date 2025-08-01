@@ -19,7 +19,7 @@
 
 #include "opium/source_location.hpp"
 #include "opium/format.hpp" // IWYU pragma: keep
-#include "opium/stl/unordered_map.hpp"
+#include "opium/logging.hpp"
 
 #include <fstream>
 #include <sstream>
@@ -28,24 +28,23 @@
 
 // Global map to store value locations
 // TODO: make it a weak-map
-static opi::stl::unordered_map<opi::object *, opi::source_location>
-    g_value_locations;
+// static opi::stl::unordered_map<opi::object *, opi::source_location>
+//     g_value_locations;
 
 bool
 opi::get_location(opi::value val, opi::source_location &location)
 {
-  auto it = g_value_locations.find(&*val);
-  if (it != g_value_locations.end()) {
-    location = it->second;
-    return true;
-  }
-  return false;
+  if (val->location == nullptr)
+    return false;
+  
+  location = *val->location;
+  return true;
 }
 
 void
-opi::set_location(opi::value val, opi::source_location loc)
+opi::set_location(opi::value val, const opi::source_location &loc)
 {
-  g_value_locations[&*val] = loc;
+  val->location = make<source_location>(loc);
 }
 
 bool
@@ -54,16 +53,7 @@ opi::copy_location(opi::value from, opi::value to)
   if (is(to, nil) or is(to, True) or is(to, False) or has_location(to))
     return false;
 
-  if (is(from, to))
-    return true;
-
-  source_location location;
-  if (get_location(from, location))
-  {
-    set_location(to, location);
-    return true;
-  }
-  return false;
+  return bool(to->location = from->location);
 }
 
 std::string
@@ -77,7 +67,7 @@ opi::display_location(const opi::source_location &location,
                        location.start, location.end);
 
   // Try to open the file
-  std::ifstream file {location.source};
+  std::ifstream file {location.source.data()};
   if (not file.is_open())
     return std::format("Could not open file: {}", location.source);
 
