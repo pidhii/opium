@@ -30,7 +30,7 @@ void
 opi::lisp_reader::operator << (const std::string &input)
 {
   // Convert input string into tokens
-  const std::vector<lisp_parser::token> tokens = m_parser.tokenize(input);
+  const stl::vector<lisp_parser::token> tokens = m_parser.tokenize(input);
   m_tokens.insert(m_tokens.end(), tokens.begin(), tokens.end());
 
   // Parse all available expressions from accumulated tokens

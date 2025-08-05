@@ -56,7 +56,7 @@ class lisp_reader {
 
   private:
   lisp_parser &m_parser;
-  std::vector<lisp_parser::token> m_tokens;
+  stl::vector<lisp_parser::token> m_tokens;
   opi::stl::deque<value> m_values;
 }; // class opi::lisp_reader
 

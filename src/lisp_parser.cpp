@@ -30,7 +30,7 @@
 opi::value
 opi::lisp_parser::parse(const std::string &input, const std::string &source_name)
 {
-  std::vector<token> tokens = tokenize(input, source_name);
+  stl::vector<token> tokens = tokenize(input, source_name);
   size_t pos = 0;
   if (tokens.empty())
     return nil;
@@ -41,7 +41,7 @@ opi::lisp_parser::parse(const std::string &input, const std::string &source_name
 opi::value
 opi::lisp_parser::parse(std::istream &input, const std::string &source_name)
 {
-  std::vector<token> tokens = tokenize(input, source_name);
+  stl::vector<token> tokens = tokenize(input, source_name);
   size_t pos = 0;
   if (tokens.empty())
     return nil;
@@ -52,7 +52,7 @@ opi::lisp_parser::parse(std::istream &input, const std::string &source_name)
 opi::value
 opi::lisp_parser::parse_all(const std::string &input, const std::string &source_name)
 {
-  const std::vector<token> tokens = tokenize(input, source_name);
+  const stl::vector<token> tokens = tokenize(input, source_name);
   size_t pos = 0;
 
   stl::deque<value> result;
@@ -66,7 +66,7 @@ opi::lisp_parser::parse_all(const std::string &input, const std::string &source_
 opi::value
 opi::lisp_parser::parse_all(std::istream &input, const std::string &source_name)
 {
-  const std::vector<token> tokens = tokenize(input, source_name);
+  const stl::vector<token> tokens = tokenize(input, source_name);
   size_t pos = 0;
 
   stl::deque<value> result;
@@ -77,7 +77,7 @@ opi::lisp_parser::parse_all(std::istream &input, const std::string &source_name)
 }
 
 
-std::vector<opi::lisp_parser::token>
+opi::stl::vector<opi::lisp_parser::token>
 opi::lisp_parser::tokenize(const std::string &input, const std::string &source_name)
 {
   std::istringstream iss(input);
@@ -85,10 +85,10 @@ opi::lisp_parser::tokenize(const std::string &input, const std::string &source_n
 }
 
 
-std::vector<opi::lisp_parser::token>
+opi::stl::vector<opi::lisp_parser::token>
 opi::lisp_parser::tokenize(std::istream &input, const std::string &source_name)
 {
-  std::vector<token> tokens;
+  stl::vector<token> tokens;
   size_t current_pos = 0;
   
   // Read character by character from the stream
@@ -256,7 +256,7 @@ opi::lisp_parser::tokenize(std::istream &input, const std::string &source_name)
 
 
 opi::value
-opi::lisp_parser::_parse_tokens(const std::vector<token> &tokens, size_t &pos)
+opi::lisp_parser::_parse_tokens(const stl::vector<token> &tokens, size_t &pos)
 {
   if (pos >= tokens.size())
     throw parse_error {"Unexpected end of input"};
@@ -330,7 +330,7 @@ opi::lisp_parser::_parse_tokens(const std::vector<token> &tokens, size_t &pos)
 
 
 opi::value
-opi::lisp_parser::_parse_list(const std::vector<token> &tokens, size_t &pos)
+opi::lisp_parser::_parse_list(const stl::vector<token> &tokens, size_t &pos)
 {
   if (pos >= tokens.size())
     throw parse_error {"Unexpected end of input while parsing list"};
@@ -482,7 +482,7 @@ opi::lisp_parser::is_nil(const std::string &s)
 
 
 opi::value
-opi::lisp_parser::parse_tokens(const std::vector<token> &tokens, size_t &pos)
+opi::lisp_parser::parse_tokens(const stl::vector<token> &tokens, size_t &pos)
 {
   // Wrap actual tokenizer to preserve `pos` argument upon exception
   size_t proxypos = pos;
@@ -493,7 +493,7 @@ opi::lisp_parser::parse_tokens(const std::vector<token> &tokens, size_t &pos)
 
 
 opi::value
-opi::lisp_parser::parse_list(const std::vector<token> &tokens, size_t &pos)
+opi::lisp_parser::parse_list(const stl::vector<token> &tokens, size_t &pos)
 {
   // Wrap actual tokenizer to preserve `pos` argument upon exception
   size_t proxypos = pos;

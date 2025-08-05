@@ -22,6 +22,7 @@
 #include "opium/value.hpp"
 #include "opium/source_location.hpp"
 #include "opium/exceptions.hpp"
+#include "opium/stl/vector.hpp"
 
 #include <string>
 #include <vector>
@@ -86,20 +87,20 @@ class lisp_parser {
   };
 
   // Tokenize the input string
-  std::vector<token>
+  stl::vector<token>
   tokenize(const std::string &input, const std::string &source_name = "<string>");
 
   // Tokenize the input stream
-  std::vector<token>
+  stl::vector<token>
   tokenize(std::istream &input, const std::string &source_name = "<stream>");
 
   // Parse tokens into a value
   value
-  parse_tokens(const std::vector<token> &tokens, size_t &pos);
+  parse_tokens(const stl::vector<token> &tokens, size_t &pos);
 
   // Parse a list
   value
-  parse_list(const std::vector<token> &tokens, size_t &pos);
+  parse_list(const stl::vector<token> &tokens, size_t &pos);
 
   // Parse an atom (symbol, number, string, etc.)
   value
@@ -115,10 +116,10 @@ class lisp_parser {
 
   private:
   value
-  _parse_tokens(const std::vector<token> &tokens, size_t &pos);
+  _parse_tokens(const stl::vector<token> &tokens, size_t &pos);
 
   value
-  _parse_list(const std::vector<token> &tokens, size_t &pos);
+  _parse_list(const stl::vector<token> &tokens, size_t &pos);
 };
 
 
