@@ -64,5 +64,5 @@ x > y = numgt(x, y)
 x >= y = numge(x, y)
 
 // Conversions
-string(x num) = num2str(x)
+extern identifier!(number->string) as str(num) -> str
 inexact = exact2inexact

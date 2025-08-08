@@ -98,8 +98,18 @@ clear(dict dict(K, V)) = hashTableClear(dict)
 keys(dict dict(K, V)) = hashTableKeys(dict)
 vals(dict dict(K, V)) = hashTableValues(dict)
 
-foreach(dict dict(K, V), f) =
-  hashTableForEach(dict, coerce(f) :: fn(K, V) -> Any)
+extern identifier!(hash-table-for-each)(dict(K, V), fn(K, V) -> _) -> void
+foreach(dict dict(K, V), f) = identifier!(hash-table-for-each)(dict, coerce(f))
+
+extern identifier!(hash-table-map)(dict(K, V), fn(K, V) -> U) -> list(U)
+map(self dict(K, V), f) = {
+  assert { coerce(f) :: fn(K, V) -> U }
+  result = dict() :: dict(K, U)
+  identifier!(hash-table-map)(self, coerce((key, val) => {
+    set result[key] = f(key, val)
+  }))
+  return result
+}
 
 ////
 //

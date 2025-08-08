@@ -90,8 +90,8 @@ s1 >= s2 = strge(s1, s2)
 // String length
 length(s str) = strlen(s)
 
+str(s str) = s
 list(s str) = str2list(s)
-string(s str) = s
 parse(s str) = str2num(s)
 num(s str) = match str2num(s) in
 | Some(value) -> value

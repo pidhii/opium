@@ -36,6 +36,13 @@ argv = commandline()
                      (getopt-option-properties OPTION)
                      (getopt-option-handle OPTION)))
 
+    (define (osl_add_getopt_option_singlechar OPTION STRING)
+      (getopt-option (getopt-option-name OPTION)
+                     (getopt-option-docstring OPTION)
+                     (cons `(single-char ,(string-ref STRING 0))
+                           (getopt-option-properties OPTION))
+                     (getopt-option-handle OPTION)))
+
     (define (osl_add_getopt_option_required OPTION REQUIRED?)
       (getopt-option (getopt-option-name OPTION)
                      (getopt-option-docstring OPTION)
@@ -98,6 +105,7 @@ argv = commandline()
 #pragma prolog {
   (predicate (result-of (osl_make_getopt_option str) getopt_option))
   (predicate (result-of (osl_set_getopt_option_docstring getopt_option str) getopt_option))
+  (predicate (result-of (osl_add_getopt_option_singlechar getopt_option str) getopt_option))
   (predicate (result-of (osl_add_getopt_option_required getopt_option bool) getopt_option))
   (predicate (result-of (osl_add_getopt_option_value getopt_option bool) getopt_option))
   (predicate (result-of (osl_add_getopt_option_named_value getopt_option str) getopt_option))
@@ -107,10 +115,17 @@ argv = commandline()
   (predicate (result-of (osl_help (list getopt_option)) str))
 }
 
-option(name str) = osl_make_getopt_option(name)
+option(name str) =
+  osl_make_getopt_option(name)
 
 docstring(opt getopt_option, docstr str) =
   osl_set_getopt_option_docstring(opt, docstr)
+
+short(opt getopt_option, name str) =
+  if length(name) < 1 then
+    error("invalid short name for getopt_option")
+  else
+    osl_add_getopt_option_singlechar(opt, name)
 
 required(opt getopt_option, yesno bool) =
   osl_add_getopt_option_required(opt, yesno)

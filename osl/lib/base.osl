@@ -88,6 +88,8 @@ bool(x maybe(T)) = match x in
 coerce(f) = coerce_function(f)
 
 
+extern identifier!(string->symbol) as sym(str) -> sym
+
 ////////////////////////////////////////////////////////////////////////////////
 //                               meta
 //
@@ -96,3 +98,12 @@ iter(it) = {
   assert { next(it) :: maybe(T) }
   return it
 }
+
+// reinterpret_cast
+#pragma scheme-translator {
+  (inline (define (retinterpret_cast x) x))
+}
+extern reinterpret_cast(_) -> _
+
+// Type-case into `anything`
+anything(x) = reinterpret_cast(x) :: anything

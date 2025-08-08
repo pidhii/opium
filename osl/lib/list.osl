@@ -29,6 +29,9 @@ list(iter) = {
 
 l[k] = listRef(l, k)
 
+extern identifier!(list-set!)(list(T), num, T) -> void
+set l[k] = x = identifier!(list-set!)(l, k, x)
+
 length(l list(_)) = listLength(l)
 
 reverse(l list(_)) = reverseList(l)
@@ -36,6 +39,13 @@ reverse(l list(_)) = reverseList(l)
 append(l1 list(T), l2 list(T)) = appendLists(l1, l2)
 append(l list(T), x T) = appendLists(l, [x])
 
+#pragma scheme-translator { (inline (define osl-list-map map)) }
+extern identifier!(osl-list-map)(fn(T) -> U, list(T)) -> list(U)
+map(l list(_), f) = identifier!(osl-list-map)(coerce(f), l)
+
+#pragma scheme-translator { (inline (define osl-list-foreach for-each)) }
+extern identifier!(osl-list-foreach)(fn(T) -> _, list(T)) -> void
+foreach(l list(_), f) = identifier!(osl-list-foreach)(coerce(f), l)
 
 ////////////////////////////////////////////////////////////////////////////////
 //                           list - iterator

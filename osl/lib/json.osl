@@ -4,7 +4,8 @@ type json = JsonStructure(dict(str, json))
           | JsonArray(list(json))
           | JsonNumber(num)
           | JsonString(str)
-          | JsonNull()
+          | JsonNull
+          
 
 #pragma scheme-translator {
   (inline
@@ -33,24 +34,35 @@ type json = JsonStructure(dict(str, json))
             ((json.JsonNull? obj) (void))
             ((json.JsonNumber? obj) (oslctor:JsonNumber-:0 obj))
             ((json.JsonString? obj) (oslctor:JsonString-:0 obj))
-            (else (error "Unsupported JSON object" obj))))
+            (else obj)))
 
 
-    (define (readjson port)
+    (define (read_json port)
       (let ((obj (json-read port)))
         (scm->json obj)))
 
-    (define (writejson JSON PORT)
+    (define (write_json PORT JSON)
       (json-write (json->scm JSON) PORT))
   )
 }
 #pragma prolog {
-  (predicate (result-of (readjson port) json))
-  (predicate (result-of (writejson _ port) void))
+  (predicate (result-of (read_json port) json))
+  (predicate (result-of (write_json port _) void))
 }
 
-read(p port) = readjson(p)
-parse_json(s str) = call_with_input_string(s, readjson) :: json
+// read_json(port)
+parse_json(s str) = call_with_input_string(s, read_json) :: json
+
+json() = JsonStructure(dict())
+json(x json) = x
+json(x num) = JsonNumber(x)
+json(x str) = JsonString(x)
+json(x list(T)) = JsonArray(x.iter().map(json).list())
+json(x dict(str, T)) = {
+  newdict = dict() :: dict(str, json)
+  x.keys().foreach(key => set newdict[key] = json(x[key]))
+  return JsonStructure(newdict)
+}
 
 // num
 num(j json) = match j in
@@ -72,7 +84,12 @@ dict(j json) = match j in
 | JsonStructure(x) -> x
 | otherwize -> error("Not a structure", j)
 
-
+// Element getters
 json_ref(j json, k str) = j.dict()[k]
 json_ref(j json, k num) = j.list()[k]
 j[k] = json_ref(j, k)
+
+// Element setters
+json_set(j json, k str, v) = set j.dict()[k] = json(v)
+json_set(j json, k num, v) = set j.list()[k] = json(v)
+set j[k] = v = json_set(j, k, v)
