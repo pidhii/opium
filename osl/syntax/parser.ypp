@@ -299,8 +299,8 @@ generate_record_type(opi::value typesign, opi::value fields, Output output,
     const auto [getter, setter] = field_accessors(recorddef, fieldname);
     const opi::value ovgetter = overloaded_getter_name(fieldname);
     const opi::value ovsetter = overloaded_setter_name(fieldname);
-    const opi::value getterdef = list(define_overload, list(ovgetter, "x"), list(getter, "x"));
-    const opi::value setterdef = list(define_overload, list(ovsetter, "x", "v"), list(setter, "x", "v"));
+    const opi::value getterdef = list(define_overload, list(ovgetter, list("x", typesign)), list(getter, "x"));
+    const opi::value setterdef = list(define_overload, list(ovsetter, list("x", typesign), "v"), list(setter, "x", "v"));
     set_location(getterdef, location);
     set_location(setterdef, location);
     *output++ = getterdef;
@@ -442,7 +442,7 @@ struct function_unroller: public opi::osl::flow_unroller {
 
 %right '|'
 
-%nonassoc IF THEN
+%nonassoc IF IFLET THEN
 %right ELSE
 
 %left '='
@@ -712,6 +712,16 @@ Lambda
 If
   : IF Expr THEN Expr ELSE Expr { $$ = list("if", $2, $4, $6); }
   | IF Expr THEN Expr { $$ = list("if", $2, $4); }
+  | IFLET ExprPattern '=' Expr THEN Expr ELSE Expr {
+    const value thenclause = list(list($2), $6);
+    const value elseclause = list(list("_"), $8);
+    $$ = list("cases", list($4), thenclause, elseclause);
+  }
+  | IFLET ExprPattern '=' Expr THEN Expr {
+    const value thenclause = list(list($2), $6);
+    const value elseclause = list(list("_"), list("void"));
+    $$ = list("cases", list($4), thenclause, elseclause);
+  }
 ;
 
 Match
@@ -779,13 +789,13 @@ TopLvlExpr
     stl::vector<value> wrapper_args;
     for (size_t i = 0; i < nargs; ++i)
     {
-      const value arg_name = sym(std::format("_{}", i));
+      const value arg_name = sym(std::format("x{}", i));
       const value arg_type = list_ref($6, i);
       wrapper_args.push_back(list(arg_name, arg_type));
     }
     $$ = list(
       list("pragma", "prolog",
-        list("predicate", list("result-of", list($2, dot, $6), dot, $9))),
+        list("predicate", list("result-of", cons($2, $6), dot, $9))),
       list("define-overload", cons($4, list(wrapper_args)),
         cons($2, list(std::views::all(wrapper_args) | std::views::transform(opi::car))))
     );
@@ -823,6 +833,11 @@ TypeSign
     const value fn = "fn";
     bindloc(fn, @1);
     $$ = list(fn, $3, $6);
+  }
+  | FN '(' ListOfTypeParams ')' RIGHT_ARROW '(' ListOfTypeParams ')' {
+    const value fn = "fn";
+    bindloc(fn, @1);
+    $$ = list(fn, $3, dot, $7);
   }
 ;
 

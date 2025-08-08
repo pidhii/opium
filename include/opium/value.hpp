@@ -259,6 +259,10 @@ pair(value car, value cdr)
   return ret;
 }
 
+[[nodiscard]] inline bool
+ispair(value x) noexcept
+{ return x->t == tag::pair; }
+
 /**
  * Create a pair (cons cell)
  * 

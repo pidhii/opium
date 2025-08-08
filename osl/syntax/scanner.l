@@ -66,6 +66,7 @@ yield__ return YIELD;
 match return MATCH;
 in    return IN;
 
+if[[:space:]]+let return IFLET;
 if return IF;
 then return THEN;
 else return ELSE;
@@ -206,7 +207,13 @@ false {
 
 [0-9_]+ {
   if (strcmp(yytext, "_") == 0)
+  {
+    const size_t oldright = loc_p->left;
+    const size_t oldleft = loc_p->right - yyleng;
+    loc_p->left = oldleft;
+    loc_p->right = oldright;
     REJECT;
+  }
   std::string cleaned = remove_underscores(yytext);
   yylval = num(std::stoll(cleaned));
   opi::set_location(yylval, make_location(*loc_p));
@@ -236,7 +243,13 @@ false {
 
 [_a-z][_a-zA-Z0-9]* {
   if (strcmp(yytext, "_") == 0)
+  {
+    const size_t oldright = loc_p->left;
+    const size_t oldleft = loc_p->right - yyleng;
+    loc_p->left = oldleft;
+    loc_p->right = oldright;
     REJECT;
+  }
   yylval = opi::sym(yytext);
   opi::set_location(yylval, make_location(*loc_p));
   return IDENT;

@@ -101,6 +101,9 @@ static_assert(std::sentinel_for<cons_list_iterator, cons_list_iterator>);
 struct cons_list_sentinel {
   using difference_type = ptrdiff_t;
 
+  cons_list_sentinel() = default;
+  cons_list_sentinel(value *list_tail): m_list_tail {list_tail} {}
+
   /**
    * Equality comparison
    * 
@@ -109,7 +112,15 @@ struct cons_list_sentinel {
    */
   bool
   operator == (const cons_list_iterator &it) const noexcept
-  { return it.m_l->t != tag::pair; }
+  {
+    if (it.m_l->t != tag::pair)
+    {
+      if (m_list_tail)
+        *m_list_tail = it.m_l;
+      return true;
+    }
+    return false;
+  }
 
   value
   operator * () const noexcept
@@ -122,6 +133,9 @@ struct cons_list_sentinel {
   cons_list_sentinel
   operator ++ (int) noexcept
   { return cons_list_sentinel {}; }
+
+  private:
+  value *m_list_tail = nullptr;
 };
 static_assert(std::sentinel_for<cons_list_iterator, cons_list_sentinel>);
 
@@ -132,7 +146,8 @@ static_assert(std::sentinel_for<cons_list_iterator, cons_list_sentinel>);
  * \ingroup core
  */
 struct list_view: std::ranges::view_interface<list_view> {
-  list_view(value l): m_list {l} {}
+  list_view(value l): m_list {l}, m_list_tail {nullptr} {}
+  list_view(value l, value &ltail): m_list {l}, m_list_tail {&ltail} {}
 
   cons_list_iterator
   begin() const noexcept
@@ -140,10 +155,11 @@ struct list_view: std::ranges::view_interface<list_view> {
 
   cons_list_sentinel
   end() const noexcept
-  { return cons_list_sentinel {}; }
+  { return cons_list_sentinel {m_list_tail}; }
 
   private:
   value m_list;
+  value *m_list_tail;
 }; // struct opi::list_view
 static_assert(std::ranges::input_range<list_view>);
 static_assert(std::ranges::forward_range<list_view>);
@@ -160,6 +176,18 @@ static_assert(std::ranges::view<list_view>);
 inline list_view
 range(value l)
 { return list_view {l}; }
+
+/**
+ * Create a range over a list and store the list tail
+ * 
+ * \param l List to iterate over
+ * \return Range over the list elements
+ *
+ * \ingroup core
+ */
+inline list_view
+range(value l, value &ltail)
+{ return list_view {l, ltail}; }
 
 /** /} */
 
