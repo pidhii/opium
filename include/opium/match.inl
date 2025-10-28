@@ -31,7 +31,7 @@ template <opi::value_mapping Mapping>
 bool
 opi::match::_match(value pat, value expr, Mapping &result) const
 {
-  switch (pat->t)
+  switch (tag(pat))
   {
     case tag::sym:
       if (sym_name(pat) == "_")
@@ -53,14 +53,14 @@ opi::match::_match(value pat, value expr, Mapping &result) const
             "Ellipsis at the beginning of pattern-list: {}", pat), pat};
 
       value pit = pat, eit = expr;
-      for (; pit->t == tag::pair; pit = cdr(pit))
+      for (; ispair(pit); pit = cdr(pit))
       {
-        if (cdr(pit)->t == tag::pair and issym(car(cdr(pit)), "..."))
+        if (ispair(cdr(pit)) and issym(car(cdr(pit)), "..."))
         // When followed by ellipsis, match as many consecutive elements of
         //  `expr` with the pattern as possible
         {
           opi::stl::unordered_map<value, value> subresult;
-          for (; eit->t == tag::pair and _match(car(pit), car(eit), subresult);
+          for (; ispair(eit) and _match(car(pit), car(eit), subresult);
                eit = cdr(eit))
           { // Append new matches
             for (const auto &[k, v] : subresult)
@@ -76,7 +76,7 @@ opi::match::_match(value pat, value expr, Mapping &result) const
         else
         // Otherwize, match pattern-list element to expression-list element
         {
-          if (eit->t != tag::pair)
+          if (not ispair(eit))
             // Not enough elements in the expression
             return false;
           // Match elementas

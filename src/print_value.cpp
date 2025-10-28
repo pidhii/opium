@@ -44,7 +44,7 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
 {
   using namespace opi;
 
-  switch (val->t)
+  switch (opi::tag(val))
   {
     case tag::nil:
       os << (mode == mode::write ? "'()" : "()");
@@ -119,7 +119,7 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
       
       _print(mode, os, car(val), mem, depth + 1);
       value elt = nil;
-      for (elt = cdr(val); elt->t == tag::pair; elt = cdr(elt))
+      for (elt = cdr(val); ispair(elt); elt = cdr(elt))
       {
          // Similar trick about self-referencing
         if (memq(elt, mem))

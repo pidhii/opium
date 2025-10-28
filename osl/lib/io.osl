@@ -85,7 +85,7 @@ flush(p port) = osl_flush(p)
 ////////////////////////////////////////////////////////////////////////////////
 //                            reading
 //
-extern identifier!(eof-object?)(str) -> bool
+extern identifier!(eof-object?)(_) -> bool
 
 // Read from port until EOF
 extern identifier!(read-string)(bool, port) -> str

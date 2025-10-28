@@ -9,7 +9,7 @@
 std::pair<opi::osl::flow, opi::value>
 opi::osl::flow_unroller::unroll(value expr, value next) const
 {
-  if (expr->t == tag::pair)
+  if (ispair(expr))
   {
     const value form = car(expr);
     const value args = cdr(expr);
@@ -107,7 +107,7 @@ opi::osl::flow_unroller::unroll(value expr, value next) const
 std::pair<opi::osl::flow, opi::value>
 opi::osl::flow_unroller::unroll_block(value exprs, value next, value acc) const
 {
-  if (exprs->t == tag::pair)
+  if (ispair(exprs))
   {
     const value head = car(exprs);
     const value tail = cdr(exprs);

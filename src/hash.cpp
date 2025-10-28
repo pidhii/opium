@@ -7,7 +7,7 @@ size_t
 _hash(const opi::value &x, [[maybe_unused]] std::unordered_set<void*> &mem)
 {
   std::hash<std::string_view> cstrhash;
-  switch (x->t)
+  switch (opi::tag(x))
   {
     case opi::tag::nil: return 0;
     case opi::tag::sym: return cstrhash({x->sym.data, x->sym.len});

@@ -45,10 +45,10 @@ _equal(opi::value a, opi::value b, _memory_set &mem)
   if (is(a, b))
     return true;
 
-  if (a->t != b->t)
+  if (opi::tag(a) != opi::tag(b))
     return false;
 
-  switch (a->t)
+  switch (opi::tag(a))
   {
     case opi::tag::sym:
       return a->sym.len == b->sym.len and

@@ -24,7 +24,7 @@ bool
 opi::prolog_impl::var(value x)
 {
   value _ = nil;
-  if (x->t == tag::pair and issym(car(x), CELL))
+  if (ispair(x) and issym(car(x), CELL))
     return not get_value(static_cast<cell*>(cdr(x)->ptr), _);
   return false;
 }
@@ -46,7 +46,7 @@ opi::prolog_impl::elements_of(value l)
 {
   value acc = nil;
   value mem = nil;
-  for (; not memq(l, mem) and l->t == tag::pair; mem = cons(l, mem), l = cdr(l))
+  for (; not memq(l, mem) and ispair(l); mem = cons(l, mem), l = cdr(l))
     acc = cons(car(l), acc);
   return acc;
 }

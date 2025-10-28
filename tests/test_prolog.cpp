@@ -287,7 +287,7 @@ TEST_F(PrologTest, InsertCellsPredicate)
   opi::value result = *bindings.begin();
   
   // The result should be a list
-  EXPECT_EQ(result->t, opi::tag::pair);
+  EXPECT_TRUE(opi::ispair(result));
   
   // The first element should be 'f'
   EXPECT_TRUE(opi::issym(opi::car(result), "f"));
@@ -296,13 +296,13 @@ TEST_F(PrologTest, InsertCellsPredicate)
   opi::value second = opi::car(opi::cdr(result));
   opi::value third = opi::car(opi::cdr(opi::cdr(result)));
   
-  EXPECT_EQ(second->t, opi::tag::pair);
+  EXPECT_TRUE(opi::ispair(second));
   EXPECT_TRUE(opi::issym(opi::car(second), opi::CELL));
-  EXPECT_EQ(cdr(second)->t, opi::tag::ptr);
+  EXPECT_TRUE(opi::isptr(opi::cdr(second)));
   
-  EXPECT_EQ(third->t, opi::tag::pair);
+  EXPECT_TRUE(opi::ispair(third));
   EXPECT_TRUE(opi::issym(opi::car(third), opi::CELL));
-  EXPECT_EQ(cdr(third)->t, opi::tag::ptr);
+  EXPECT_TRUE(opi::isptr(opi::cdr(third)));
 }
 
 // Test insert-cells with evaluation

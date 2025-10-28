@@ -120,7 +120,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       for (const auto &[pattern, exprproxy] :
            utl::zip(range(rowpatterns), exprproxies))
       {
-        if (pattern->t == tag::pair)
+        if (ispair(pattern))
         { // Generate patter matching via match-on predicate
           const value constructor = car(pattern);
           const value arguments = cdr(pattern);
@@ -218,7 +218,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     // Process binds
     value idents = ms.contains("ident") ? ms.at("ident") : nil;
     value exprs = ms.contains("expr") ? ms.at("expr") : nil;
-    for (; idents->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
+    for (; ispair(idents); idents = cdr(idents), exprs = cdr(exprs))
     {
       const value ident = car(idents);
       const value expr = car(exprs);
@@ -261,7 +261,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     // Process binds
     value idents = ms.contains("ident") ? ms.at("ident") : nil;
     value exprs = ms.contains("expr") ? ms.at("expr") : nil;
-    for (; idents->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
+    for (; ispair(idents); idents = cdr(idents), exprs = cdr(exprs))
     {
       const value subidents = car(idents);
       const value expr = car(exprs);
@@ -576,7 +576,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
     const value resexpr =
         list("=", m_targets,
-             list(_to_type(cdr(ms.at("x")), false, std::back_inserter(code))));
+             list(to_type(cdr(ms.at("x")), false, std::back_inserter(code))));
     code.push_back(resexpr);
 
     assert(code.size() >= 1);
@@ -587,6 +587,10 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                           IMPORT PLUGINS
+  scheme_syntax_plugin::apply_all(*this);
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                form
   append_rule({nil, list("f", dot, "xs")}, [this](const auto &ms, value fm) {
     const value f = ms.at("f");
@@ -594,7 +598,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
     opi::stl::vector<value> code;
     const auto totype = [&](value atom) {
-      return _to_type(atom, true, std::back_inserter(code));
+      return to_type(atom, true, std::back_inserter(code));
     };
     const value form = list(range(cons(f, xs)) | std::views::transform(totype));
     const value plform = list("result-of", form, dot, m_targets);
@@ -614,7 +618,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value x = ms.at("x");
 
     opi::stl::vector<value> code;
-    const value expr = list("=", m_targets, list(_to_type(x, true, std::back_inserter(code))));
+    const value expr = list("=", m_targets, list(to_type(x, true, std::back_inserter(code))));
     code.push_back(expr);
 
     assert(code.size() >= 1);
@@ -623,6 +627,10 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     else
       return cons("and", list(code));
   });
+
+  // Load external plugins
+  flip_page();
+
 }
 
 
@@ -795,7 +803,7 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out, bool lvalue)
       nlevelsabove += 1;
       continue;
     }
-    assert(x->t == tag::pair);
+    assert(ispair(x));
 
     // Fish for a correct identifier
     if (car(x) != ident)
@@ -805,7 +813,7 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out, bool lvalue)
     value code = nil;
 
     // Instantiate template
-    if (type->t == tag::pair and issym(car(type), "#template"))
+    if (ispair(type) and issym(car(type), "#template"))
     {
       if (lvalue)
         throw bad_code {std::format("Not an lvalue: {}", ident), ident};
@@ -886,10 +894,10 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out, bool lvalue)
 
 template <std::output_iterator<opi::value> CodeOutput>
 opi::value
-opi::scheme_to_prolog::_to_type(value atom, bool resolve_symbols, CodeOutput out)
+opi::scheme_to_prolog::to_type(value atom, bool resolve_symbols, CodeOutput out)
 {
   value result = nil;
-  switch (atom->t)
+  switch (tag(atom))
   {
     case tag::nil: result = "nil"; break;
     case tag::num: result = "num"; break;

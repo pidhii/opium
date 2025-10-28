@@ -32,7 +32,7 @@ opi::generate_function_template_body(scheme_emitter_context &ctx,
                                      value ppbody)
 {
 
-  assert(instantiation->t == tag::pair);
+  assert(ispair(instantiation));
   assert(issym(car(instantiation), "#dynamic-function-dispatch"));
 
   predicate_runtime prt;
@@ -66,7 +66,7 @@ opi::generate_function_template_body(scheme_emitter_context &ctx,
 opi::value
 opi::instantiate_function_template(scheme_emitter_context &ctx, value type)
 {
-  if (type->t != tag::pair)
+  if (not ispair(type))
   {
     // TODO/FIXME: typically happens during negative assetions, so don't print
     // error unless the type is <any>
@@ -80,7 +80,7 @@ opi::instantiate_function_template(scheme_emitter_context &ctx, value type)
     }
     throw bad_code {"Can't create template function specialization.", type};
   }
-  assert(type->t == tag::pair);
+  assert(ispair(type));
   assert(issym(car(type), "#dynamic-function-dispatch"));
 
   const value tag = car(cdr(type));
@@ -205,7 +205,7 @@ opi::pretty_template_instance_name(value type, std::ostream &os)
     return;
   }
 
-  if (type->t != tag::pair)
+  if (not ispair(type))
   {
     // Not a template instance, return as is
     os << type;

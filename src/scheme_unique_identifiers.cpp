@@ -43,7 +43,7 @@ _rename_pattern(opi::value pattern, opi::symbol_generator &gensym,
 {
   using namespace std::placeholders;
 
-  switch (pattern->t)
+  switch (opi::tag(pattern))
   {
     case opi::tag::pair: {
       const opi::value constructor = car(pattern);
@@ -273,7 +273,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     // replace identifiers with new unique symbols;
     value newbinds = nil;
     value newalist = m_alist;
-    for (; exprs->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
+    for (; ispair(exprs); idents = cdr(idents), exprs = cdr(exprs))
     {
       const value ident = car(idents);
       const value expr = car(exprs);
@@ -301,7 +301,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     // Replace identifiers with new unique symbols;
     // transform bind-expressions updating alist after each binding;
     value newbinds = nil;
-    for (; exprs->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
+    for (; ispair(exprs); idents = cdr(idents), exprs = cdr(exprs))
     {
       const value ident = car(idents);
       const value expr = car(exprs);
@@ -335,7 +335,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
 
     // Transform binds with new alist
     value newbinds = nil;
-    for (; exprs->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
+    for (; ispair(exprs); idents = cdr(idents), exprs = cdr(exprs))
     {
       const value ident = car(idents);
       const value expr = car(exprs);
@@ -357,7 +357,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     // Replace identifiers with new unique symbols;
     // update alist with new symbol before each binding
     value newbinds = nil;
-    for (; exprs->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
+    for (; ispair(exprs); idents = cdr(idents), exprs = cdr(exprs))
     {
       const value ident = car(idents);
       const value expr = car(exprs);
@@ -383,7 +383,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     // replace identifiers with new unique symbols;
     value newbinds = nil;
     value newalist = m_alist;
-    for (; exprs->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
+    for (; ispair(exprs); idents = cdr(idents), exprs = cdr(exprs))
     {
       const value identlist = car(idents);
       const value expr = car(exprs);
@@ -415,7 +415,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     UNPACK_MATCHES_AND_SAVE_STATE(ms)
 
     value newbinds = nil;
-    for (; exprs->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
+    for (; ispair(exprs); idents = cdr(idents), exprs = cdr(exprs))
     {
       const value identlist = car(idents);
       const value expr = car(exprs);
@@ -477,6 +477,10 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                           IMPORT PLUGINS
+  scheme_syntax_plugin::apply_all(*this);
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                form
   append_rule(match {nil, list("f", dot, "xs")}, [this](const auto &ms) {
     const value f = ms.at("f");
@@ -489,7 +493,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
   //                                atoms
   append_rule({nil, "ident"}, [this](const auto &ms) {
     const value ident = ms.at("ident");
-    if (ident->t == tag::pair)
+    if (ispair(ident))
       throw code_transformation_error {
           std::format("scheme_code_transformer rule [<ident> -> ...] - "
                       "expected atom, got {}; likely unmatched syntax",

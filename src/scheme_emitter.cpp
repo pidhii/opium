@@ -28,7 +28,7 @@
 opi::value
 opi::scheme_emitter::_unfold_pattern_type(opi::value pattern) const
 {
-  if (pattern->t == opi::tag::pair)
+  if (ispair(pattern))
   {
     const opi::value ctor = car(pattern);
     const opi::value args = cdr(pattern);
@@ -99,7 +99,7 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
       {
         // Use predicate test for every non-wildcard pattern, and bind everything
         // with let-values
-        if (pattern->t == tag::pair)
+        if (ispair(pattern))
         {
           const value exprtype = _find_code_type(expr);
           const value patterntype = _unfold_pattern_type(pattern);
@@ -339,7 +339,7 @@ opi::scheme_emitter::transform_inner_block_into_expression(value block)
   for (size_t cnt = 0; const value expr : range(head))
   {
     value newbinds = nil;
-    if (expr->t == tag::pair and car(expr) == "define")
+    if (ispair(expr) and car(expr) == "define")
     {
       const value sign = car(cdr(expr));
       const value body = cdr(cdr(expr));
@@ -353,7 +353,7 @@ opi::scheme_emitter::transform_inner_block_into_expression(value block)
         newbinds = list(list(ident, list("lambda", args, body)));
       }
     }
-    else if (expr->t == tag::pair and car(expr) == "define-values")
+    else if (ispair(expr) and car(expr) == "define-values")
     { // Embedding of define-values into letrec*:
       // - for each variable create a "dummy" binding to allocate the variable
       //   and bind it to #<unsepcified> value

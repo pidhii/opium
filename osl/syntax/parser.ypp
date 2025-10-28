@@ -390,6 +390,20 @@ struct function_unroller: public opi::osl::flow_unroller {
 };
 
 
+static opi::value
+fix_type_annotations_in_arguments(opi::value l)
+{
+  if (not ispair(l))
+    return l;
+
+  const opi::value tail = fix_type_annotations_in_arguments(cdr(l));
+
+  opi::value head = car(l);
+  if (ispair(head) and car(head) == "annotate-type")
+    head = cdr(head);
+  return cons(head, tail);
+}
+
 %}
 
 %code requires {
@@ -462,7 +476,7 @@ struct function_unroller: public opi::osl::flow_unroller {
 %left '+' '-' '%'
 %left '*' '/'
 %left NOT
-%nonassoc TYPE_ANNOTATION
+%nonassoc DOUBLE_COLUMN
 %left '.' '#'
 
 // =============================================================================
@@ -551,6 +565,7 @@ ApplExpr
     bindloc(getter, @$);
     $$ = list(getter, $1, $3);
   }
+  | ApplExpr DOUBLE_COLUMN TypeParam { $$ = list("annotate-type", $1, $3); }
 ;
 
 Expr
@@ -596,7 +611,6 @@ Expr
   | Expr AND Expr { const value op = "and"; bindloc(op, @$); $$ = list(op, $1, $3); }
   | Expr OR Expr { const value op = "or"; bindloc(op, @$); $$ = list(op, $1, $3); }
   | NOT Expr { $$ = list("not", $2); bindloc(car($$), @1); }
-  | Expr ':' ':' TypeParam %prec TYPE_ANNOTATION { $$ = list("annotate-type", $1, $4); }
   | Lambda
   | If
   | Match
@@ -680,9 +694,10 @@ Stmt
     else
     {
       const value define = "define-overload";
-      const value fixed_signature = $1;
+      const value fixed_signature =
+          cons(car($1), fix_type_annotations_in_arguments(cdr($1)));
       bindloc(define, @$);
-      if ($3->t == tag::pair and car($3) == "begin")
+      if (opi::ispair($3) and car($3) == "begin")
       {
         function_unroller unroller;
         const value body = append(cdr($3), list(list("void")));
@@ -777,6 +792,20 @@ TopLvlExpr
       g_included_files.emplace(fullpath);
       $$ = load_file(fullpath);
     }
+  }
+  | EXTERN IDENT DOUBLE_COLUMN TypeSign {
+    $$ = list(
+      list("pragma", "scheme-translator",
+        list("declare", $2, $4))
+    );
+  }
+  | EXTERN IDENT AS IDENT DOUBLE_COLUMN TypeSign {
+    $$ = list(
+      list("pragma", "scheme-translator",
+        list("declare", $2, $6),
+        list("inline", list("define", $4, $2))
+      )
+    );
   }
   | EXTERN IDENT '(' ListOfTypeParams ')' RIGHT_ARROW ListOfTypeParams {
     $$ = list(

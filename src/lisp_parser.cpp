@@ -19,6 +19,7 @@
 
 #include "opium/lisp_parser.hpp"
 #include "opium/format.hpp" // IWYU pragma: export
+#include "opium/source_location.hpp"
 #include "opium/stl/deque.hpp"
 
 #include <cctype>
@@ -363,7 +364,7 @@ opi::lisp_parser::_parse_list(const stl::vector<token> &tokens, size_t &pos)
 
     // Expect closing parenthesis
     if (pos >= tokens.size() or tokens[pos].type != token::type::RPAREN)
-      throw parse_error {"Expected closing parenthesis after dotted pair"};
+      throw parse_error {"Expected closing parenthesis after dotted pair" + display_location(tokens[pos].location)};
     
     // Get the location from the closing parenthesis
     const source_location &rparen_loc = tokens[pos].location;

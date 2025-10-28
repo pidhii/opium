@@ -94,7 +94,7 @@ scan_value_for_types(scheme_type_location_map &map,
   }
 
   // Recursively scan children if this is a pair
-  if (val->t == tag::pair)
+  if (opi::ispair(val))
   {
     scan_value_for_types(map, prolog_emitter, car(val));
     scan_value_for_types(map, prolog_emitter, cdr(val));

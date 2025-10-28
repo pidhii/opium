@@ -79,7 +79,7 @@ _gather_literals(value x, Output output) noexcept
 {
   if (issym(x) and x != "_" and std::islower(sym_name(x)[0]))
     *output++ = x;
-  else if (x->t == tag::pair)
+  else if (ispair(x))
   {
     _gather_literals(car(x), output);
     _gather_literals(cdr(x), output);
@@ -91,6 +91,9 @@ inline std::pair<value, scheme_type_location_map>
 translate_to_scheme(size_t &counter, prolog &pl, value ppcode,
                     Pragmas &&pragmas = {})
 {
+  // Utility variable
+  opi::stl::unordered_map<value, value> ms;
+
   // Compose translator from Scheme to Prolog
   scheme_to_prolog to_prolog {counter};
   prolog_cleaner pl_cleaner;
@@ -105,7 +108,7 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode,
     if (predicatename == "result-of")
     {
       const value signature = car(cdr(predicate.signature()));
-      if (signature->t == tag::pair and issym(car(signature)))
+      if (ispair(signature) and issym(car(signature)))
       {
         const value identifier = car(signature);
 
@@ -114,6 +117,17 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode,
         debug("add global: {}", identifier);
         to_prolog.add_global(identifier, identifier);
       }
+    }
+  }
+
+  const match matchdeclare {list("declare"), list("declare", "ident", "type")};
+  for (const value expr : pragmas)
+  {
+    if (ms.clear(), matchdeclare(expr, ms))
+    {
+      const value identifier = ms.at("ident");
+      const value type = ms.at("type");
+      to_prolog.add_global(identifier, type);
     }
   }
 
@@ -141,7 +155,6 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode,
                          list("cases-rule", "ctor-pattern", "type-pattern",
                               "predicate", "unpack")};
   const match matchinline {list("inline"), cons("inline", "exprs")};
-  opi::stl::unordered_map<value, value> ms;
   opi::stl::vector<value> inlines;
   for (const value expr : pragmas)
   {
@@ -168,8 +181,6 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode,
       const value exprs = ms.at("exprs");
       std::ranges::copy(range(exprs), std::back_inserter(inlines));
     }
-    else
-      throw bad_code {std::format("Invalid pragma: {}", expr), expr};
   }
 
   execution_timer emit_timer {"Scheme emitter"};

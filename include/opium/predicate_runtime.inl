@@ -81,10 +81,10 @@ struct _reconstructor {
   opi::value
   _reconstruct(opi::value x)
   {
-    if (x->t == opi::tag::pair)
+    if (ispair(x))
     {
       value result = nil;
-      while (x->t == opi::tag::pair and not issym(car(x), CELL))
+      while (ispair(x) and not issym(car(x), CELL))
       {
         auto it = mem.find(&*x);
         if (it != mem.end())
@@ -99,7 +99,7 @@ struct _reconstructor {
         x = cdr(x);
       }
 
-      if (x->t == tag::pair and opi::issym(car(x), CELL))
+      if (ispair(x) and opi::issym(car(x), CELL))
         return append_mut(result, _reconstruct(static_cast<opi::cell *>(cdr(x)->ptr)));
       else
         return append_mut(result, x);

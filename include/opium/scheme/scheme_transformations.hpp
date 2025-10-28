@@ -31,7 +31,6 @@ namespace opi {
 
 // TODO: this guy transforms `define` and `define-overload` into `template`;
 //       it has to be done by a separate transformer
-// TODO: remane to `scheme_renamer`
 class scheme_unique_identifiers: public ext_scheme_code_transformer {
   public:
   scheme_unique_identifiers(symbol_generator &gensym);
@@ -133,6 +132,10 @@ class scheme_to_prolog: public code_transformer {
   value
   transform_block(value block);
 
+  template <std::output_iterator<value> CodeOutput>
+  value
+  to_type(value atom, bool resolve_symbols, CodeOutput code_output);
+
   bool
   find_code_type(value code, value &type) const noexcept;
 
@@ -159,10 +162,6 @@ class scheme_to_prolog: public code_transformer {
   value
   _require_symbol(value ident, CodeOutput code_output, bool lvalue = false);
 
-  template <std::output_iterator<value> CodeOutput>
-  value
-  _to_type(value atom, bool resolve_symbols, CodeOutput code_output);
-
   private:
   type_format_string m_type_format;
   bool m_is_template;
@@ -174,5 +173,38 @@ class scheme_to_prolog: public code_transformer {
                                                      symbols and generated
                                                      typenames */
 }; // class opi::scheme_to_prolog
+
+
+struct scheme_syntax_plugin {
+  scheme_syntax_plugin();
+
+  virtual
+  ~scheme_syntax_plugin();
+
+  virtual void
+  load(scheme_unique_identifiers &transformer) = 0;
+
+  virtual void
+  load(scheme_code_flattener &transformer) = 0;
+
+  virtual void
+  load(scheme_to_prolog &transformer) = 0;
+
+  template <typename Transformer>
+  static void
+  apply_all(Transformer &transformer)
+  {
+    for (scheme_syntax_plugin *plug : m_plugins)
+      plug->load(transformer);
+  }
+
+  static std::ranges::view auto
+  all()
+  { return std::views::all(m_plugins); }
+
+  private:
+  static stl::list<scheme_syntax_plugin*> m_plugins;
+};
+
 
 } // namespace opi

@@ -12,6 +12,8 @@
 //
 #pragma prolog {
   (predicate (result-of (not _) bool))
+  (predicate (result-of ((parameter T) T) void))
+  (predicate (result-of ((parameter T)) T))
 }
 
 ////
@@ -89,6 +91,7 @@ coerce(f) = coerce_function(f)
 
 
 extern identifier!(string->symbol) as sym(str) -> sym
+extern identifier!(symbol->string) as str(sym) -> str
 
 ////////////////////////////////////////////////////////////////////////////////
 //                               meta
@@ -101,9 +104,18 @@ iter(it) = {
 
 // reinterpret_cast
 #pragma scheme-translator {
-  (inline (define (retinterpret_cast x) x))
+  (inline
+    (define (reinterpret_cast x) x))
 }
 extern reinterpret_cast(_) -> _
 
 // Type-case into `anything`
 anything(x) = reinterpret_cast(x) :: anything
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                       builtin parameters
+//
+extern identifier!(exit-handler) as exit_handler :: fn(num) -> _
+// extern identifier!(reset-handler) as reset_handler :: fn() -> _
+// extern identifier!(program-name) as program_name :: str

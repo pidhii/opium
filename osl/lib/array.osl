@@ -2,7 +2,8 @@ require "base"
 require "error"
 require "list"
 
-////
+
+////////////////////////////////////////////////////////////////////////////////
 //
 // Fixed size array data type based on SRFI-43 Scheme Vector
 // see: https://www.gnu.org/software/guile/manual/html_node/SRFI_002d43.html
@@ -130,3 +131,18 @@ iter(arr array(T), from num, to num) = {
 
 iter(arr array(T), from num) = iter(arr, from, arrlen(arr))
 iter(arr array(T)) = arrayIterator(arr, 0, arrlen(arr))
+
+
+////////////////////////////////////////////////////////////////////////////////
+//
+// Fixed tuple types based on SRFI-43 Scheme Vector
+//
+#pragma prolog {
+  (predicate (result-of (tuple . Ts) (tuple . Ts)))
+  (predicate (result-of (untuple (tuple . Ts)) . Ts))
+}
+#pragma scheme-translator {
+  (inline
+    (define (tuple . args) (list->vector args))
+    (define (untuple tuple) (apply values (vector->list tuple))))
+}

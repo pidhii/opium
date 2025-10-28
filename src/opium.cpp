@@ -15,7 +15,7 @@ _filter_pragmas(opi::value script, pragmas &pragmas)
   for (const opi::value expr : range(script))
   {
     // Handle pragmas
-    if (expr->t == opi::tag::pair and car(expr) == "pragma")
+    if (opi::ispair(expr) and car(expr) == "pragma")
     {
       if (length(cdr(expr)) < 2 or not issym(car(cdr(expr))))
         throw opi::bad_code {"Invalid pragma", expr};

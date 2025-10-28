@@ -271,6 +271,7 @@ false {
 "<=" return LE;
 ">"  return GT;
 ">=" return GE;
+"::" return DOUBLE_COLUMN;
 "=" |
 "+" |
 "-" |

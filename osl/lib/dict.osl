@@ -68,10 +68,7 @@ empty(dict dict(K, V)) = length(dict) == 0
 //
 // Element access
 //
-dict[key] = {
-  assert { dict :: dict(K, V) key :: K }
-  return hashTableRef(dict, key)
-}
+dict::dict(K, V)[key::K] = hashTableRef(dict, key)
 get(dict dict(K, V), key K, default V) = hashTableRefDefault(dict, key, default)
 contains(dict dict(K, V), key K) = hashTableContains(dict, key)
 
@@ -79,10 +76,7 @@ contains(dict dict(K, V), key K) = hashTableContains(dict, key)
 //
 // Element addition
 //
-set dict[key] = val = {
-  assert { dict :: dict(K, V) key :: K val :: V }
-  hashTableSet(dict, key, val)
-}
+set dict::dict(K,V)[key::K] = val::V = hashTableSet(dict, key, val)
 
 ////
 //
@@ -98,8 +92,11 @@ clear(dict dict(K, V)) = hashTableClear(dict)
 keys(dict dict(K, V)) = hashTableKeys(dict)
 vals(dict dict(K, V)) = hashTableValues(dict)
 
-extern identifier!(hash-table-for-each)(dict(K, V), fn(K, V) -> _) -> void
-foreach(dict dict(K, V), f) = identifier!(hash-table-for-each)(dict, coerce(f))
+extern identifier!(hash-table-for-each)(dict(K, V), _) -> void
+foreach(dict dict(K, V), f) = {
+  assert { f(reinterpret_cast([]) :: K, reinterpret_cast([]) :: V) }
+  identifier!(hash-table-for-each)(dict, f)
+}
 
 extern identifier!(hash-table-map)(dict(K, V), fn(K, V) -> U) -> list(U)
 map(self dict(K, V), f) = {

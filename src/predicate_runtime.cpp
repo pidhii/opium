@@ -25,8 +25,6 @@
 #include "opium/utilities/execution_timer.hpp"
 #include "opium/logging.hpp"
 
-#include <cstring>
-
 
 /**
  * Check if a value is a variable (symbol starting with a capital letter)
@@ -55,7 +53,7 @@ _is_variable(opi::value x, bool &is_wildcard)
 static inline bool
 _is_quotation_form(opi::value x, const char* form_name)
 {
-  return x->t == opi::tag::pair && opi::issym(opi::car(x), form_name);
+  return opi::ispair(x) && opi::issym(opi::car(x), form_name);
 }
 
 static opi::value
@@ -70,7 +68,7 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
       return it->second;
   }
 
-  if (expr->t == opi::tag::pair)
+  if (opi::ispair(expr))
   {
     if (_is_quotation_form(expr, "quasiquote"))
     {
@@ -141,7 +139,7 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
     copy_location(expr, result);
     return result;
   }
-  else if (expr->t == opi::tag::pair)
+  else if (opi::ispair(expr))
   {
     result = cons(opi::nil, opi::nil);
     mem.emplace(&*expr, result);
@@ -241,12 +239,12 @@ opi::predicate_runtime::operator [] (value var)
 }
 
 
-opi::cell*
+[[nodiscard]] opi::cell*
 opi::predicate_runtime::operator [] (value var) const
 {
   auto it = m_varmap.find(var);
   if (it == m_varmap.end())
-    return make<cell>();
+    throw std::out_of_range {std::format("no such variable in PRT ({})", var)};
   else
     return it->second;
 }
@@ -289,11 +287,11 @@ opi::predicate_runtime::mark_dead()
  * \param result Output parameter to store the cell pointer
  * \return True if the expression represents a cell, false otherwise
  */
-static inline bool
+[[nodiscard]] static inline bool
 _is_cell(opi::value expr, opi::cell *&result)
 {
-  if (expr->t == opi::tag::pair and opi::issym(opi::car(expr), opi::CELL) and
-      opi::cdr(expr)->t == opi::tag::ptr)
+  if (opi::ispair(expr) and opi::issym(opi::car(expr), opi::CELL) and
+      opi::isptr(opi::cdr(expr)))
   {
     result = static_cast<opi::cell*>(opi::cdr(expr)->ptr);
     return true;
@@ -302,7 +300,7 @@ _is_cell(opi::value expr, opi::cell *&result)
 }
 
 
-static bool
+[[nodiscard]] static inline bool
 _is_tag(opi::value x)
 { return opi::issym(x) and opi::sym_name(x)[0] == '#'; }
 
@@ -342,10 +340,10 @@ struct _match_arguments_impl {
       return (not _is_tag(eexpr) and opi::unify(c1, prt.make_term(eexpr))) or ForceMatch;
 
     // Structural equality
-    if (pexpr->t != eexpr->t)
+    if (opi::tag(pexpr) != opi::tag(eexpr))
       return ForceMatch or false;
 
-    switch (pexpr->t)
+    switch (opi::tag(pexpr))
     {
       case opi::tag::pair:
         return match_arguments(prt, opi::car(pexpr), opi::car(eexpr))
@@ -433,9 +431,9 @@ _equivalent(opi::value x, opi::value y,
     return false;
 
   // Structural equality
-  if (x->t != y->t)
+  if (opi::tag(x) != opi::tag(y))
     return false;
-  if (x->t == opi::tag::pair)
+  if (opi::ispair(x))
   {
     return _equivalent(car(x), car(y), argmem, equivmem)
        and _equivalent(cdr(x), cdr(y), argmem, equivmem);

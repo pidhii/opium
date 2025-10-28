@@ -21,7 +21,7 @@ project (opium VERSION 0.1.0)
 set (CMAKE_CXX_STANDARD 20)
 set (CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 
-set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wextra -Werror -Wno-error=unused-parameter")
+set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC -Wall -Wextra -Werror -Wno-error=unused-parameter -rdynamic")
 
 set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS} -O3 -DOPIUM_RELEASE_BUILD")
 set (CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS} -O0 -ggdb")
@@ -55,6 +55,7 @@ file (GLOB src_files src/*.cpp)
 add_library(opium_objects OBJECT ${src_files})
 target_include_directories(opium_objects PUBLIC ${CMAKE_SOURCE_DIR}/include ${READLINE_INCLUDE_DIRS})
 target_compile_options(opium_objects PUBLIC ${READLINE_CFLAGS_OTHER})
+set_target_properties(opium_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 # Shared library
 add_library (opium_so SHARED $<TARGET_OBJECTS:opium_objects>)
@@ -122,6 +123,20 @@ if (OPIUM_SCRIPT)
   file(READ "${osl_prefix}/syntax-definitions.opi" osl_syntax_definitions)
   configure_file("${osl_prefix}/syntax_definitions.h.in"
                  "${CMAKE_BINARY_DIR}/syntax_definitions.h" @ONLY)
+
+  # Opium plugins
+  file (GLOB osl_opium_plugins ${osl_prefix}/plugins/*.cpp)
+  foreach (plugin_src ${osl_opium_plugins})
+    get_filename_component (plugin_name ${plugin_src} NAME_WE)
+    add_library (${plugin_name} SHARED ${plugin_src})
+    target_include_directories (${plugin_name} PUBLIC ${CMAKE_SOURCE_DIR}/include)
+    set_target_properties (${plugin_name}
+      PROPERTIES
+        POSITION_INDEPENDENT_CODE ON
+        PREFIX ""
+        SUFFIX ".plugin")
+    install (TARGETS ${plugin_name} DESTINATION lib)
+  endforeach ()
 
   # OSL executable
   file (GLOB osl_src_files ${osl_prefix}/*.cpp)

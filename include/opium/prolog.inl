@@ -120,7 +120,7 @@ _create_derived_prt(predicate_runtime &parent)
 static value
 _remove_dynamic_function_dispatch_body(value x)
 {
-  if (x->t == tag::pair)
+  if (ispair(x))
   {
     if (car(x) == "#dynamic-function-dispatch")
       return list(car(x), car(cdr(x)), car(cdr(cdr(x))), car(cdr(cdr(cdr(x)))));
@@ -228,7 +228,7 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
   }
 #endif
 
-  switch (e->t)
+  switch (tag(e))
   {
     case tag::pair: {
       if (issym(car(e), "if"))
@@ -303,7 +303,7 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
       else if (issym(car(e), "elements-of"))
       {
         const value l = reconstruct(car(cdr(e)), ignore_unbound_variables);
-        if (l->t == tag::pair and issym(car(l), CELL))
+        if (ispair(l) and issym(car(l), CELL))
           throw error {"Can't invoke `elements-of` with unbound variable", l};
         const value result = car(cdr(cdr(e)));
         const value elements = prolog_impl::elements_of(l);
@@ -325,7 +325,7 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
         if (global_flags.contains("DebugCall"))
           debug("call Goal: {}", goal);
 
-        if (goal->t == tag::pair)
+        if (ispair(goal))
           e = append(goal, cdr(cdr(e)));
         else
           e = cons(goal, cdr(cdr(e)));
@@ -418,7 +418,7 @@ prolog::_make_and_true(predicate_runtime &ert, value clauses, Cont cont,
                        NTVHandler ntvhandler) const
 {
   // Sequentially process all clauses until none left; no clauses <=> true
-  if (clauses->t == tag::pair)
+  if (ispair(clauses))
   {
     // Separate head clause
     const value head = car(clauses);

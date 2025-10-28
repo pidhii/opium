@@ -63,7 +63,7 @@ opi::pretty_printer::_print_block(std::ostream &os, opi::value stmt, int indent,
 {
   using namespace opi;
 
-  if (stmt->t != tag::pair)
+  if (not ispair(stmt))
     return print(os, stmt, indent);
 
   const value clauses = cdr(stmt);
@@ -72,7 +72,7 @@ opi::pretty_printer::_print_block(std::ostream &os, opi::value stmt, int indent,
   os << "(" << car(stmt);
 
   // If there are no clauses, just close the parenthesis
-  if (clauses->t != tag::pair)
+  if (not ispair(clauses))
   {
     os << ")";
     return;
@@ -174,7 +174,7 @@ opi::scheme_formatter::scheme_formatter()
     value exprs = ms.contains("expr") ? ms.at("expr") : nil;
     const value body = ms.contains("body") ? ms.at("body") : nil;
     value binds = nil;
-    for (; idents->t == tag::pair; idents = cdr(idents), exprs = cdr(exprs))
+    for (; ispair(idents); idents = cdr(idents), exprs = cdr(exprs))
       binds = append(binds, list(list(car(idents), car(exprs))));
     const std::string_view let = sym_name(car(fm));
     binds = pretty_printer::format_block(false, 1 + let.length(), binds);

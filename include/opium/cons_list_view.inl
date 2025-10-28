@@ -113,7 +113,7 @@ struct cons_list_sentinel {
   bool
   operator == (const cons_list_iterator &it) const noexcept
   {
-    if (it.m_l->t != tag::pair)
+    if (not ispair(it.m_l))
     {
       if (m_list_tail)
         *m_list_tail = it.m_l;

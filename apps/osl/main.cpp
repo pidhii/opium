@@ -1,15 +1,16 @@
 #include "opium/logging.hpp"
 #include "opium/source_location.hpp"
 #include "opium/utilities/execution_timer.hpp"
-#include "opium/pretty_print.hpp"
+#include "opium/scheme/scheme_transformations.hpp"
 #include "opium/opium.hpp"
 
 #include <boost/program_options.hpp>
 #include <cstdlib>
-#include <regex>
 #include <filesystem>
 #include <cstdlib>
 #include <cstring>
+
+#include <dlfcn.h>
 
 
 namespace std {
@@ -26,31 +27,26 @@ extern std::vector<std::string> pathes;
 } // namespace opi::osl
 
 
-/**
- * Strip ANSI escape sequences from a string
- * 
- * \param input The input string containing escape sequences
- * \return The string with escape sequences removed
- */
-std::string
-strip_escape_sequences(const std::string &input)
-{
-  // Regex to match escape sequences starting with '\e' and ending with 'm'
-  static const std::regex escape_seq_regex("\\\e\\[[^m]*m");
-  return std::regex_replace(input, escape_seq_regex, "");
-}
 
-
-void
-write_output(std::ostream &out, opi::value code)
+static void
+load_plugin(const std::fs::path &path)
 {
-  std::ostringstream buf;
-  for (const opi::value expr : range(code))
+  for (const std::string &prefix : opi::osl::pathes)
   {
-    opi::pprint_scm(buf, expr);
-    buf << "\n\n";
+    const std::fs::path fullpath = prefix / path;
+    if (std::fs::exists(fullpath))
+    {
+      if (dlopen(fullpath.c_str(), RTLD_NOW) == nullptr)
+      {
+        opi::error("dlopen {}", dlerror());
+        throw std::runtime_error {dlerror()};
+      }
+      opi::info("Loaded plugin {}", path.c_str());
+      return;
+    }
   }
-  out << strip_escape_sequences(buf.str());
+  opi::error("failed to find plugin '{}'", path.c_str());
+  throw std::runtime_error {std::format("no such plugin '{}'", path.c_str())};
 }
 
 
@@ -126,6 +122,30 @@ main(int argc, char **argv)
       token = strtok(nullptr, ":");
     }
   }
+
+  // Update LD_LIBRARY_PATH
+  for (const std::string &path : osl::pathes)
+  {
+    const char *old_value = getenv("LD_LIBRARY_PATH");
+    const std::string new_value = old_value ? std::string(old_value) + ":" + path
+                                            : path;
+    setenv("LD_LIBRARY_PATH", new_value.c_str(), true);
+  }
+  info("Updated LD_LIBRARY_PATH: {}", getenv("LD_LIBRARY_PATH"));
+
+  // Update LIBRARY_PATH
+  for (const std::string &path : osl::pathes)
+  {
+    const char *old_value = getenv("LIBRARY_PATH");
+    const std::string new_value = old_value ? std::string(old_value) + ":" + path
+                                            : path;
+    setenv("LIBRARY_PATH", new_value.c_str(), true);
+  }
+  info("Updated LIBRARY_PATH: {}", getenv("LIBRARY_PATH"));
+
+  // Load plugins
+  load_plugin("parameterize.plugin");
+
 
   FILE *input;
   std::string inputpath;

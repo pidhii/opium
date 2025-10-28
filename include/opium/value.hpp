@@ -81,6 +81,9 @@ class value {
 
   value(const char *sym);
 
+  [[nodiscard]] explicit
+  operator opi::tag () const noexcept;
+
   /**
    * Access the object via pointer syntax
    * 
@@ -140,9 +143,9 @@ struct object {
    * \note This constructor is unsafe
    * \param tag Type tag for the object
    */
-  object(tag tag): t {tag}, location {nullptr} { }
+  object(tag tag): _t {tag}, location {nullptr} { }
 
-  tag t; /**< Type tag */
+  tag _t; /**< Type tag */
   size_t hash;
   source_location *location;
   union {
@@ -259,10 +262,6 @@ pair(value car, value cdr)
   return ret;
 }
 
-[[nodiscard]] inline bool
-ispair(value x) noexcept
-{ return x->t == tag::pair; }
-
 /**
  * Create a pair (cons cell)
  * 
@@ -279,7 +278,7 @@ cons(value car, value cdr);
 inline void
 set_car(value pair, value car)
 {
-  assert(pair->t == tag::pair);
+  assert(pair->_t == tag::pair);
   pair->car = &*car;
 #ifdef OPIUM_HASH_CACHING
   pair->hash = 0;
@@ -290,7 +289,7 @@ set_car(value pair, value car)
 inline void
 set_cdr(value pair, value cdr)
 {
-  assert(pair->t == tag::pair);
+  assert(pair->_t == tag::pair);
   pair->cdr = &*cdr;
 #ifdef OPIUM_HASH_CACHING
   pair->hash = 0;
@@ -412,7 +411,7 @@ list(Head head, Tail&& ...tail)
 reverse(value l)
 {
   value acc = nil;
-  for (; l->t == tag::pair; l = value {&*l->cdr})
+  for (; l->_t == tag::pair; l = value {&*l->cdr})
     acc = cons(value {&*l->car}, acc);
   return acc;
 }
@@ -430,7 +429,7 @@ reverse(value l)
 reverse(value l, value e)
 {
   value acc = e;
-  for (; l->t == tag::pair; l = value {&*l->cdr})
+  for (; l->_t == tag::pair; l = value {&*l->cdr})
     acc = cons(value {&*l->car}, acc);
   return acc;
 }
@@ -479,7 +478,7 @@ list(Range range)
  */
 [[nodiscard]] inline bool
 issym(value x)
-{ return x->t == tag::sym; }
+{ return x->_t == tag::sym; }
 
 /**
  * Check if a value is a specific symbol
@@ -521,7 +520,7 @@ sym_name(value x)
  */
 [[nodiscard]] inline bool
 isstr(value x)
-{ return x->t == tag::str; }
+{ return x->_t == tag::str; }
 
 /**
  * Check if a value is a specific string
@@ -563,7 +562,7 @@ str_view(value x)
  */
 [[nodiscard]] inline bool
 isnum(value x)
-{ return x->t == tag::num; }
+{ return x->_t == tag::num; }
 
 /**
  * Check if a value is a specific number
@@ -577,6 +576,42 @@ isnum(value x)
 [[nodiscard]] inline bool
 isnum(value x, long double num)
 { return isnum(x) and x->num == num; }
+
+/**
+ * Check if a value is a boolean
+ * 
+ * \param x Value to check
+ * \return True if the value is a boolean
+ *
+ * \ingroup core
+ */
+[[nodiscard]] inline bool
+isbool(value x)
+{ return x->_t == tag::boolean; }
+
+/**
+ * Check if a value is a pointer
+ * 
+ * \param x Value to check
+ * \return True if the value is a pointer
+ *
+ * \ingroup core
+ */
+[[nodiscard]] inline bool
+isptr(value x)
+{ return x->_t == tag::ptr; }
+
+/**
+ * Check if a value is a pair
+ * 
+ * \param x Value to check
+ * \return True if the value is a pair
+ *
+ * \ingroup core
+ */
+[[nodiscard]] inline bool
+ispair(value x) noexcept
+{ return x->_t == tag::pair; }
 
 /**
  * Get the number value
@@ -650,7 +685,7 @@ car(value x)
 {
   if constexpr (Test)
   {
-    if (x->t != tag::pair)
+    if (x->_t != tag::pair)
       throw std::runtime_error {"car() - not a pair"};
   }
   return value {x->car};
@@ -672,11 +707,21 @@ cdr(value x)
 {
   if constexpr (Test)
   {
-    if (x->t != tag::pair)
+    if (x->_t != tag::pair)
       throw std::runtime_error {"cdr() - not a pair"};
   }
   return value {x->cdr};
 }
+
+
+[[nodiscard]] inline bool
+islist(value l)
+{
+  for (; ispair(l); l = cdr(l))
+    ;
+  return l == nil;
+}
+
 
 /**
  * Get the length of a list
@@ -690,7 +735,7 @@ cdr(value x)
 length(value l)
 {
   size_t len = 0;
-  for (; l->t == tag::pair; l = cdr(l), ++len);
+  for (; l->_t == tag::pair; l = cdr(l), ++len);
   return len;
 }
 
@@ -706,7 +751,7 @@ length(value l)
 [[nodiscard]] inline bool
 memq(value x, value l)
 {
-  for (; l->t == tag::pair; l = cdr(l))
+  for (; l->_t == tag::pair; l = cdr(l))
   {
     if (is(x, car(l)))
       return true;
@@ -726,7 +771,7 @@ memq(value x, value l)
 [[nodiscard]] inline bool
 member(value x, value l)
 {
-  for (; l->t == tag::pair; l = cdr(l))
+  for (; l->_t == tag::pair; l = cdr(l))
   {
     if (equal(x, car(l)))
       return true;
@@ -748,10 +793,10 @@ member(value x, value l)
 inline bool
 assq(value k, value l, value &result)
 {
-  for (; l->t == tag::pair; l = cdr(l))
+  for (; l->_t == tag::pair; l = cdr(l))
   {
     const value kv = car(l);
-    if (kv->t != tag::pair)
+    if (kv->_t != tag::pair)
       throw std::runtime_error {"assq() - non-associative list"};
     if (is(k, car(kv)))
     {
@@ -776,10 +821,10 @@ assq(value k, value l, value &result)
 inline bool
 assoc(value k, value l, value &result)
 {
-  for (; l->t == tag::pair; l = cdr(l))
+  for (; l->_t == tag::pair; l = cdr(l))
   {
     const value kv = car(l);
-    if (kv->t != tag::pair)
+    if (kv->_t != tag::pair)
       throw std::runtime_error {"assoc() - non-associative list"};
     if (equal(k, car(kv)))
     {
@@ -806,7 +851,7 @@ assoc(value k, value l)
 [[nodiscard]] inline value
 append(value l, value x)
 {
-  if (l->t == tag::pair)
+  if (l->_t == tag::pair)
     return cons(car(l), append(cdr(l), x));
   else
     return x;
@@ -823,11 +868,11 @@ append(value l, value x)
 [[nodiscard]] inline value
 append_mut(value l, value x)
 {
-  if (l->t != tag::pair)
+  if (l->_t != tag::pair)
     return x;
 
   value e;
-  for (e = l; cdr(e)->t == tag::pair; e = cdr(e));
+  for (e = l; cdr(e)->_t == tag::pair; e = cdr(e));
   set_cdr(e, x);
 
   return l;
@@ -915,3 +960,7 @@ opi::value::operator == (const char *symbol) const
 inline
 opi::value::operator std::pair<value, value>() const
 { return {opi::car(*this), opi::cdr(*this)}; }
+
+inline
+opi::value::operator opi::tag () const noexcept
+{ return (*this)->_t; }

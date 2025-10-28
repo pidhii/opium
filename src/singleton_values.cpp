@@ -27,7 +27,7 @@
 static opi::object*
 _initialize_boolean(opi::object *ptr, bool val)
 {
-  ptr->t = opi::tag::boolean;
+  ptr->_t = opi::tag::boolean;
   ptr->boolean = val;
   return ptr;
 }

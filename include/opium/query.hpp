@@ -48,7 +48,7 @@ struct _compare_symbols {
   bool
   operator () (const value &a, const value &b) const
   {
-    if (a->t != opi::tag::sym or b->t != opi::tag::sym)
+    if (not opi::issym(a) or not opi::issym(b))
       throw bad_code {
           std::format("expected symbols, got {} < {}", a, b), a};
     return std::strcmp(a->sym.data, b->sym.data) < 0;

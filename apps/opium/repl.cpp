@@ -128,7 +128,7 @@ cleanup_readline()
 void
 extract_symbols(const opi::value expr)
 {
-  switch (expr->t)
+  switch (opi::tag(expr))
   {
     case opi::tag::pair:
       extract_symbols(car(expr));

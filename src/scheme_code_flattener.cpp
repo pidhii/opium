@@ -209,7 +209,7 @@ analyse_column(const match_table &table, size_t col)
   for (size_t row = 0; row < table.rows(); ++row)
   {
     const opi::value pattern = table[row][col];
-    if (pattern->t == opi::tag::pair)
+    if (opi::ispair(pattern))
       stats.counts[car(pattern)] += 1;
     else
      stats.counts["_"] += 1;
@@ -445,7 +445,7 @@ opi::scheme_code_flattener::scheme_code_flattener(symbol_generator &gensym)
     const value type = ms.at("type");
 
     // Only flatten the expr
-    if (expr->t == tag::pair)
+    if (ispair(expr))
     {
       const value uid = m_gensym();
       const value newexpr = (*this)(expr);
@@ -534,6 +534,10 @@ opi::scheme_code_flattener::scheme_code_flattener(symbol_generator &gensym)
     return list("set!", ident, newexpr);
   });
 
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                           IMPORT PLUGINS
+  scheme_syntax_plugin::apply_all(*this);
+
   // function invocation
   // -------------------
   // Pull output nested comound expressions from inside the invocation by
@@ -551,7 +555,7 @@ opi::scheme_code_flattener::scheme_code_flattener(symbol_generator &gensym)
     value result = nil;
     for (const value x : range(ms.at("form")))
     {
-      if (x->t == tag::pair)
+      if (ispair(x))
       {
         const value uid = m_gensym();
         copy_location(x, uid);

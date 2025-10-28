@@ -67,7 +67,7 @@ opi::code_transformer::operator () (value inexpr) const
 static void
 _flatten_clauses(std::string_view tag, opi::value expr, opi::value &result)
 {
-  if (expr->t == opi::tag::pair and issym(car(expr), tag))
+  if (opi::ispair(expr) and issym(car(expr), tag))
   {
     for (const opi::value clause : range(cdr(expr)))
       _flatten_clauses(tag, clause, result);

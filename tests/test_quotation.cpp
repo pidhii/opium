@@ -43,7 +43,7 @@ class QuotationTest: public ::testing::Test {
   bool
   contains_cell(opi::value expr)
   {
-    if (expr->t == opi::tag::pair)
+    if (opi::ispair(expr))
     {
       if (opi::issym(opi::car(expr), opi::CELL))
         return true;
@@ -79,8 +79,8 @@ TEST_F(QuotationTest, QuotedExpressionNoCellInsertion)
   EXPECT_FALSE(contains_cell(result));
 
   // Verify that the structure is preserved (quoted content is returned directly)
-  EXPECT_TRUE(result->t == opi::tag::pair);
-  EXPECT_TRUE(opi::car(result)->t == opi::tag::sym);
+  EXPECT_TRUE(opi::ispair(result));
+  EXPECT_TRUE(opi::issym(opi::car(result)));
   EXPECT_TRUE(opi::issym(opi::car(result), "X"));
 }
 
@@ -97,7 +97,7 @@ TEST_F(QuotationTest, QuasiquoteWithUnquote)
   EXPECT_TRUE(contains_cell(result));
 
   // The result should be a list with the unquoted variable replaced with a cell
-  EXPECT_TRUE(result->t == opi::tag::pair);
+  EXPECT_TRUE(opi::ispair(result));
   
   // Navigate to the third element (the unquoted X)
   opi::value third_element = opi::car(opi::cdr(opi::cdr(result)));
@@ -129,7 +129,7 @@ TEST_F(QuotationTest, NestedQuotation)
   EXPECT_FALSE(contains_cell(result));
   
   // The result should be a list with the quoted content directly
-  EXPECT_TRUE(result->t == opi::tag::pair);
+  EXPECT_TRUE(opi::ispair(result));
   EXPECT_TRUE(opi::issym(opi::car(result), "a"));
 }
 
@@ -147,12 +147,12 @@ TEST_F(QuotationTest, NestedQuasiquotation)
   EXPECT_FALSE(contains_cell(result));
   
   // The result should be a list
-  EXPECT_TRUE(result->t == opi::tag::pair);
+  EXPECT_TRUE(opi::ispair(result));
   EXPECT_TRUE(opi::issym(opi::car(result), "a"));
   
   // The third element should be a quasiquote
   opi::value third_element = opi::car(opi::cdr(opi::cdr(result)));
-  EXPECT_TRUE(third_element->t == opi::tag::pair);
+  EXPECT_TRUE(opi::ispair(third_element));
   EXPECT_TRUE(opi::issym(opi::car(third_element), "quasiquote"));
 }
 // Test unquote outside quasiquote throws error
@@ -175,13 +175,13 @@ TEST_F(QuotationTest, DoubleNestedQuasiquote)
   opi::value result = opi::insert_cells(prt, expr);
 
   // The result should be a quasiquote
-  EXPECT_TRUE(result->t == opi::tag::pair);
+  EXPECT_TRUE(opi::ispair(result));
   EXPECT_TRUE(opi::issym(opi::car(result), "quasiquote"));
 
   // The inner unquote (,c) should be preserved
   opi::value inner_list = opi::car(opi::cdr(result));
   opi::value third_element = opi::car(opi::cdr(opi::cdr(inner_list)));
-  EXPECT_TRUE(third_element->t == opi::tag::pair);
+  EXPECT_TRUE(opi::ispair(third_element));
   EXPECT_TRUE(opi::issym(opi::car(third_element), "unquote"));
   
   // The double-unquote (,,d) should have one unquote removed
