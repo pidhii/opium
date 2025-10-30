@@ -43,7 +43,7 @@ vector(it) = {
 // push(VECTOR, VALUE)
 //
 // Append VALUE at the end of the VECTOR
-push(vec vector(T), x) = {
+push(vec vector(T), x T) = {
   // Check if we have enough space for the new element and, if not, reallocate
   // array with doubled capacity
   capacity = length(vec#data)
@@ -68,7 +68,7 @@ push(vec vector(T), x) = {
 // VECTOR[INDEX] -> VALUE
 // 
 // Get VALUE at INDEX
-vec[k] =
+vec::vector(T)[k::num] =
   if k >= vec#size then
     error("vector index out of range:", k, vec)
   else
@@ -78,7 +78,7 @@ vec[k] =
 // set VECTOR[INDEX] = VALUE
 //
 // Assign INDEX to VALUE
-set vec[k] = x =
+set vec::vector(T)[k::num] = x =
   if k >= vec#size then
     error("vector index out of range:", k, vec)
   else

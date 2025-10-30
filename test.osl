@@ -30,7 +30,7 @@ println(d["one"])
 
 
 require "json"
-let j = open("test.json", "r").readjson() in
+let j = open("test.json", "r").read_json() in
 println(dict(j))
 
 
@@ -51,7 +51,6 @@ match "___adfasd12312".find(re) in
       println("-", m)
     }
 | otherwize -> println("didnt match")
-
 
 require "argv"
 my_option = ""
@@ -101,3 +100,17 @@ match foo in
 | Foo -> println("This is foo")
 | Bar -> println("This is bar")
 
+
+println("c,compile".split(r"\w+"))
+
+
+if let hd : tl = [1, 2, 3] then
+  println("head: ", hd, ", tail: ", tl)
+
+
+blb = blob(64)
+println("blb: ", blb)
+set blb#u16[0] = 0xBEAF
+println("blb: ", blb)
+
+// println("read_blob() -> ", read_blob().unpack())

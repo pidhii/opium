@@ -149,7 +149,7 @@ struct object {
   size_t hash;
   source_location *location;
   union {
-    struct { char *data; size_t len; } sym; /**< Symbol data */
+    struct { const char *data; size_t len; } sym; /**< Symbol data */
     struct { char *data; size_t len; } str; /**< String data */
     struct { object *car, *cdr; }; /**< Pair data */
     long double num; /**< Numeric data */
@@ -167,6 +167,9 @@ hash(const opi::value &x);
  * \{
  */
 
+std::string_view
+global_string(std::string_view str) noexcept;
+
 /**
  * Create a symbol value
  * 
@@ -179,12 +182,13 @@ hash(const opi::value &x);
 sym(std::string_view str)
 {
   value ret {make<object>(tag::sym)};
-  ret->sym.data = static_cast<char*>(allocate_atomic(str.length() + 1));
-  std::memcpy(ret->sym.data, str.data(), str.length() + 1);
-  ret->sym.len = str.length();
+  std::string_view gstr = global_string(str);
+  ret->sym.data = gstr.data();
+  ret->sym.len = gstr.size();
   ret->hash = hash(ret);
   return ret;
 }
+
 
 /**
  * Create a string value
@@ -679,7 +683,7 @@ equal(value a, value b);
  *
  * \ingroup core
  */
-template <bool Test=true>
+template <bool Test=false>
 [[nodiscard]] inline value
 car(value x)
 {
@@ -701,7 +705,7 @@ car(value x)
  *
  * \ingroup core
  */
-template <bool Test=true>
+template <bool Test=false>
 [[nodiscard]] inline value
 cdr(value x)
 {

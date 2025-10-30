@@ -22,6 +22,7 @@
 
 #include <unordered_map>
 
+// TODO: clean up this mess
 
 namespace opi {
 
@@ -29,6 +30,8 @@ static
 std::unordered_map<std::string, std::chrono::nanoseconds> g_total_duration;
 static
 std::unordered_map<std::string, std::chrono::nanoseconds> g_max_duration;
+static
+std::unordered_map<std::string, size_t> g_times;;
 
 execution_timer::execution_timer(std::string_view name, bool auto_start)
 : m_name {name},
@@ -64,7 +67,6 @@ execution_timer::stop()
     auto duration = end_time - m_start_time;
     m_total_duration += duration;
     m_running = false;
-    // _report();
 
     // Update total duration
     g_total_duration[m_name] += duration;
@@ -73,6 +75,8 @@ execution_timer::stop()
     if (not g_max_duration.contains(m_name) ||
         duration > g_max_duration[m_name])
       g_max_duration[m_name] = duration;
+
+    g_times[m_name] += 1;
   }
 }
 
@@ -132,9 +136,9 @@ execution_timer::report_global_stats()
     else
       max_time = std::format("{:.3f} s", max_ms / 1000.0);
     
-    // Report both total and max duration
-    const std::string text = std::format("\e[1m{:20}\e[0m - total: {}, max: {}",
-                                         name, total_time, max_time);
+    // Report
+    const std::string text = std::format("\e[1m{:20}\e[0m - total: {}, max: {} ({})",
+                                         name, total_time, max_time, g_times[name]);
     entries.emplace(duration, text);
   }
 

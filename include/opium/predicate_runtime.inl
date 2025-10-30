@@ -84,7 +84,7 @@ struct _reconstructor {
     if (ispair(x))
     {
       value result = nil;
-      while (ispair(x) and not issym(car(x), CELL))
+      while (ispair(x) and not is(car(x), opi::cell_tag))
       {
         auto it = mem.find(&*x);
         if (it != mem.end())
@@ -93,13 +93,13 @@ struct _reconstructor {
         value newx = cons(nil, nil);
         mem.emplace(&*x, newx);
         set_car(newx, _reconstruct(car(x)));
-        // copy_location(x, newx);
+        copy_location(x, newx); // NOTE don't know, might be needed (apparently it is, needed or else we don't tracing inside function bodies)
 
         result = append_mut(result, newx);
         x = cdr(x);
       }
 
-      if (ispair(x) and opi::issym(car(x), CELL))
+      if (ispair(x) and opi::is(car(x), opi::cell_tag))
         return append_mut(result, _reconstruct(static_cast<opi::cell *>(cdr(x)->ptr)));
       else
         return append_mut(result, x);

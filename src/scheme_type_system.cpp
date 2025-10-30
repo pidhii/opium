@@ -176,7 +176,13 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
     if (global_flags.contains("IgnoreFailedQuery"))
       return {nil, {}};
     else
-      throw bad_code {"Prolog query failed (use -fIgnoreFailedQuery to ignore)", plcode};
+    {
+      // TODO: rerun the query following the longest trace and generate TLM
+      //       before the unwind
+      throw typecheck_failure {
+          "Prolog query failed (use -fIgnoreFailedQuery to ignore)",
+          build_type_location_map(ctx.prolog_emitter(), ppcode)};
+    }
   }
   else
     debug("\e[1mQUERY SUCCEEDED\e[0m");

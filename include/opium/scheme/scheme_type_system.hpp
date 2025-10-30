@@ -37,6 +37,20 @@
 namespace opi {
 
 
+struct typecheck_failure: std::exception {
+  typecheck_failure(const std::string &what, scheme_type_location_map &&tlm)
+  : _what {what}, tlm {std::move(tlm)}
+  { }
+
+  const char*
+  what() const noexcept override
+  { return _what.c_str(); }
+
+  std::string _what;
+  scheme_type_location_map tlm;
+};
+
+
 std::pair<value, scheme_type_location_map>
 emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode);
 

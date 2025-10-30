@@ -50,6 +50,16 @@ if (DOXYGEN_FOUND)
     VERBATIM)
 endif ()
 
+# Enable/disable benchmarks
+option (OPIUM_FUNCTION_BENCHMARKS "Enable function benchmarks" OFF)
+option (OPIUM_BLOCK_BENCHMARKS "Enable code block benchmarks" OFF)
+if (OPIUM_FUNCTION_BENCHMARKS)
+  add_compile_definitions (OPI_FUNCTION_BENCHMARKS_ENABLED)
+endif (OPIUM_FUNCTION_BENCHMARKS)
+if (OPIUM_BLOCK_BENCHMARKS)
+  add_compile_definitions (OPI_BLOCK_BENCHMARKS_ENABLED)
+endif (OPIUM_BLOCK_BENCHMARKS)
+
 # Create an object library for all source files
 file (GLOB src_files src/*.cpp)
 add_library(opium_objects OBJECT ${src_files})
@@ -88,8 +98,6 @@ target_compile_options(opium-pp PUBLIC ${READLINE_CFLAGS_OTHER})
 
 install (TARGETS opium opium-pp DESTINATION bin)
 
-option (OPIUM_SCRIPT "Build opium scripting language" ON)
-
 set (ECO_BUILD_TESTS OFF)
 set (ECO_WITH_VALGRIND OFF)
 add_subdirectory(eco)
@@ -108,6 +116,7 @@ target_link_libraries(opium-pp PUBLIC eco_a)
 configure_file(${CMAKE_SOURCE_DIR}/opium.pc ${CMAKE_BINARY_DIR}/opium.pc @ONLY)
 install(FILES ${CMAKE_BINARY_DIR}/opium.pc DESTINATION lib/pkgconfig)
 
+option (OPIUM_SCRIPT "Build opium scripting language" ON)
 if (OPIUM_SCRIPT)
   find_package (BISON REQUIRED)
   find_package (FLEX REQUIRED)

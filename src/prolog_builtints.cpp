@@ -24,7 +24,7 @@ bool
 opi::prolog_impl::var(value x)
 {
   value _ = nil;
-  if (ispair(x) and issym(car(x), CELL))
+  if (ispair(x) and is(car(x), cell_tag))
     return not get_value(static_cast<cell*>(cdr(x)->ptr), _);
   return false;
 }

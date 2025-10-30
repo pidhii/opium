@@ -44,7 +44,8 @@ opi::get_location(opi::value val, opi::source_location &location)
 void
 opi::set_location(opi::value val, const opi::source_location &loc)
 {
-  val->location = make<source_location>(loc);
+  if (val != nil and val != True and val != False)
+    val->location = make<source_location>(loc);
 }
 
 bool

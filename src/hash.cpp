@@ -10,7 +10,7 @@ _hash(const opi::value &x, [[maybe_unused]] std::unordered_set<void*> &mem)
   switch (opi::tag(x))
   {
     case opi::tag::nil: return 0;
-    case opi::tag::sym: return cstrhash({x->sym.data, x->sym.len});
+    case opi::tag::sym: return std::hash<size_t> {}(size_t(x->sym.data));
     case opi::tag::str: return cstrhash({x->str.data, x->str.len});
     case opi::tag::num: return std::hash<long double> {}(x->num);
     case opi::tag::ptr: return std::hash<void *> {}(x->ptr);

@@ -58,6 +58,7 @@ do {                                                   \
 } while (0)
 
 
+struct range_location;
 
 namespace opi::osl {
 
@@ -66,20 +67,20 @@ parse(const std::string &source, std::FILE *file, bool is_root = false);
 
 std::vector<std::string> pathes = {""};
 
+opi::source_location
+make_location(const range_location &loc);
+
+static
+std::optional<int> start_token;
+
 }
 
 static std::string g_source;
 size_t g_fileoffs_left;
 size_t g_fileoffs_right;
 
-struct range_location;
 static void
 bindloc(opi::value val, const range_location &loc);
-
-opi::source_location
-make_location(const range_location &loc);
-
-
 
 static opi::value
 mangle_type_constructor(opi::value ctor)
@@ -422,7 +423,19 @@ fix_type_annotations_in_arguments(opi::value l)
 
 %code {
   extern "C" int
-  yylex(YYSTYPE *yylval_p, YYLTYPE *loc_p, yyscan_t yyscanner);
+  yylex_main(YYSTYPE *yylval_p, YYLTYPE *loc_p, yyscan_t yyscanner);
+
+  int
+  yylex(YYSTYPE *yylval_p, YYLTYPE *loc_p, yyscan_t yyscanner)
+  {
+    if (opi::osl::start_token.has_value())
+    {
+      const int result = opi::osl::start_token.value();
+      opi::osl::start_token = std::nullopt;
+      return result;
+    }
+    return yylex_main(yylval_p, loc_p, yyscanner);
+  }
 
   void
   yyerror(YYLTYPE *loc_p, yyscan_t scnner, const char *what)
@@ -440,6 +453,8 @@ fix_type_annotations_in_arguments(opi::value l)
 
 // =============================================================================
 //                                Tokens
+%token PARSE_APPLEXPR PARSE_EXPR PARSE_STMT
+
 %token REQUIRE
 %token ASSERT
 %token IDENT
@@ -506,6 +521,9 @@ fix_type_annotations_in_arguments(opi::value l)
 
 Entry
   : TopLvlSeq { *g_result_ptr = append(*g_result_ptr, $1); }
+  | PARSE_APPLEXPR ApplExpr { *g_result_ptr = $2; }
+  | PARSE_EXPR Expr { *g_result_ptr = $2; }
+  | PARSE_STMT Stmt { *g_result_ptr = $2; }
 ;
 
 String
@@ -596,7 +614,7 @@ Expr
       /*body = list($3);*/
     /*$$ = list(define, $1, dot, body);*/
   /*}*/
-  | Expr ':' Expr { const value op = "cons"; bindloc(op, @$); $$ = list(op, $1, $3); }
+  | Expr ':' Expr { const value op = ":"; bindloc(op, @$); $$ = list(op, $1, $3); }
   | Expr '+' Expr { const value op = "+"; bindloc(op, @$); $$ = list(op, $1, $3); }
   | Expr '-' Expr { const value op = "-"; bindloc(op, @$); $$ = list(op, $1, $3); }
   | Expr '*' Expr { const value op = "*"; bindloc(op, @$); $$ = list(op, $1, $3); }
@@ -998,7 +1016,7 @@ bindloc(opi::value val, const range_location &loc)
 }
 
 opi::source_location
-make_location(const range_location &loc)
+opi::osl::make_location(const range_location &loc)
 {
   opi::source_location location;
   location.source = g_source;

@@ -1,4 +1,5 @@
 #include "opium/logging.hpp"
+#include "opium/scheme/scheme_type_system.hpp"
 #include "opium/source_location.hpp"
 #include "opium/utilities/execution_timer.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
@@ -9,6 +10,7 @@
 #include <filesystem>
 #include <cstdlib>
 #include <cstring>
+#include <algorithm>
 
 #include <dlfcn.h>
 
@@ -50,6 +52,22 @@ load_plugin(const std::fs::path &path)
 }
 
 
+static void
+tracedump(const opi::prolog &pl, size_t tracelen)
+{
+  // Get longest trace
+  opi::stl::vector<opi::source_location> maxtrace;
+  opi::scan_traces(pl.query_trace(), [&maxtrace](const auto &tcand) {
+    if (tcand.size() > maxtrace.size())
+      maxtrace = tcand;
+  });
+
+  opi::stl::vector<opi::source_location> trace = maxtrace;
+  const size_t tstart = trace.size() < tracelen ? 0 : trace.size() - tracelen;
+  for (size_t t = tstart; t < trace.size(); ++t)
+    opi::error("[{:3}] {}", t, display_location(trace[t], 1, "\e[1m", "\e[2m"));
+}
+
 int
 main(int argc, char **argv)
 {
@@ -61,16 +79,18 @@ main(int argc, char **argv)
   std::vector<std::fs::path> load;
   std::string opath = "out.scm";
   std::vector<std::string> extra_oslpathes;
+  size_t tracelen = 10;
 
   po::options_description desc {"Allowed options"};
   desc.add_options()
     ("help", "produce help message")
     ("input-file", po::value<std::fs::path>(), "input file to process")
-    ("verbosity,v", po::value<std::string>(&verbosity)->implicit_value("debug"), "verbosity")
-    ("flag,f", po::value<std::vector<std::string>>(&flags), "flags")
-    ("output,o", po::value<std::string>(&opath), "write Scheme script to the specified file")
-    ("oslpath", po::value<std::vector<std::string>>(&extra_oslpathes),
-     "specify additional directory for filename resolution");
+    ("verbosity,v", po::value(&verbosity)->implicit_value("debug"), "verbosity")
+    ("flag,f", po::value(&flags), "flags")
+    ("output,o", po::value(&opath), "write Scheme script to the specified file")
+    ("oslpath", po::value(&extra_oslpathes),
+     "specify additional directory for filename resolution")
+    ("trace-length", po::value(&tracelen), "maximal back-trace length");
 
   po::positional_options_description posdesc;
   posdesc.add("input-file", 1);
@@ -173,16 +193,26 @@ main(int argc, char **argv)
   for (const std::string &prefix : osl::pathes)
     pl.add_path_prefix(prefix);
 
-  try {
+  try
+  {
     generate_scheme(result, pl, opath);
+  }
+  catch (const opi::typecheck_failure &exn)
+  {
+    opi::error("{}", exn.what());
+    if (varmap.contains("input-file"))
+    {
+      inputpath = varmap["input-file"].as<std::fs::path>();
+      std::ifstream inputfile {inputpath};
+      exn.tlm.display_source_with_types(inputpath, inputfile, std::cerr);
+    }
+    tracedump(pl, tracelen);
+    return EXIT_FAILURE;
   }
   catch (const std::exception &exn)
   {
-    opi::source_location location;
-    if (pl.blame_list().get_blame(inputpath, location))
-      error("blame {}", display_location(location));
-    else
-      error("scheme translation failed ({})", exn.what());
+    opi::error("{}", exn.what());
+    tracedump(pl, tracelen);
     return EXIT_FAILURE;
   }
   

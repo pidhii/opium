@@ -26,6 +26,20 @@
 #include "opium/logging.hpp"
 
 
+static opi::object*
+_initialize_cell(opi::object *ptr)
+{
+  static char sym[] = "#__Cell";
+  ptr->_t = opi::tag::sym;
+  ptr->sym.data = sym;
+  ptr->sym.len = sizeof(sym);
+  return ptr;
+}
+
+static opi::object cell_tag_object {opi::tag::sym};
+const opi::value opi::cell_tag {_initialize_cell(&cell_tag_object)};
+
+
 /**
  * Check if a value is a variable (symbol starting with a capital letter)
  * 
@@ -134,7 +148,7 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
   bool iswild;
   if (quasiquote_level == 0 and _is_variable(expr, iswild))
   {
-    result = cons(opi::CELL, ptr(iswild ? prt.make_var() : prt[expr]));
+    result = cons(opi::cell_tag, ptr(iswild ? prt.make_var() : prt[expr]));
     mem.emplace(&*expr, result);
     copy_location(expr, result);
     return result;
@@ -159,7 +173,7 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
 opi::value
 opi::insert_cells(predicate_runtime &prt, value expr)
 {
-  execution_timer _ {"insert_cells()"};
+  OPI_FUNCTION_BENCHMARK
   opi::stl::unordered_map<object *, value> mem;
   return _insert_cells(prt, expr, mem, 0);
 }
@@ -219,6 +233,7 @@ opi::unify(cell *x, cell *y)
 bool
 opi::get_value(cell *x, value &result)
 {
+  OPI_FUNCTION_BENCHMARK
   x = find(x);
   if (x->kind == cell::kind::value)
   {
@@ -288,10 +303,9 @@ opi::predicate_runtime::mark_dead()
  * \return True if the expression represents a cell, false otherwise
  */
 [[nodiscard]] static inline bool
-_is_cell(opi::value expr, opi::cell *&result)
+_is_cell(opi::value expr, opi::cell *&result) noexcept
 {
-  if (opi::ispair(expr) and opi::issym(opi::car(expr), opi::CELL) and
-      opi::isptr(opi::cdr(expr)))
+  if (opi::ispair(expr) and opi::is(opi::car(expr), opi::cell_tag))
   {
     result = static_cast<opi::cell*>(opi::cdr(expr)->ptr);
     return true;
@@ -307,7 +321,19 @@ _is_tag(opi::value x)
 
 template <bool ForceMatch>
 struct _match_arguments_impl {
-  opi::stl::unordered_set<opi::value> mem;
+  using mem_element_type = std::pair<opi::object*, opi::object*>;
+
+  struct mem_element_hash {
+    size_t
+    operator () (const mem_element_type &x) const noexcept
+    {
+      size_t hash = 0;
+      opi::hash_combine(hash, x.first);
+      opi::hash_combine(hash, x.second);
+      return hash;
+    }
+  };
+  opi::stl::unordered_set<mem_element_type, mem_element_hash> mem;
 
   bool
   match_arguments(opi::predicate_runtime &prt, opi::value pexpr,
@@ -316,54 +342,60 @@ struct _match_arguments_impl {
     opi::cell *c1, *c2;
 
     // Test if was already called with these arguments and return imediately if so
-    const opi::value theseargs = cons(ptr(&*pexpr), ptr(&*eexpr));
-    if (mem.contains(theseargs))
-      return true;
-    // Otherwize, remember the argument pair
-    mem.insert(theseargs);
+    OPI_BLOCK_BENCHMARK("memoisation things", {
+      if (not mem.emplace(&*pexpr, &*eexpr).second)
+        return true;
+    })
 
     // Expand variables whenever possible
-    if (_is_cell(eexpr, c1) and opi::get_value(c1, eexpr))
-      return match_arguments(prt, pexpr, eexpr);
-    if (_is_cell(pexpr, c1) and opi::get_value(c1, pexpr))
-      return match_arguments(prt, pexpr, eexpr);
+    OPI_BLOCK_BENCHMARK("variable expansion", {
+      if (_is_cell(eexpr, c1) and opi::get_value(c1, eexpr))
+        {};// return match_arguments(prt, pexpr, eexpr); // NOTE: didnt check with brains whether it is OK to comment it out
+      if (_is_cell(pexpr, c1) and opi::get_value(c1, pexpr))
+        {};// return match_arguments(prt, pexpr, eexpr); // NOTE: didnt check with brains whether it is OK to comment it out
+    })
 
     // Unify or assign variables
-    if (_is_cell(eexpr, c1))
-    {
-      if (_is_cell(pexpr, c2))
-        return opi::unify(c2, c1) or ForceMatch;
-      else
-        return (not _is_tag(pexpr) and opi::unify(c1, prt.make_term(pexpr))) or ForceMatch;
-    }
-    else if (_is_cell(pexpr, c1))
-      return (not _is_tag(eexpr) and opi::unify(c1, prt.make_term(eexpr))) or ForceMatch;
+    OPI_BLOCK_BENCHMARK("unification and assignment", {
+      if (_is_cell(eexpr, c1))
+      {
+        if (_is_cell(pexpr, c2))
+          return opi::unify(c2, c1) or ForceMatch;
+        else
+          return (not _is_tag(pexpr) and opi::unify(c1, prt.make_term(pexpr))) or ForceMatch;
+      }
+      else if (_is_cell(pexpr, c1))
+        return (not _is_tag(eexpr) and opi::unify(c1, prt.make_term(eexpr))) or ForceMatch;
+    })
 
     // Structural equality
-    if (opi::tag(pexpr) != opi::tag(eexpr))
-      return ForceMatch or false;
+    OPI_BLOCK_BENCHMARK("structural equality", {
+      if (opi::tag(pexpr) != opi::tag(eexpr))
+        return ForceMatch or false;
 
-    switch (opi::tag(pexpr))
-    {
-      case opi::tag::pair:
-        return match_arguments(prt, opi::car(pexpr), opi::car(eexpr))
-           and match_arguments(prt, opi::cdr(pexpr), opi::cdr(eexpr));
+      switch (opi::tag(pexpr))
+      {
+        case opi::tag::pair:
+          OPI_END_BENCHMARK();
+          return match_arguments(prt, opi::car(pexpr), opi::car(eexpr)) and
+                 match_arguments(prt, opi::cdr(pexpr), opi::cdr(eexpr));
 
-      default:
-        if constexpr (ForceMatch)
-        {
-          // if (not opi::equal(pexpr, eexpr) and
-          //     opi::loglevel >= opi::loglevel::debug)
-          // {
-          //   opi::debug("Ignoring mismatch between lhs and rhs of "
-          //             "match_arguments():\nlhs = {}\nrhs = {}",
-          //             opi::reconstruct(pexpr, opi::stringify_unbound_variables),
-          //             opi::reconstruct(eexpr, opi::stringify_unbound_variables));
-          // }
-          return true;
-        }
-        return opi::equal(pexpr, eexpr);
-    }
+        default:
+          if constexpr (ForceMatch)
+          {
+            // if (not opi::equal(pexpr, eexpr) and
+            //     opi::loglevel >= opi::loglevel::debug)
+            // {
+            //   opi::debug("Ignoring mismatch between lhs and rhs of "
+            //             "match_arguments():\nlhs = {}\nrhs = {}",
+            //             opi::reconstruct(pexpr, opi::stringify_unbound_variables),
+            //             opi::reconstruct(eexpr, opi::stringify_unbound_variables));
+            // }
+            return true;
+          }
+          return opi::equal(pexpr, eexpr);
+      }
+    })
   }
 }; // struct _match_arguments_impl
 
@@ -372,7 +404,7 @@ bool
 opi::match_arguments(opi::predicate_runtime &prt, opi::value pexpr,
                      opi::value eexpr, bool force)
 {
-  execution_timer _ {"match_arguments()"};
+  OPI_FUNCTION_BENCHMARK
   if (force)
     return _match_arguments_impl<true>{}.match_arguments(prt, pexpr, eexpr);
   else
@@ -445,8 +477,7 @@ _equivalent(opi::value x, opi::value y,
 bool
 opi::equivalent(value x, value y)
 {
-  execution_timer _ {"equivalent()"};
-
+  OPI_FUNCTION_BENCHMARK
   opi::stl::unordered_map<void*, void*> equivmem;
   opi::stl::unordered_set<value> argmem;
   return _equivalent(x, y, argmem, equivmem);
@@ -455,8 +486,7 @@ opi::equivalent(value x, value y)
 bool
 opi::equivalent_up_to_bindings(value x, value y)
 {
-  execution_timer _ {"equivalent_up_to_bindings()"};
-
+  OPI_FUNCTION_BENCHMARK
   predicate_runtime tempns; // temporary frame for bindings
   return match_arguments(tempns, x, y);
 }

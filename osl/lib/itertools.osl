@@ -8,12 +8,12 @@ require "number"
 //                             iteration
 //
 foreach(it, f) = match next(it) in
-| Some(x)   -> { f(x) foreach(it, f) }
-| Nothing() -> void()
+| Some(x) -> { f(x) foreach(it, f) }
+| Nothing -> void()
 
 
 foldl(it, z, f) = match next(it) in
-| Some(x)   -> foldl(it, f(z, x), f)
+| Some(x) -> foldl(it, f(z, x), f)
 | otherwize -> z
 
 
@@ -21,8 +21,8 @@ foldl(it, z, f) = match next(it) in
 //                                search
 //
 find(it, p) = match next(it) in
-| Some(x)   -> if p(x) then Some(x) else find(it, p)
-| Nothing() -> Nothing()
+| Some(x) -> if p(x) then Some(x) else find(it, p)
+| Nothing -> Nothing
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -34,9 +34,11 @@ type mapIterator(Iter, T, U) = {
 }
 
 next(it mapIterator(Iter, T, U)) =
-  match next(it#inner) in
-  | Some(x) -> Some(it#func(x))
-  | Nothing() -> Nothing()
+  cuttypecheck(
+    match next(it#inner) in
+    | Some(x) -> Some(it#func(x))
+    | Nothing -> Nothing
+  )
 
 map(it, f) = mapIterator(it, coerce(f))
 // map(it, f) = generator { for x in it do yield f(x) }
@@ -47,17 +49,45 @@ map(it, f) = mapIterator(it, coerce(f))
 //
 type whileIterator(Iter, T) = {
   inner Iter,
-  pred  fn(T) -> bool,
-  isdone  bool,
+  pred fn(T) -> bool,
+  isdone bool,
 }
 
 next(it whileIterator(Iter, T)) =
-  if it#isdone then Nothing()
-  else match next(it#inner) in
-  | Some(x) -> if it#pred(x) then Some(x) else { set it#isdone = true Nothing() }
-  | otherwize -> Nothing()
+  cuttypecheck(
+    if it#isdone then Nothing
+    else match next(it#inner) in
+    | Some(x) -> if it#pred(x) then Some(x) else { set it#isdone = true Nothing }
+    | otherwize -> Nothing
+  )
 
 while(it, p) = whileIterator(it, coerce(p), false)
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                           take - iterator
+//
+type take(Iter) = {
+  inner Iter,
+  n num
+}
+
+next(it take(Iter)) =
+  cuttypecheck(
+    let n = it#n in
+    if n <= 0 then Nothing
+    else match next(it#inner) in
+    | Some(x) -> { set it#n = n - 1 Some(x) }
+    | otherwize -> { set it#n = 0 Nothing }
+  )
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                                 drop
+//
+drop(it, n num) =
+  if n <= 0 then { next(it) drop(it, n - 1) }
+  else Nothing
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -69,9 +99,11 @@ type filterIterator(Iter, T) = {
 }
 
 next(it filterIterator(Iter, T)) =
-  match next(it#inner) in
-  | Some(x) -> if it#pred(x) then Some(x) else next(it)
-  | Nothing() -> Nothing()
+  cuttypecheck(
+    match next(it#inner) in
+    | Some(x) -> if it#pred(x) then Some(x) else next(it)
+    | otherwize -> Nothing
+  )
 
 filter(it, pred) = filterIterator(it, coerce(pred))
 
@@ -86,10 +118,10 @@ next(it rangeIterator()) = {
   if result < it#to then
   {
     set it#from = result + 1
-    return Some(result)
+    return cuttypecheck(Some(result))
   }
   else
-    return Nothing()
+    return cuttypecheck(Nothing)
 }
 
-range(from, to) = rangeIterator(from, to)
+iter(r range(T)) = rangeIterator(r#start, r#end)

@@ -11,7 +11,6 @@ require "error"
 
     (define strcat string-append)
 
-    (define strref string-ref)
     (define strlen string-length)
 
     (define streq string=?)
@@ -31,9 +30,7 @@ require "error"
       (let ((result (string->number STRING)))
         (if result
           (oslctor:Some result)
-          (oslctor:Nothing))))
-
-    (define osl_string_chomp string-chomp))
+          (oslctor:Nothing)))))
 }
 //
 #pragma prolog {
@@ -42,7 +39,6 @@ require "error"
   ;; Type signatures for the renamed functions
   (predicate (result-of (strcat . Strs) str) (all str Strs))
 
-  (predicate (result-of (strref str num) char))
   (predicate (result-of (strlen str) num))
 
   (predicate (result-of (streq str str) bool))
@@ -59,10 +55,6 @@ require "error"
 
   (predicate (result-of (str2list str) (list char)))
   (predicate (result-of (str2num str) (maybe num)))
-
-  (predicate (result-of (osl_string_chomp . Args) str)
-    (or (= Args (str))
-        (= Args (str str))))
 }
 
 // STRING + STRING -> str
@@ -73,7 +65,23 @@ s1 + s2 = strcat(s1, s2)
 // STRING[INDEX] -> char
 //
 // String element access
-s[k] = strref(s, k)
+extern identifier!(string-ref)(str, num) -> char
+s::str[k::num] = identifier!(string-ref)(s, k)
+
+extern identifier!(substring) as __substring(str, num, num) -> str
+substr(s str, start num, end num) = {
+  if start < 0 then
+    set start = length(s) + start
+  if end < 0 then
+    set end = length(s) + end
+  return __substring(s, start, end)
+}
+
+s::str[r::range(num)] = substr(s, r#start, r#end)
+
+extern identifier!(string-set!)(str, num, char) -> void
+set s::str[k::num] = c = identifier!(string-set!)(s, k, c)
+
 
 // STRING <cmp-op> STRING -> bool
 //
@@ -91,11 +99,10 @@ s1 >= s2 = strge(s1, s2)
 length(s str) = strlen(s)
 
 str(s str) = s
+parse(s str) = Some(s)
 list(s str) = str2list(s)
 parse(s str) = str2num(s)
-num(s str) = match str2num(s) in
-| Some(value) -> value
-| otherwize   -> error("Not a number", s)
+num(s str) = str2num(s).expect("Not a number")
 
 // chomp(STRING) -> str
 // chomp(STRING, SUFFIX) -> str
@@ -103,8 +110,8 @@ num(s str) = match str2num(s) in
 // If STRING ends with SUFFIX, then this procedure returns a copy of its first
 // argument with the suffix removed, otherwise returns STRING unchanged.
 // SUFFIX defaults to "\n".
-chomp = osl_string_chomp
-
+extern identifier!(string-chomp) as chomp(str) -> str
+extern identifier!(string-chomp) as chomp(str, str) -> str
 
 join(it, sep str) =
   match next(it) in

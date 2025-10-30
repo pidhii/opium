@@ -118,7 +118,8 @@ build_type_location_map(const scheme_to_prolog &prolog_emitter, value ppcode)
 
 void
 scheme_type_location_map::display_source_with_types(
-    std::istream &in, std::ostream &out, std::string_view type_style) const
+    std::string_view source, std::istream &in, std::ostream &out,
+    std::string_view type_style) const
 {
   // Read the entire file content
   std::string content {std::istreambuf_iterator<char>(in),
@@ -133,7 +134,10 @@ scheme_type_location_map::display_source_with_types(
 
   std::vector<type_annotation> annotations;
   for (const auto &[loc, type] : m_map)
-    annotations.emplace_back(type_annotation {loc.start, loc.end, type});
+  {
+    if (loc.source == source)
+      annotations.emplace_back(type_annotation {loc.start, loc.end, type});
+  }
 
   // Sort annotations by end position (descending) to process from end to start
   std::sort(annotations.begin(), annotations.end(),

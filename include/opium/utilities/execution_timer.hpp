@@ -101,4 +101,27 @@ class execution_timer {
   std::chrono::nanoseconds m_total_duration;
 };
 
+
+#ifdef OPI_FUNCTION_BENCHMARKS_ENABLED
+#define OPI_FUNCTION_BENCHMARK                                                 \
+  opi::execution_timer _et##__LINE__ {__FUNCTION__};
+#else
+#define OPI_FUNCTION_BENCHMARK
+#endif
+
+
+#ifdef OPI_BLOCK_BENCHMARKS_ENABLED
+#define OPI_BLOCK_BENCHMARK(_label_, _code_)                                   \
+  {                                                                            \
+    static const std::string _ettitle {__FUNCTION__ + std::string(" - ") +     \
+                                       _label_};                               \
+    opi::execution_timer _this_timer {_ettitle};                               \
+    _code_;                                                                    \
+  }
+#define OPI_END_BENCHMARK() _this_timer.stop()
+#else
+#define OPI_BLOCK_BENCHMARK(_label_, _code_) { _code_; }
+#define OPI_END_BENCHMARK()
+#endif
+
 } // namespace opi

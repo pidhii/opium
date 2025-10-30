@@ -133,23 +133,42 @@ _remove_dynamic_function_dispatch_body(value x)
 }
 
 
-template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
+
+template <const char* Str>
+inline bool
+issym(opi::value x)
+{
+  static const std::string_view gstr = opi::global_string(Str);
+  return opi::tag(x) == opi::tag::sym and x->sym.data == gstr.data();
+}
+
+#define ISSYM(_x_, _s_) ({static constexpr char _cs_[] = _s_; issym<_cs_>(_x_); })
+
+
+template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler,
+          prolog_guide Guide>
 void
 prolog::make_true(predicate_runtime &ert, value e, Cont cont,
-                  NTVHandler ntvhandler) const
+                  NTVHandler ntvhandler, Guide guide) const
 {
-  if (e == list("and"))
+  if (ispair(e) and ISSYM(car(e), "and") and is(cdr(e), nil))
   {
     cont();
     return;
   }
 
-  utl::state_saver _ {m_depth};
+  utl::state_saver _ {m_depth, m_trace};
   m_depth ++;
 
-  // Track the last evaluated expression. This is an ad-hoc method to provide
-  // user with information on the source of failure during the TypeCheck. 
-  _update_last_expr(m_depth, e);
+  // Update trace.
+  _trace_expr(e);
+
+  // Follow the guide
+  if constexpr (not std::is_same_v<Guide, bruteforce_query>)
+  {
+    if (not guide(e, m_trace))
+      return;
+  }
 
   // NOTE: This Prolog interpreter is implemented as simple AST evaluator with
   // CPS without proper tail-calls. Consequently evaluation of every single
@@ -160,13 +179,13 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
   // reaches its threshold (i.e. close to running out of stack).
   //
   // The depth-based thresholds below are obtained by trial-and-error (FIXME)
-#ifdef OPIUM_RELEASE_BUILD
+  #ifdef OPIUM_RELEASE_BUILD
   if (m_depth % 5000 == 0)
-#else
+  #else
   // Non-release build produces much larger frames during function calls, so it
   // consumes stack faster
   if (m_depth % 1000 == 0)
-#endif
+  #endif
   {
     warning("switching stack (depth = {})", m_depth);
     bool i_disabled_gc = false;
@@ -180,8 +199,8 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
     utl::guarded_stack stack {4000};
     warning("jumping onto new stack");
     utl::separate_stack_executor exec {stack.stack_pointer(), stack.size()};
-    exec(std::bind(&prolog::make_true<Cont, NTVHandler>, this, std::ref(ert), e,
-                   cont, ntvhandler));
+    exec(std::bind(&prolog::make_true<Cont, NTVHandler, Guide>, this, std::ref(ert), e,
+                   cont, ntvhandler, guide));
 
     if (i_disabled_gc)
     {
@@ -192,7 +211,7 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
     return;
   }
 
-#ifndef OPIUM_RELEASE_BUILD
+  #ifndef OPIUM_RELEASE_BUILD
   if (loglevel >= loglevel::debug)
   {
     std::ostringstream message;
@@ -226,19 +245,19 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
     if (not messagestr.empty())
       debug("make_true {}", messagestr);
   }
-#endif
+  #endif
 
   switch (tag(e))
   {
     case tag::pair: {
-      if (issym(car(e), "if"))
+      if (ISSYM(car(e), "if"))
       {
         const value cond = car(cdr(e));
         const value thenbr = car(cdr(cdr(e)));
         const value elsebr = car(cdr(cdr(cdr(e))));
-        return _make_if_true(ert, cond, thenbr, elsebr, cont, ntvhandler);
+        return _make_if_true(ert, cond, thenbr, elsebr, cont, ntvhandler, guide);
       }
-      else if (issym(car(e), "insert-cells"))
+      else if (ISSYM(car(e), "insert-cells"))
       {
         // Validate the form
         if (length(cdr(e)) != 2)
@@ -258,41 +277,41 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
         const value resultexpr = insert_cells(tempns, recoexpr);
 
         // Bind result and continue
-        make_true(ert, list("=", resultexpr, result), cont, ntvhandler);
+        make_true(ert, list("=", resultexpr, result), cont, ntvhandler, guide);
 
         // Roll back
         tempns.mark_dead();
 
         return;
       }
-      else if (issym(car(e), "debug"))
+      else if (ISSYM(car(e), "debug"))
       {
         prolog_impl::debug(e, cdr(e));
         return cont();
       }
-      else if (issym(car(e), "and"))
+      else if (ISSYM(car(e), "and"))
       {
         const value clauses = cdr(e);
-        return _make_and_true(ert, clauses, cont, ntvhandler);
+        return _make_and_true(ert, clauses, cont, ntvhandler, guide);
       }
-      else if (issym(car(e), "or"))
+      else if (ISSYM(car(e), "or"))
       {
         const value clauses = cdr(e);
-        return _make_or_true(ert, clauses, cont, ntvhandler);
+        return _make_or_true(ert, clauses, cont, ntvhandler, guide);
       }
-      else if (issym(car(e), "var"))
+      else if (ISSYM(car(e), "var"))
       {
         if (prolog_impl::var(car(cdr(e))))
           cont();
         return;
       }
-      else if (issym(car(e), "nonvar"))
+      else if (ISSYM(car(e), "nonvar"))
       {
         if (not prolog_impl::var(car(cdr(e))))
           cont();
         return;
       }
-      else if (issym(car(e), "=@="))
+      else if (ISSYM(car(e), "=@="))
       {
         const value a = car(cdr(e));
         const value b = car(cdr(cdr(e)));
@@ -300,16 +319,16 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
           cont();
         return;
       }
-      else if (issym(car(e), "elements-of"))
+      else if (ISSYM(car(e), "elements-of"))
       {
         const value l = reconstruct(car(cdr(e)), ignore_unbound_variables);
-        if (ispair(l) and issym(car(l), CELL))
+        if (ispair(l) and is(car(l), cell_tag))
           throw error {"Can't invoke `elements-of` with unbound variable", l};
         const value result = car(cdr(cdr(e)));
         const value elements = prolog_impl::elements_of(l);
-        return make_true(ert, list("=", result, elements), cont, ntvhandler);
+        return make_true(ert, list("=", result, elements), cont, ntvhandler, guide);
       }
-      else if (issym(car(e), "call"))
+      else if (ISSYM(car(e), "call"))
       {
         value goal = car(cdr(e));
         if (prolog_impl::var(goal))
@@ -322,8 +341,10 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
 
         // Reconstruct "Goal" as much as possible
         goal = reconstruct(goal, ignore_unbound_variables);
+        #ifndef OPIUM_RELEASE_BUILD
         if (global_flags.contains("DebugCall"))
           debug("call Goal: {}", goal);
+        #endif
 
         if (ispair(goal))
           e = append(goal, cdr(cdr(e)));
@@ -331,13 +352,13 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
           e = cons(goal, cdr(cdr(e)));
 
         // Run new goal
-        return make_true(ert, e, cont, ntvhandler);
+        return make_true(ert, e, cont, ntvhandler, guide);
       }
-      else if (issym(car(e), "not"))
+      else if (ISSYM(car(e), "not"))
       {
         bool success = false;
         std::function<void()> newcont = [&]() { success = true; };
-        make_true(ert, car(cdr(e)), newcont, ntvhandler);
+        make_true(ert, car(cdr(e)), newcont, ntvhandler, guide);
         if (not success)
           cont();
         return;
@@ -352,27 +373,13 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
           cont();
         };
 
-        try {
-          for (const predicate &p : predicate_branches(predname))
-            _make_predicate_true(ert, p, eargs, newcont, ntvhandler);
-        }
-        catch (const error &exn)
+        utl::state_saver _ {m_cutpred};
+        for (const predicate &p : predicate_branches(predname))
         {
-          opi::error("{}", exn.display());
-          throw error {std::format("unhandled exception",
-                                   reconstruct(e, ignore_unbound_variables)),
-                       e};
-        }
-
-        // Couldn't satisfy a predicate
-        if (not broke_through and global_flags.contains("DebugPredicateFailure"))
-        {
-          std::ostringstream what;
-          what << "\e[38;5;1mfailed\e[0m to satisfy predicate\n";
-          source_location location;
-          if (get_location(e, location))
-            what << display_location(location, 1);
-          debug("[{:5}] {}", m_depth, what.str());
+          m_cutpred = false;
+          _make_predicate_true(ert, p, eargs, newcont, ntvhandler, guide);
+          if (m_cutpred or m_cut)
+            break;
         }
         return;
       }
@@ -384,16 +391,32 @@ prolog::make_true(predicate_runtime &ert, value e, Cont cont,
         cont();
       return;
 
+    case tag::sym:
+      if (ISSYM(e, "!") or ISSYM(e, "cut-choice"))
+      {
+        cont();
+        m_cut = true;
+        return;
+      }
+      else if (ISSYM(e, "cut-predicate-choice"))
+      {
+        cont();
+        m_cutpred = true;
+        return;
+      }
+
     default:;
   }
 
   throw error {std::format("Invalid expression: {}", e), e};
 }
 
-template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
+template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler,
+          prolog_guide Guide>
 void
 prolog::_make_if_true(predicate_runtime &ert, value cond, value thenbr,
-                      value elsebr, Cont cont, NTVHandler ntvhandler) const
+                      value elsebr, Cont cont, NTVHandler ntvhandler,
+                      Guide guide) const
 {
   // Create auxiliary derived predicate_runtime
   predicate_runtime crt = _create_derived_prt(ert);
@@ -402,20 +425,21 @@ prolog::_make_if_true(predicate_runtime &ert, value cond, value thenbr,
   bool isthen = false;
   std::function<void()> thencont = [&]() {
     isthen = true;
-    make_true(crt, thenbr, cont, ntvhandler);
+    make_true(crt, thenbr, cont, ntvhandler, guide);
   };
-  make_true(crt, cond, thencont, ntvhandler);
+  make_true(crt, cond, thencont, ntvhandler, guide);
   crt.mark_dead();
 
   // Otherwize, go <else>
   if (not isthen)
-    make_true(ert, elsebr, cont, ntvhandler);
+    make_true(ert, elsebr, cont, ntvhandler, guide);
 }
 
-template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
+template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler,
+          prolog_guide Guide>
 void
 prolog::_make_and_true(predicate_runtime &ert, value clauses, Cont cont,
-                       NTVHandler ntvhandler) const
+                       NTVHandler ntvhandler, Guide guide) const
 {
   // Sequentially process all clauses until none left; no clauses <=> true
   if (ispair(clauses))
@@ -424,28 +448,31 @@ prolog::_make_and_true(predicate_runtime &ert, value clauses, Cont cont,
     const value head = car(clauses);
     const value tail = cdr(clauses);
     std::function<void()> andcont = [&]() {
-      _make_and_true(ert, tail, cont, ntvhandler);
+      _make_and_true(ert, tail, cont, ntvhandler, guide);
     };
     // Make head true and then proceed with other clauses
-    make_true(ert, head, andcont, ntvhandler);
+    make_true(ert, head, andcont, ntvhandler, guide);
   }
   else
     cont();
 }
 
 
-template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
+template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler,
+          prolog_guide Guide>
 void
 prolog::_make_or_true(predicate_runtime &ert, value clauses, Cont cont,
-                      NTVHandler ntvhandler) const
+                      NTVHandler ntvhandler, Guide guide) const
 {
+  #ifndef OPIUM_RELEASE_BUILD
   if (global_flags.contains("DebugOrBranches"))
     debug("looping over OR-branches");
   // indent _ {};
-  const std::string hrule (30, '/');
+  #endif
   for ([[maybe_unused]] int cnt = 0; const value clause : range(clauses))
   {
-#ifndef OPIUM_RELEASE_BUILD
+    #ifndef OPIUM_RELEASE_BUILD
+    static const std::string hrule (30, '/');
     if (loglevel >= loglevel::debug and global_flags.contains("DebugOrBranches"))
     {
       std::ostringstream buf;
@@ -460,22 +487,26 @@ prolog::_make_or_true(predicate_runtime &ert, value clauses, Cont cont,
       debug("{}\n", buf.str());
       cnt ++;
     }
-#endif
+    #endif
 
     // Create auxiliary derived predicate_runtime
     predicate_runtime crt = _create_derived_prt(ert);
 
-    make_true(crt, clause, cont, ntvhandler);
+    make_true(crt, clause, cont, ntvhandler, guide);
     crt.mark_dead();
+
+    if (m_cut)
+      break;
   }
 }
 
 
-template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler>
+template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler,
+          prolog_guide Guide>
 void
 prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
-                             value eargs, Cont cont,
-                             NTVHandler ntvhandler) const
+                             value eargs, Cont cont, NTVHandler ntvhandler,
+                             Guide guide) const
 {
   predicate_runtime prt;
 
@@ -485,24 +516,23 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
   if (match_arguments(prt, pargs, eargs))
   {
     const value signature = eargs;
-
     const value body = insert_cells(prt, pred.body());
 
-#ifndef OPIUM_RELEASE_BUILD
+    #ifndef OPIUM_RELEASE_BUILD
     if (global_flags.contains("DebugPredicateMatches"))
     {
       debug("\e[38;5;2mmatch\e[0m on {}{}", pred.name(),
             reconstruct(signature, stringify_unbound_variables));
     }
-#endif
+    #endif
 
     if (prt.try_sign(&pred, signature, ert, ntvhandler))
     {
-      make_true(prt, body, cont, ntvhandler);
+      make_true(prt, body, cont, ntvhandler, guide);
     }
     else
     {
-#ifndef OPIUM_RELEASE_BUILD
+      #ifndef OPIUM_RELEASE_BUILD
       if (loglevel >= loglevel::debug)
       { // Messaage about signature clash
         std::ostringstream message;
@@ -523,19 +553,19 @@ prolog::_make_predicate_true(predicate_runtime &ert, const predicate &pred,
         // Display the message
         debug("{}", message.str());
       }
-#endif
+      #endif
 
       cont();
     }
   }
-#ifndef OPIUM_RELEASE_BUILD
+  #ifndef OPIUM_RELEASE_BUILD
   else if (global_flags.contains("DebugPredicateMismatches"))
   {
     debug("\e[38;5;1mno match\e[0m on {}{}\npredicate: {}{}", pred.name(),
           reconstruct(eargs, stringify_unbound_variables),
           pred.name(), reconstruct(pargs, stringify_unbound_variables));
   }
-#endif
+  #endif
   // Undo constraints introduced by match_arguments()
   prt.mark_dead();
 }

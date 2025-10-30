@@ -392,7 +392,6 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     plparams = reverse(plparams); // We were inserting at front, so now reverse
 
     // (local) Type variable to hold function return type
-    // FIXME: why does it have to generate different identifiers?
     const value plresults = sym("Results");
 
     // Translate the body with apropriate target
@@ -439,7 +438,6 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     }
 
     // (local) Type variable to hold function return type
-    // FIXME: why does it have to generate different identifiers?
     const value plresults = sym("Results");
 
     // Translate the body with apropriate target
@@ -768,7 +766,7 @@ _quote_times(opi::value x, size_t n)
   return x;
 }
 
-[[maybe_unused]] static opi::value
+static opi::value
 _quote_unquote_times(opi::value x, size_t surroundinglevel)
 {
   // 1. Not nested:
@@ -797,7 +795,7 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out, bool lvalue)
   size_t nlevelsabove = 0;
   for (const value x : range(m_alist))
   {
-    // NIL is marking beginning of a nesting
+    // NIL marks the beginning of a scope
     if (x == nil)
     {
       nlevelsabove += 1;
@@ -818,7 +816,7 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out, bool lvalue)
       if (lvalue)
         throw bad_code {std::format("Not an lvalue: {}", ident), ident};
 
-      static size_t counter = 0; // FIXME
+      static size_t counter = 0;
       const value proxy = sym(std::format("Instance_{}", counter++));
       const value functemplate = _quote_unquote_times(cdr(type), nlevelsabove);
       const value tmp = sym(std::format("Tmp_{}", counter++));
@@ -856,7 +854,7 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out, bool lvalue)
 
     default: {
       // Crate or-expression running over the variants
-      static size_t counter = 0; // FIXME
+      static size_t counter = 0;
       const value tmpvar = sym(std::format("OverloadProxy_{}", counter++));
       _link_code_to_type(ident, tmpvar);
       copy_location(ident, tmpvar);

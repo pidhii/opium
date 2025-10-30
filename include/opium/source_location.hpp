@@ -58,6 +58,10 @@ struct source_location {
   source_location&
   operator = (const source_location &other) = default;
 
+  bool
+  operator == (const source_location &other)
+  { return source == other.source and start == other.start and end == other.end; }
+
   stl::string source; ///< Source name (filepath or "<string>")
   size_t start; ///< Start offset in the input stream
   size_t end;   ///< End offset in the input stream

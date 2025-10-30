@@ -7,15 +7,18 @@ type mode = Run | Compile(str)
 //                   Process command-line arguments
 //
 // Default options
-mode = Run // Default mode (run without compilation)
+mode = Run       // Default mode (run without compilation)
 optimize = false // Default optimization settings (dont optimize compilation target)
-verbose = false // Default verbosity (silent)
+verbose = false  // Default verbosity (silent)
+gdb = false
+tracelen = 20
 
 // Parse command-line
 args = getopt(argv, options)
 where options = [
-  // --help
+  // --help,-h
   option("help")
+    .short("h")
     .docstring("print help and exit")
     .handle(_ => {
       println("usage: opium-osl [OPTIONS] <INPUT-FILE>")
@@ -25,29 +28,43 @@ where options = [
       exit(0)
     })
   ,
+  // --verbose,-v
   option("verbose")
+    .short("v")
     .docstring("enable verbose output")
     .handle(_ => set verbose = true)
   ,
-  // --run
+  // --run,-r
   option("run")
+    .short("r")
     .docstring("run the script without compilation (default)")
     .handle(_ => set mode = Run)
   ,
-  // --compile=<output-filename>
+  // --compile,-c <output-filename>
   option("compile")
+    .short("c")
     .docstring("compile the script into executable file")
     .value("OUTPUT-FILE")
     .handle(output_filename => set mode = Compile(output_filename))
   ,
-  // --optimize
+  // --optimize,-O
   option("optimize")
+    .short("O")
     .docstring("enable optimizations during compilation")
     .handle(_ => set optimize = true)
+  ,
+  // --gdb
+  option("gdb")
+    .docstring("run osl with GDB")
+    .handle(_ => set gdb = true)
+  ,
+  option("trace-length")
+    .value("TRACE-LENGTH")
+    .handle(x => set tracelen = num(x))
 ]
 
-// Expecting a single position argument which is the input filename
-if length(args) != 1 then
+// Expecting at least a single position argument which is the input filename
+if length(args) < 1 then
   error("input file not specified")
 input = args[0]
 
@@ -58,7 +75,7 @@ input = args[0]
 info(message) =
 {
   if verbose then
-    println("opium-osl", message)
+    println("opium-osl ", message)
 }
 
 // Translate OSL into Scheme
@@ -66,8 +83,16 @@ translate_opium_script(osl_filename, scm_filename) =
 {
   // Resolve path for OSL modules
   info("translating OSL into Scheme")
-  command = format("./install/bin/osl -o ~A --oslpath ~A ~A",
-                   scm_filename, default_oslpath, osl_filename)
+  command = format("./install/bin/osl -o ~A --oslpath ~A --trace-length ~A ~A",
+                   scm_filename, default_oslpath, tracelen, osl_filename)
+  if gdb then
+  {
+    system("gdb --args " + command)
+    return
+  }
+
+  if verbose then
+   info("executing command: " + command)
   p = run(command)
   rc = p.wait()#status
   if rc != 0 then
@@ -84,7 +109,8 @@ translate_opium_script(osl_filename, scm_filename) =
 run_scheme(scm_filename) =
 {
   info("evaluating Scheme script with Chicken interpreter")
-  return system("chicken-csi -s " + scm_filename)
+  cmdline_args_string = cdr(args).iter().join(" ")
+  return system("chicken-csi -s " + scm_filename + " " + cmdline_args_string)
 }
 
 // Compile Scheme with Chicken Scheme compiler
@@ -102,7 +128,7 @@ compile_scheme(scm_filename, output_filename) =
 ////////////////////////////////////////////////////////////////////////////////
 //                                Main
 //
-scm_filename = run("mktemp")#stdout.read().chomp() // temporary file to store Scheme script
+scm_filename = run("mktemp")#stdout.read().unpack().chomp() // temporary file to store Scheme script
 translate_opium_script(input, scm_filename)
 match mode in
 | Run -> run_scheme(scm_filename)

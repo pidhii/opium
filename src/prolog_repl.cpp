@@ -112,7 +112,7 @@ opi::prolog_repl::_query(opi::value expr)
   make_true(prt, insert_cells(prt, expr), std::ref(summary),
             [&nonterminals](const auto &, cell *x) {
               nonterminals.insert(x);
-              return cons(CELL, ptr(x));
+              return cons(cell_tag, ptr(x));
             });
 
   for (const auto &[var, vals] : summary)

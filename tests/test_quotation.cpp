@@ -45,7 +45,7 @@ class QuotationTest: public ::testing::Test {
   {
     if (opi::ispair(expr))
     {
-      if (opi::issym(opi::car(expr), opi::CELL))
+      if (opi::is(opi::car(expr), opi::cell_tag))
         return true;
       return contains_cell(opi::car(expr)) || contains_cell(opi::cdr(expr));
     }
@@ -103,7 +103,7 @@ TEST_F(QuotationTest, QuasiquoteWithUnquote)
   opi::value third_element = opi::car(opi::cdr(opi::cdr(result)));
   
   // Verify it's a cell
-  EXPECT_TRUE(opi::issym(opi::car(third_element), opi::CELL));
+  EXPECT_TRUE(opi::is(opi::car(third_element), opi::cell_tag));
 }
 
 // Test that unquote-splicing throws an error

@@ -142,7 +142,8 @@ class scheme_type_location_map {
    * \param type_style ANSI style string for type annotations (default: green)
    */
   void
-  display_source_with_types(std::istream &in, std::ostream &out,
+  display_source_with_types(std::string_view source, std::istream &in,
+                            std::ostream &out,
                             std::string_view type_style = "\e[2m") const;
 
   private:

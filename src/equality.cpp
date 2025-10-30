@@ -17,6 +17,7 @@
  */
 
 
+#include "opium/utilities/execution_timer.hpp"
 #include "opium/value.hpp"
 #include "opium/hash.hpp"
 #include "opium/stl/unordered_set.hpp"
@@ -31,8 +32,8 @@ struct hash<_pair_of_pointers> {
   size_t
   operator () (const _pair_of_pointers p) const noexcept
   {
-    std::hash<void*> ptrhash;
-    size_t hash = ptrhash(p.first);
+    size_t hash = 0;
+    opi::hash_combine(hash, p.first);
     opi::hash_combine(hash, p.second);
     return hash;
   }
@@ -51,8 +52,7 @@ _equal(opi::value a, opi::value b, _memory_set &mem)
   switch (opi::tag(a))
   {
     case opi::tag::sym:
-      return a->sym.len == b->sym.len and
-             std::strncmp(a->sym.data, b->sym.data, a->sym.len) == 0;
+      return a->sym.data == b->sym.data;
 
     case opi::tag::nil:
       return true;
@@ -86,6 +86,8 @@ _equal(opi::value a, opi::value b, _memory_set &mem)
 bool
 opi::equal(value a, value b)
 {
+   OPI_FUNCTION_BENCHMARK
+
 #ifdef OPIUM_HASH_CACHING
   if (a->hash != b->hash)
     return false;

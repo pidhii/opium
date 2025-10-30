@@ -7,78 +7,45 @@ require "base"
     (import (chicken memory))
 
     (define zmq_version zmq-version)
-    (define zmq_default_context zmq-default-context)
-    (define zmq_io_threads zmq-io-threads)
-    (define zmq_context make-context)
-    (define zmq_socket make-socket)
-    (define zmq_close_socket close-socket)
-    (define zmq_bind_socket bind-socket)
-    (define zmq_connect_socket connect-socket)
-    (define zmq_set_sockopt socket-option-set!)
-    (define zmq_get_sockopt socket-option)
     (define (zmq_send_message SOCKET MESSAGE OPTIONS)
       (let ((sndmore (memq (quote sndmore) OPTIONS))
             (dontwait (memq (quote dontwait) OPTIONS)))
-        (send-message SOCKET MESSAGE sndmore non-blocking: dontwait)))
+        (send-message SOCKET MESSAGE send-more: sndmore non-blocking: dontwait)))
 
     (define (zmq_default_receive_callback ptr size)
       (let ((result (make-blob size)))
         (move-memory! ptr result size)
         result))
 
-    (define (zmq_receive_message SOCKET OPTIONS #!optional (callback zmq_default_receive_callback))
+    (define (zmq_receive_message SOCKET OPTIONS)
       (let* ((dontwait (memq (quote dontwait) OPTIONS))
-             (message (receive-message SOCKET non-blocking: dontwait as: callback)))
+             (message (receive-message SOCKET non-blocking: dontwait as: (quote blob))))
         (if message
           (oslctor:Some message)
           (oslctor:Nothing))))
       
-    ;; Socket options
-    (define zmq_make_socket_type string->symbol)
-    (define zmq_make_socket_option string->symbol)
-    (define zmq_make_send_option string->symbol)
   )
 }
 
 #pragma prolog {
   (predicate (result-of (zmq_version) (list num)))
-  (predicate (result-of (zmq_default_context . CONTEXT) zmq_context)
-    (or (= CONTEXT ())
-        (= CONTEXT (zmq_context))))
-  (predicate (result-of (zmq_io_threads . NUMBER) num)
-    (or (= NUMBER (num))
-        (= NUMBER ())))
-  (predicate (result-of (zmq_context num) zmq_context))
-  (predicate (result-of (zmq_socket zmq_socket_type . CONTEXT) zmq_socket)
-    (or (= CONTEXT (zmq_context))
-        (= CONTEXT ())))
-  (predicate (result-of (zmq_close_socket zmq_socket) void))
-  (predicate (result-of (zmq_bind_socket zmq_socket str) void))
-  (predicate (result-of (zmq_connect_socket zmq_socket str) void))
-  (predicate (result-of (zmq_set_sockopt zmq_socket (zmq_socket_option T) T) void))
-  (predicate (result-of (zmq_get_sockopt zmq_socket (zmq_socket_option T)) T))
   (predicate (result-of (zmq_send_message zmq_socket MESSAGE (list zmq_send_option)) num)
     (or (= MESSAGE str)
         (= MESSAGE blob)))
   (predicate (result-of (zmq_receive_message zmq_socket (list zmq_send_option)) (maybe blob)))
-
-  ;; Socket options
-  (predicate (result-of (zmq_make_socket_type str) zmq_socket_type))
-  (predicate (result-of (zmq_make_socket_option str) (zmq_socket_option _)))
-  (predicate (result-of (zmq_make_send_option str) zmq_send_option))
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 //                              Socket types
-zmq_pull = zmq_make_socket_type("pull")
-zmq_push = zmq_make_socket_type("push")
-zmq_pair = zmq_make_socket_type("pair")
-zmq_pub = zmq_make_socket_type("pub")
-zmq_sub = zmq_make_socket_type("sub")
-zmq_req = zmq_make_socket_type("req")
-zmq_rep = zmq_make_socket_type("rep")
-zmq_dealer = zmq_make_socket_type("xreq")
-zmq_router = zmq_make_socket_type("xrep")
+pull::zmq_socket_type = reinterpret_cast(sym("pull"))
+push::zmq_socket_type = reinterpret_cast(sym("push"))
+pair::zmq_socket_type = reinterpret_cast(sym("pair"))
+pub::zmq_socket_type = reinterpret_cast(sym("pub"))
+sub::zmq_socket_type = reinterpret_cast(sym("sub"))
+req::zmq_socket_type = reinterpret_cast(sym("req"))
+rep::zmq_socket_type = reinterpret_cast(sym("rep"))
+dealer::zmq_socket_type = reinterpret_cast(sym("xreq"))
+router::zmq_socket_type = reinterpret_cast(sym("xrep"))
 
 ////////////////////////////////////////////////////////////////////////////////
 //                             Socket options
@@ -93,87 +60,58 @@ zmq_router = zmq_make_socket_type("xrep")
 // RECOVERY-IVL - multicast recovery interval (integer, seconds)
 // SNDBUF - kernel transmit buffer size (integer, bytes, 0 for OS default)
 // RCVBUF - kernel receive buffer size (integer, bytes, 0 for OS default)
-zmq_sndhwm = zmq_make_socket_option("sndhwm") :: zmq_socket_option(num)
-zmq_rcvhwm = zmq_make_socket_option("rcvhwm") :: zmq_socket_option(num)
-zmq_affinity = zmq_make_socket_option("affinity") :: zmq_socket_option(num)
-zmq_identity = zmq_make_socket_option("identity") :: zmq_socket_option(str)
-zmq_subscribe = zmq_make_socket_option("subscribe") :: zmq_socket_option(str)
-zmq_unsubscribe = zmq_make_socket_option("unsubscribe") :: zmq_socket_option(str)
-zmq_rate = zmq_make_socket_option("rate") :: zmq_socket_option(num)
-zmq_recovery_ivl = zmq_make_socket_option("recovery-ivl") :: zmq_socket_option(num)
-zmq_sndbuf = zmq_make_socket_option("sndbuf") :: zmq_socket_option(num)
-zmq_rcvbuf = zmq_make_socket_option("rcvbuf") :: zmq_socket_option(num)
+sndhwm = reinterpret_cast(sym("sndhwm")) :: zmq_socket_option(num)
+rcvhwm = reinterpret_cast(sym("rcvhwm")) :: zmq_socket_option(num)
+affinity = reinterpret_cast(sym("affinity")) :: zmq_socket_option(num)
+identity = reinterpret_cast(sym("identity")) :: zmq_socket_option(str)
+subscribe = reinterpret_cast(sym("subscribe")) :: zmq_socket_option(str)
+unsubscribe = reinterpret_cast(sym("unsubscribe")) :: zmq_socket_option(str)
+rate = reinterpret_cast(sym("rate")) :: zmq_socket_option(num)
+recovery_ivl = reinterpret_cast(sym("recovery-ivl")) :: zmq_socket_option(num)
+sndbuf = reinterpret_cast(sym("sndbuf")) :: zmq_socket_option(num)
+rcvbuf = reinterpret_cast(sym("rcvbuf")) :: zmq_socket_option(num)
 
 // SNDMORE
 // DONTWAIT
-zmq_sndmore = zmq_make_send_option("sndmore")
-zmq_dontwait = zmq_make_send_option("dontwait")
+sndmore::zm_send_option = reinterpret_cast(sym("sndmore"))
+dontwait::zm_send_option = reinterpret_cast(sym("dontwait"))
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //                             Functions
 //
 // -----------------------------------------------------------------------------
-//                             miscelanious
-// ZMQ version
-//
-// zmq_version() -> list(num)
-
-
-// -----------------------------------------------------------------------------
 //                              context
-// Set/get default context
-//
-// zmq_default_context(CONTEXT) -> zmq_context
-// zmq_default_context() -> zmq_context
-
+// Default context
+extern identifier!(zmq-default-context) as zmq_default_context :: parameter(zmq_context)
 // Set/get number of IO threads in the default context
-//
-// zmq_io_threads(NTHREADS) -> num
-// zmq_io_thrads() -> num
+extern identifier!(zmq-io-threads) as zmq_io_threads :: parameter(num)
 
 // Create context
-// 
-// zmq_context(NTHREADS) -> zmq_context
-
+extern identifier!(make-context) as zmq_context(num) -> zmq_context
 
 // -----------------------------------------------------------------------------
 //                              sockets
 // Create socket
-//
-// zmq_socket(TYPE, CONTEXT) -> zmq_socket
-// zmq_socket(TYPE) -> zmq_socket
+extern identifier!(make-socket) as zmq_socket(zmq_socket_type, zmq_context) -> zmq_socket
+extern identifier!(make-socket) as zmq_socket(zmq_socket_type) -> zmq_socket
 socket(context zmq_context, socktype zmq_socket_type) = zmq_socket(socktype, context)
 
 // Close socket
-//
-// zmq_close_socket(SOCKET) -> void
-close(socket zmq_socket) = zmq_close_socket(socket)
+extern identifier!(close-socket) as close(zmq_socket) -> void
 
 // Bind serving socket to an endpoint
-//
-// zmq_bind_socket(SOCKET, ENDPOINT) -> void
-bind(socket zmq_socket, endpoint str) = zmq_bind_socket(socket, endpoint)
+extern identifier!(bind-socket) as bind(zmq_socket, str) -> void
 
 // Connect client socket to an endpoint
-//
-// zmq_connect_socket(SOCKET, ENDPOINT) -> void
-connect(socket zmq_socket, endpoint str) = zmq_connect_socket(socket, endpoint)
+extern identifier!(connect-socket) as connect(zmq_socket, str) -> void
 
-// zmq_set_sockopt(SOCKET, OPTION, VALUE) -> void
-// zmq_get_sockopt(SOCKET, OPTION) -> VALUE
-sockopt(socket zmq_socket, option zmq_scoket_option(T), value T) =
-  zmq_set_sockopt(socket, option, value)
-sockopt(socket zmq_socket, option zmq_socket_option(T)) =
-  zmq_get_sockopt(socket, option)
+// Socket options
+extern identifier!(socket-option-set!) as sockopt(zmq_socket, zmq_socket_option(T), T) -> void
+extern identifier!(socket-option) as sockopt(zmq_socket, zmq_socket_option(T)) -> T
 
-// zmq_send_message(SOCKET, MESSAGE, OPTIONS-LIST) -> num
-// zmq_receive_message(SOCKET, OPTIONS-LIST) -> maybe(blob)
-send(socket zmq_socket, message, options list(zmq_send_option)) =
-  zmq_send_message(socket, message, options)
-send(socket zmq_socket, message) = zmq_send_message(socket, message, [])
-receive(socket zmq_socket, options list(zmq_send_option), callback) =
-  zmq_receive_message(socket, options)
-receive(socket zmq_socket, options list(zmq_send_option)) =
-  zmq_receive_message(socket, options)
-receive(socket zmq_socket) = zmq_receive_message(socket, [])
+// Socket I/O
+send(sock zmq_socket, msg, opts list(zmq_send_options)) = zmq_send_message(sock, msg, opts)
+send(sock zmq_socket, msg) = zmq_send_message(sock, msg, [])
+recv(sock zmq_socket, opts list(zmq_send_option)) = zmq_receive_message(sock, opts)
+recv(sock zmq_socket) = zmq_receive_message(sock, [])

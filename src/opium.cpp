@@ -64,13 +64,7 @@ opi::generate_scheme(opi::value in, opi::prolog_repl &pl,
     const value ppcode = pp.transform_block(in);
     preprocessor_timer.stop();
 
-    // std::ostringstream what;
-    // what << "preprocessor output:\n";
-    // for (const value expr : range(ppcode))
-    //   what << pprint_scm(expr) << std::endl;
-    // info("{}", what.str());
-
-    info("\e[1mrunning Type Check on\e[0m");
+    info("\e[1mrunning Type Check\e[0m");
     opi::execution_timer analyzer_timer {"Type analyzer"};
     size_t cnt = 0;
     const auto [out, type_map] =

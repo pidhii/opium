@@ -27,7 +27,6 @@
   (ensure-loaded "prolog-std.scm")
 
   ;; Constructor types
-  (predicate (result-of (cons T (list T)) (list T)))
   (predicate (result-of (oslctor:Cons T (list T)) (list T)))
   (predicate (result-of (oslctor:EmptyList) (list _)))
 
@@ -39,6 +38,8 @@
   (predicate (result-of (car (list T)) T))
   (predicate (result-of (cdr (list T)) (list T)))
 }
+extern cons(T, list(T)) -> list(T)
+x::T : xs::list(T) = cons(x, xs)
 //
 #pragma scheme-translator {
   ;; Rules for translation of cases expressions with list
@@ -74,20 +75,30 @@ bool(x maybe(T)) = match x in
 | Nothing()   -> false
 
 
+// class unaryFn(A, R) = assert {
+//   Self(A) :: R
+// }
+
+
+
 ////
 //
 // Function type coercion
 //
 #pragma prolog {
-  (predicate (result-of (coerce_function Fn) (fn Args Result))
-    (result-of (Fn . Args) Result))
   (predicate (result-of ((fn Args Result) . Args) Result))
+
+  ;; NOTE: can't use coerce-predicate directly
+  (predicate (result-of (coerce Fn) (fn Args Result))
+    (result-of (Fn . Args) Result))
+
+
+  ;(predicate (coerce Fn (fn Args Result))
+  ;  (result-of (Fn . Args) Result))
+  (predicate (coerce T U)
+    (result-of (coerce T) U))
 }
-#pragma scheme-translator {
-  (inline
-    (define (coerce_function x) x))
-}
-coerce(f) = coerce_function(f)
+#pragma scheme-translator { (inline (define (coerce x) x)) }
 
 
 extern identifier!(string->symbol) as sym(str) -> sym
@@ -119,3 +130,18 @@ anything(x) = reinterpret_cast(x) :: anything
 extern identifier!(exit-handler) as exit_handler :: fn(num) -> _
 // extern identifier!(reset-handler) as reset_handler :: fn() -> _
 // extern identifier!(program-name) as program_name :: str
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                            ranges
+//
+type range(T) = {start T, end T}
+(a::T) : (b::T) = range(a, b)
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                           miscelanious
+//
+// Cut Prolog query
+#pragma prolog { (predicate (result-of (cuttypecheck T) T) !) }
+#pragma scheme-translator { (inline (define (cuttypecheck x) x)) }

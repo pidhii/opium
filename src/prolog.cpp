@@ -18,20 +18,24 @@
 
 
 #include "opium/prolog.hpp"
+#include "opium/source_location.hpp"
 #include "opium/value.hpp"
+
 #include <regex.h>
 
 
 opi::prolog::prolog()
-: m_depth {0}
+: m_depth {0}, m_trace {make<trace_node>()}, m_cut {false}, m_cutpred {false}
 {
   // Define `=` as builtin
   add_predicate(list("=", "X", "X"), True);
 }
 
+
 const opi::predicate&
 opi::prolog::add_predicate(const predicate &pred)
 { return m_db.emplace(pred.name(), pred)->second; }
+
 
 const opi::predicate&
 opi::prolog::add_predicate(value sig, value body)
@@ -39,23 +43,14 @@ opi::prolog::add_predicate(value sig, value body)
 
 
 void
-opi::prolog::_update_last_expr(size_t depth, value expr) const
+opi::prolog::_trace_expr(value expr) const
 {
   source_location location;
   if (get_location(expr, location))
   {
-    // If this is the first mention of the source, assign `expr` straight away;
-    // otherwize, only assign it if `depth` is larger or equal to the depth of
-    // what is already stored for this source
-    const std::filesystem::path fullpath =
-        std::filesystem::absolute(location.source);
-    const auto it = m_last_expr.find(fullpath);
-    if (it == m_last_expr.end())
-      m_last_expr[fullpath] = {depth, expr};
-    else if (it->second.first <= depth)
-    {
-      it->second.first = depth;
-      it->second.second = expr;
-    }
+    trace_node *newtracenode = make<trace_node>();
+    newtracenode->location = std::move(location);
+    m_trace->children.push_back(newtracenode);
+    m_trace = newtracenode;
   }
 }
