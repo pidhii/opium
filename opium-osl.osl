@@ -12,6 +12,7 @@ optimize = false // Default optimization settings (dont optimize compilation tar
 verbose = false  // Default verbosity (silent)
 gdb = false
 tracelen = 20
+compile_target = ""
 
 // Parse command-line
 args = getopt(argv, options)
@@ -59,8 +60,17 @@ where options = [
     .handle(_ => set gdb = true)
   ,
   option("trace-length")
+    .docstring("typecheck track length (see `osl --help`)")
     .value("TRACE-LENGTH")
     .handle(x => set tracelen = num(x))
+  ,
+  option("cpp")
+    .docstring("compile via a C++ source file")
+    .handle(_ => set compile_target = "-c++")
+  ,
+  option("objc")
+    .docstring("compile via an Objective C source file")
+    .handle(_ => set compile_target = "-objc")
 ]
 
 // Expecting at least a single position argument which is the input filename
@@ -111,18 +121,23 @@ run_scheme(scm_filename) =
 {
   info("evaluating Scheme script with Chicken interpreter")
   cmdline_args_string = cdr(args).iter().join(" ")
-  return system("chicken-csi -s " + scm_filename + " " + cmdline_args_string)
+  command = "chicken-csi -s " + scm_filename + " " + cmdline_args_string
+  if verbose then
+   info("csi command: " + command)
+  return system(command)
 }
 
 // Compile Scheme with Chicken Scheme compiler
 compile_scheme(scm_filename, output_filename) =
 {
-  compile_flags = "-strict-types -o " + output_filename
+  info("compiling Scheme script with Chicken compiler")
+  compile_flags = "-strict-types -o " + output_filename + " " + compile_target
   if optimize then
     set compile_flags = compile_flags + " -O5 -local -no-bound-checks -no-procedure-checks -no-argc-checks"
-
-  info("compiling Scheme script with Chicken compiler")
-  return system("chicken-csc " + compile_flags + " " + scm_filename)
+  command = "chicken-csc " + compile_flags + " " + scm_filename
+  if verbose then
+   info("csc command: " + command)
+  return system(command)
 }
 
 
