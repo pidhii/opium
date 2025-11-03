@@ -48,6 +48,7 @@ std::optional<int> start_token;
 %x RAWSTRING
 %x STRING
 %x PRAGMA
+%x FOREIGN_INLINE
 
 %%
 
@@ -57,6 +58,25 @@ std::optional<int> start_token;
 
 
 require return REQUIRE;
+
+^"```".*$ {
+  BEGIN(FOREIGN_INLINE);
+  return FOREIGN_INLINE_BEGIN;
+}
+<FOREIGN_INLINE>^"```"$ {
+  BEGIN(INITIAL);
+  return FOREIGN_INLINE_END;
+}
+<FOREIGN_INLINE>^\n {
+  yylval = str("\n");
+  opi::set_location(yylval, opi::osl::make_location(*loc_p));
+  return STRING_CHUNK;
+}
+<FOREIGN_INLINE>^.+$ {
+  yylval = str(yytext);
+  opi::set_location(yylval, opi::osl::make_location(*loc_p));
+  return STRING_CHUNK;
+}
 
 assert return ASSERT;
 

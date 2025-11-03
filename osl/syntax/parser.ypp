@@ -470,7 +470,7 @@ fix_type_annotations_in_arguments(opi::value l)
 //                                Tokens
 %token PARSE_APPLEXPR PARSE_EXPR PARSE_STMT
 
-%token REQUIRE
+%token REQUIRE FOREIGN_INLINE_BEGIN FOREIGN_INLINE_END
 %token ASSERT
 %token IDENT
 %token CAPIDENT
@@ -865,6 +865,20 @@ TopLvlExpr
       list("define-overload", cons($4, list(wrapper_args)),
         cons($2, list(std::views::all(wrapper_args) | std::views::transform(opi::car))))
     );
+  }
+  | FOREIGN_INLINE_BEGIN StringChunks FOREIGN_INLINE_END {
+    std::string result;
+    result += "\n#>\n";
+    for (const value chunk : range($2))
+    {
+      std::ranges::copy(str_view(chunk), std::back_inserter(result));
+      result.push_back('\n');
+    }
+    result += "<#\n";
+    $$ = list(
+      list("pragma", "scheme-translator",
+        list("inline", sym(result))));
+    bindloc($$, @$);
   }
 ;
 
