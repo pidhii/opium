@@ -188,7 +188,10 @@ opi::find(cell *x)
     // If next cell in the chain is 'dead' cut the link making current cell a
     // root
     if (x->next->isdead)
+    {
       x->next = x;
+      break;
+    }
 
     x = x->next;
   }

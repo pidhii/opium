@@ -57,39 +57,26 @@ opi::generate_scheme(opi::value in, opi::prolog_repl &pl,
   for (const value plexpr : pragmas["prolog"])
     pl << plexpr;
 
-  try
-  {
-    opi::execution_timer preprocessor_timer {"Preprocessor"};
-    scheme_preprocessor pp;
-    const value ppcode = pp.transform_block(in);
-    preprocessor_timer.stop();
+  opi::execution_timer preprocessor_timer {"Preprocessor"};
+  scheme_preprocessor pp;
+  const value ppcode = pp.transform_block(in);
+  preprocessor_timer.stop();
 
-    info("\e[1mrunning Type Check\e[0m");
-    opi::execution_timer analyzer_timer {"Type analyzer"};
-    size_t cnt = 0;
-    const auto [out, type_map] =
-        translate_to_scheme(cnt, pl, ppcode, pragmas["scheme-translator"]);
-    analyzer_timer.stop();
+  info("\e[1mrunning Type Check\e[0m");
+  opi::execution_timer analyzer_timer {"Type analyzer"};
+  size_t cnt = 0;
+  const auto [out, type_map] =
+      translate_to_scheme(cnt, pl, ppcode, pragmas["scheme-translator"]);
+  analyzer_timer.stop();
 
-    // Write generated Scheme script
-    if (not opath.empty())
-    {
-      info("writing Scheme script to {}", opath.c_str());
-      if (std::ofstream ofile {opath})
-        _write_scheme_script(ofile, out);
-      else
-        throw std::runtime_error {
-            std::format("Failed to open file {} for writing", opath.c_str())};
-    }
-  }
-  catch (const bad_code &exn)
+  // Write generated Scheme script
+  if (not opath.empty())
   {
-    error("{}", exn.display());
-    throw;
-  }
-  catch (const std::runtime_error &exn)
-  {
-    error("{}", exn.what());
-    throw;
+    info("writing Scheme script to {}", opath.c_str());
+    if (std::ofstream ofile {opath})
+      _write_scheme_script(ofile, out);
+    else
+      throw std::runtime_error {
+          std::format("Failed to open file {} for writing", opath.c_str())};
   }
 }

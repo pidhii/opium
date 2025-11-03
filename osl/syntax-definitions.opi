@@ -29,3 +29,15 @@
 (pragma scheme-translator
   (inline
     (import iterators)))
+
+
+(pragma prolog
+  (predicate (result-of (list.Cons T (list T)) (list T)))
+  (predicate (result-of (list.EmptyList) (list _))))
+(define-overload (Cons (a T) (b (list T))) (list.Cons a b))
+(define-overload (EmptyList) (list.EmptyList))
+
+  ;; Rules for type-cases
+(pragma prolog
+  (predicate (match-on (Cons T (list T)) (list T)))
+  (predicate (match-on (EmptyList) (list _))))

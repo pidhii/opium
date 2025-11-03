@@ -85,17 +85,18 @@ translate_opium_script(osl_filename, scm_filename) =
   info("translating OSL into Scheme")
   command = format("./install/bin/osl -o ~A --oslpath ~A --trace-length ~A ~A",
                    scm_filename, default_oslpath, tracelen, osl_filename)
+  if verbose then
+   info("osl command: " + command)
+
   if gdb then
   {
     system("gdb --args " + command)
     return
   }
 
-  if verbose then
-   info("executing command: " + command)
   p = run(command)
-  rc = p.wait()#status
-  if rc != 0 then
+  pid, exited, status = p.wait()
+  if status != 0 then
   {
     p#stderr.lines().foreach(println)
     eprintln("OSL translation failed")

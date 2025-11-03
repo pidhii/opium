@@ -134,17 +134,6 @@ _remove_dynamic_function_dispatch_body(value x)
 
 
 
-template <const char* Str>
-inline bool
-issym(opi::value x)
-{
-  static const std::string_view gstr = opi::global_string(Str);
-  return opi::tag(x) == opi::tag::sym and x->sym.data == gstr.data();
-}
-
-#define ISSYM(_x_, _s_) ({static constexpr char _cs_[] = _s_; issym<_cs_>(_x_); })
-
-
 template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler,
           prolog_guide Guide>
 void

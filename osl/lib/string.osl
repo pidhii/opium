@@ -29,8 +29,8 @@ require "error"
     (define (str2num STRING)
       (let ((result (string->number STRING)))
         (if result
-          (oslctor:Some result)
-          (oslctor:Nothing)))))
+          (maybe.Some result)
+          (maybe.Nothing)))))
 }
 //
 #pragma prolog {

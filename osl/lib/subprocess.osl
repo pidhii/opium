@@ -9,15 +9,6 @@ type process = {
   pid num,
 }
 
-// Type of the value returned by (any variation of) wait() 
-type wait_result = {
-  pid num,     // PID or 0, if NOHANG is true and the child process has not
-               // terminated yet
-  exited bool, // True if the process exited normally or false otherwise
-  status num,  // Either the exit status, if the process terminated normally or
-               // the signal number that terminated/stopped the process.
-}
-
 #pragma scheme-translator {
   (inline
     (import (chicken process))
@@ -31,10 +22,6 @@ type wait_result = {
           (let-values (((pstdout pstdin pid pstderr) (process* cmd)))
             (osl:process pstdout pstderr pstdin pid)))))
 
-    (define (osl_process_wait . args)
-      (let-values (((pid exited status) (apply process-wait args)))
-        (osl:wait_result pid exited status)))
-
     (define osl_process_sleep process-sleep)
   )
 }
@@ -43,11 +30,6 @@ type wait_result = {
   (predicate (result-of (osl_process . Args) process)
     (or (= Args (str))
         (= Args (str (list str)))))
-
-  (predicate (result-of (osl_process_wait . Args) wait_result)
-    (or (= Args ())
-        (= Args (num))
-        (= Args (num bool))))
 
   (predicate (result-of (osl_process_sleep num) num))
 
@@ -72,24 +54,31 @@ type wait_result = {
 // Create a subprocess
 run = osl_process
 
-// wait() -> wait_result
-// wait(PID) -> wait_result
-// wait(PID, NOHANG) -> wait_result
+// wait() -> PID, EXITED, STATUS
+// wait(PID) -> PID, EXITED, STATUS
+// wait(PID, NOHANG) -> PID, EXITED, STATUS
+//
+// where
+// o PID    - PID or 0, if NOHANG is true and the child process has not
+//            terminated yet
+// o EXITED - True if the process exited normally or false otherwise
+// o STATUS - Either the exit status, if the process terminated normally or
+//            the signal number that terminated/stopped the process.
 //
 // Suspends the current process until the child process with the id PID has
 // terminated using the UNIX system call waitpid(). If PID is not given, then
 // this procedure waits for any child process. If NOHANG is given and not false
 // then the current process is not suspended.
-wait() = osl_process_wait()
-wait(pid num) = osl_process_wait(pid)
-wait(pid num, nohang bool) = osl_process_wait(pid, nohang)
+extern identifier!(process-wait) as wait() -> num, bool, num
+extern identifier!(process-wait) as wait(num) -> num, bool, num
+extern identifier!(process-wait) as wait(num, bool) -> num, bool, num
 
-// wait(PROCESS) -> wait_result
-// wait(PROCESS, NOHANG) -> wait_result
+// wait(PROCESS) -> PID, EXITED, STATUS
+// wait(PROCESS, NOHANG) -> PID, EXITED, STATUS
 //
 // Same as above but accept process object in place of the PID argument
-wait(p process) = osl_process_wait(p#pid)
-wait(p process, nohang bool) = osl_process_wait(p#pid, nohang)
+wait(p process) = wait(p#pid)
+wait(p process, nohang bool) = wait(p#pid, nohang)
 
 // sleep(SECONDS) -> num
 //

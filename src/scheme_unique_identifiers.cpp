@@ -20,6 +20,7 @@
 #include "opium/code_transform_utils.hpp"
 #include "opium/code_transformer.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
+#include "opium/source_location.hpp"
 #include "opium/stl/unordered_set.hpp"
 #include "opium/utilities/state_saver.hpp"
 #include "opium/value.hpp"
@@ -583,7 +584,26 @@ opi::scheme_unique_identifiers::transform_block(value block) const
   opi::stl::unordered_set<value> templates;
 
   // Storage for all other non-template identifiers
-  opi::stl::unordered_set<value> nontemp_identifiers;
+  opi::stl::unordered_set<value> nontempidents;
+
+  // Memory of (original) identifiers that are prohibited to be duplicated/reused
+  opi::stl::unordered_set<value> nodupidents;
+  auto _assert_nodup = [&nodupidents] (value ident) {
+    const auto [it, emplaced] = nodupidents.emplace(ident);
+    if (not emplaced)
+    {
+      std::ostringstream msg;
+      msg << "duplicate define-like identifier bindings are not alowed";
+      source_location location;
+      if (get_location(*it, location))
+        msg << "\noriginal binding "
+            << display_location(location, 1, "\e[38;5;4;1m", "\e[2m");
+      if (get_location(ident, location))
+        msg << "\nredefined "
+            << display_location(location, 1, "\e[38;5;1;1m", "\e[2m");
+      throw code_transformation_error {msg.str()};
+    }
+  };
 
   // Forward-declarations for all define-family syntaxes
   for (const value expr : range(block))
@@ -617,6 +637,7 @@ opi::scheme_unique_identifiers::transform_block(value block) const
     }
     else if (try_match(expr, define_function, identifier))
     {
+      _assert_nodup(identifier);
       const value newidentifier = _into_unique_symbol(identifier);
       m_alist = cons(cons(identifier, newidentifier), m_alist);
       copy_location(identifier, newidentifier);
@@ -626,21 +647,23 @@ opi::scheme_unique_identifiers::transform_block(value block) const
     }
     else if (try_match(expr, define_identifier, identifier))
     {
+      _assert_nodup(identifier);
       const value newidentifier = _into_unique_symbol(identifier);
       m_alist = cons(cons(identifier, newidentifier), m_alist);
       copy_location(identifier, newidentifier);
 
-      nontemp_identifiers.emplace(newidentifier);
+      nontempidents.emplace(newidentifier);
     }
     else if (try_match(expr, define_values, identifier /* a list of identifiers */))
     {
       for (const value &ident : range(identifier))
       {
+        _assert_nodup(ident);
         const value newidentifier = _into_unique_symbol(ident);
         m_alist = cons(cons(ident, newidentifier), m_alist);
         copy_location(ident, newidentifier);
 
-        nontemp_identifiers.emplace(newidentifier);
+        nontempidents.emplace(newidentifier);
       }
     }
   }
@@ -667,7 +690,7 @@ opi::scheme_unique_identifiers::transform_block(value block) const
   }
 
   // Declare all other identifiers
-  for (const value ident : nontemp_identifiers)
+  for (const value ident : nontempidents)
   {
     const value decl = list("declare", ident);
     header = cons(decl, header);

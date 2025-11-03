@@ -261,17 +261,28 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
       const auto &possibilities = it->second;
       if (possibilities.size() != 1)
       {
+        source_location location;
         std::ostringstream buf;
-        buf << std::format("Ambiguous type {} for {}:\n", type, x);
-        for (const value variant : possibilities)
+        if (get_location(x, location))
+          buf << "Ambiguous type: "
+              << display_location(location, 2, "\e[38;5;9m", "\e[2m");
+        else
+          buf << std::format("Ambiguous type {} for {} ({} options):\n", type, x, possibilities.size());
+        for (size_t iopt = 1; const value variant : possibilities)
         {
-          source_location location;
           if (get_location(variant, location))
-            buf << "option: " << display_location(location, 1, "\e[38;5;4;1m", "\e[2m");
+            buf << "option " << iopt << ": "
+                << display_location(location, 1, "\e[38;5;4;1m", "\e[2m");
+          else if (ispair(variant) and
+                   car(variant) == "#dynamic-function-dispatch" and
+                   get_location(car(cdr(variant)), location))
+            buf << "option " << iopt << ": "
+                << display_location(location, 1, "\e[38;5;4;1m", "\e[2m");
+          else
+            buf << "option " << iopt << ": " << variant << "\n";
+          iopt += 1;
         }
-        error("{}", buf.str());
-        throw code_transformation_error {
-            std::format("Ambiguous type for {}", x), x};
+        throw ambiguous_type_error {buf.str()};
       }
       type = *possibilities.begin();
     }
@@ -374,7 +385,7 @@ opi::scheme_emitter::transform_inner_block_into_expression(value block)
       }
       // create assignment
       const value dummy = sym(std::format("_{}", cnt++));
-      const value assign = list("set-values!", idents, list("begin", dot, body));
+      const value assign = list("set!-values", idents, list("begin", dot, body));
       const value letrecclause = list(dummy, assign);
       newbinds = append(newbinds, list(letrecclause));
     }

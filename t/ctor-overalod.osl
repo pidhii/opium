@@ -1,0 +1,18 @@
+
+type foo = FooOnly(str) | Ambiguous(str) | NotSoAmbiguous
+type bar = BarOnly(str) | Ambiguous(str) | NotSoAmbiguous(str)
+
+test_foo(x) = {
+  println("test_foo: ", x)
+  println(match x in | FooOnly(x) -> x | Ambiguous(x) -> x)
+}
+test_bar(x) = {
+  println("test_bar: ", x)
+  println(match x in | BarOnly(x) -> x | Ambiguous(x) -> x)
+}
+
+test_foo(Ambiguous("I'm ambiguous"))
+test_bar(Ambiguous("I'm also ambiguous"))
+
+println("NotSoAmbiguous/0: ", NotSoAmbiguous)
+println("NotSoAmbiguous/1: ", NotSoAmbiguous("asd"))

@@ -21,8 +21,8 @@ require "base"
       (let* ((dontwait (memq (quote dontwait) OPTIONS))
              (message (receive-message SOCKET non-blocking: dontwait as: (quote blob))))
         (if message
-          (oslctor:Some message)
-          (oslctor:Nothing))))
+          (maybe.Some message)
+          (maybe.Nothing))))
       
   )
 }

@@ -497,6 +497,17 @@ issym(value x)
 issym(value x, std::string_view str)
 { return issym(x) and (str == std::string_view {x->sym.data, x->sym.len}); }
 
+template <const char *Str>
+bool
+issym(opi::value x)
+{
+  static const std::string_view gstr = opi::global_string(Str);
+  return opi::tag(x) == opi::tag::sym and x->sym.data == gstr.data();
+}
+
+#define ISSYM(_x_, _s_) ({static constexpr char _cs_[] = _s_; issym<_cs_>(_x_); })
+
+
 /**
  * Get the name of a symbol
  * 

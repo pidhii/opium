@@ -10,14 +10,14 @@
     (define (osl_string_match REGEXP STRING)
       (let ((match (string-match REGEXP STRING)))
         (if (not match)
-            (oslctor:Nothing)
-            (oslctor:Some (map (lambda (submatch) (or submatch "")) match)))))
+            (maybe.Nothing)
+            (maybe.Some (map (lambda (submatch) (or submatch "")) match)))))
 
     (define (osl_string_search REGEXP STRING)
       (let ((match (string-search REGEXP STRING)))
         (if (not match)
-            (oslctor:Nothing)
-            (oslctor:Some (map (lambda (submatch) (or submatch "")) match)))))
+            (maybe.Nothing)
+            (maybe.Some (map (lambda (submatch) (or submatch "")) match)))))
 
       (define (osl_string_split_fields REGEXP STRING)
         (string-split-fields REGEXP STRING #t))

@@ -19,8 +19,10 @@
 
 #pragma once
 
+#include "opium/code_transformer.hpp"
 #include "opium/scheme/scheme_code_transformer.hpp"
 #include "opium/scheme/scheme_emitter_context.hpp"
+#include "opium/scheme/scheme_type_system.hpp"
 #include "opium/value.hpp"
 
 #include <iterator>
@@ -29,9 +31,12 @@
 namespace opi {
 
 
+struct ambiguous_type_error: code_transformation_error {
+  using code_transformation_error::code_transformation_error;
+};
+
 using query_result =
     opi::stl::unordered_map<value, opi::stl::unordered_set<value>>;
-
 
 struct scheme_emitter {
   scheme_emitter(scheme_emitter_context &ctx, query_result &query);

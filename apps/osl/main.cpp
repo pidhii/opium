@@ -1,4 +1,5 @@
 #include "opium/logging.hpp"
+#include "opium/scheme/scheme_emitter.hpp"
 #include "opium/scheme/scheme_type_system.hpp"
 #include "opium/source_location.hpp"
 #include "opium/utilities/execution_timer.hpp"
@@ -68,6 +69,14 @@ tracedump(const opi::prolog &pl, size_t tracelen)
     opi::error("[{:3}] {}", t, display_location(trace[t], 1, "\e[1m", "\e[2m"));
 }
 
+
+static void
+write_scheme_script(std::ostream &os, opi::value script)
+{
+  for (const opi::value expr : range(script))
+    os << opi::strip_escape_sequences(pprint_scm(expr)) << "\n\n";
+}
+
 int
 main(int argc, char **argv)
 {
@@ -90,7 +99,8 @@ main(int argc, char **argv)
     ("output,o", po::value(&opath), "write Scheme script to the specified file")
     ("oslpath", po::value(&extra_oslpathes),
      "specify additional directory for filename resolution")
-    ("trace-length", po::value(&tracelen), "maximal back-trace length");
+    ("trace-length", po::value(&tracelen), "maximal back-trace length")
+    ("opi", "stop after translation to opium DSL");
 
   po::positional_options_description posdesc;
   posdesc.add("input-file", 1);
@@ -188,6 +198,12 @@ main(int argc, char **argv)
   const value result = osl::parse(inputpath, input);
   parse_timer.stop();
 
+  if (varmap.contains("opi"))
+  {
+    write_scheme_script(std::cout, result);
+    return EXIT_SUCCESS;
+  }
+
   prolog_repl pl;
   // Share path prefixes with Prolog interpreter
   for (const std::string &prefix : osl::pathes)
@@ -196,6 +212,10 @@ main(int argc, char **argv)
   try
   {
     generate_scheme(result, pl, opath);
+  }
+  catch (const opi::ambiguous_type_error &exn)
+  {
+    opi::error("{}", exn.what());
   }
   catch (const opi::typecheck_failure &exn)
   {
@@ -209,9 +229,9 @@ main(int argc, char **argv)
     tracedump(pl, tracelen);
     return EXIT_FAILURE;
   }
-  catch (const std::exception &exn)
+  catch (const opi::bad_code &exn)
   {
-    opi::error("{}", exn.what());
+    opi::error("{}", exn.display());
     tracedump(pl, tracelen);
     return EXIT_FAILURE;
   }

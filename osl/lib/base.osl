@@ -26,14 +26,6 @@
 #pragma prolog {
   (ensure-loaded "prolog-std.scm")
 
-  ;; Constructor types
-  (predicate (result-of (oslctor:Cons T (list T)) (list T)))
-  (predicate (result-of (oslctor:EmptyList) (list _)))
-
-  ;; Rules for type-cases
-  (predicate (match-on (oslctor:Cons T (list T)) (list T)))
-  (predicate (match-on (oslctor:EmptyList) (list _)))
-
   ;; Builtin Scheme functions for lists
   (predicate (result-of (car (list T)) T))
   (predicate (result-of (cdr (list T)) (list T)))
@@ -49,8 +41,8 @@ x::T : xs::list(T) = cons(x, xs)
   ;; Inline auxiliary functions to avoid type-check and name mangling
   (inline
     (define (unpack-pair p) (values (car p) (cdr p)))
-    (define oslctor:Cons cons)
-    (define (oslctor:EmptyList) '())
+    (define list.Cons cons)
+    (define (list.EmptyList) '())
     (define osl_list list)
   )
 }

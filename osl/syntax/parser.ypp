@@ -124,10 +124,11 @@ generate_record_definition(opi::value typesign, opi::value name, opi::value ctor
   }
 
   // Write define-record-type expression
-  const opi::value recorddef = list("define-record-type", name,
+  const opi::value fixname = opi::sym(std::format("%{}", name));
+  const opi::value recorddef = list("define-record-type", fixname,
                                     cons(ctorname, fields), predname,
                                     opi::dot, accessors);
-  const opi::value fastrecorddef = list("define-record-type-variant", name,
+  const opi::value fastrecorddef = list("define-record-type-variant", fixname,
                                         opi::list("unsafe", "unchecked", "inline"),
                                         cons(ctorname, fields), predname,
                                         opi::dot, accessors);
@@ -198,13 +199,13 @@ generate_variant(opi::value typesign, opi::value ctorsign, Output output,
 {
   // NOTE: Don't allow overloading constructors for now
   //       (no particular reason, just a design decision; can change it later)
-  const opi::value type = issym(typesign) ? typesign : car(typesign);
+  const opi::value typenam = issym(typesign) ? typesign : car(typesign);
   const opi::value ctorname = car(ctorsign);
+  const opi::value recordname = opi::sym(std::format("{}.{}", typenam, ctorname));
   const opi::value mangledctor = mangle_type_constructor(ctorname);
   const opi::value mangledctorsign = cons(mangledctor, cdr(ctorsign));
   const size_t arity = length(cdr(ctorsign));
 
-  const opi::value recordname = opi::sym(std::format("{}.{}", type, ctorname));
   set_location(recordname, location);
   opi::value fields = opi::nil;
   for (size_t i = 0; i < arity; ++i)
@@ -218,13 +219,27 @@ generate_variant(opi::value typesign, opi::value ctorsign, Output output,
   set_location(predname, location);
   set_location(unpackname, location);
 
-  // Generate Scheme inlines and cases-rule
+  // Generate record for this variant
   const opi::value recorddef = generate_record_definition(typesign, recordname,
-                                                          mangledctor, fields,
+                                                          recordname, fields,
                                                           cdr(ctorsign),
                                                           predname, output);
-  const opi::value unpackdef = generate_unpack_definition(recorddef, unpackname);
 
+
+  // Overload ctor name with constructor of a record form above
+  opi::value ovctorargs = opi::nil;
+  opi::value ovctorargnames = opi::nil;
+  for (int i = 0; opi::value argtype : range(cdr(ctorsign)))
+  {
+    opi::value argname = opi::sym(std::format("p{}", i++));
+    ovctorargnames = append_mut(ovctorargnames, list(argname));
+    ovctorargs = append_mut(ovctorargs, list(list(argname, argtype)));
+  }
+  *output++ = list("define-overload", list(ctorname, opi::dot, ovctorargs),
+                list(recordname, opi::dot, ovctorargnames));
+
+  // Matching rules
+  const opi::value unpackdef = generate_unpack_definition(recorddef, unpackname);
   *output++ = list("pragma", "scheme-translator",
                     list("inline", unpackdef),
                     list("cases-rule", mangledctorsign, typesign, predname, unpackname));
@@ -504,7 +519,7 @@ fix_type_annotations_in_arguments(opi::value l)
 %type AtomPattern ExprPattern ListOfExprPatterns
 %type String StringChunks
 %type Bind ListOfBinds
-%type Ctor
+%type Ctor Ctor_mangled
 %type TopLvlSeq TopLvlExpr
 %type TypeDef TypeSign CtorSign ListOfCtorSigns TypeParam ListOfTypeParams ListOfFields
 %type If
@@ -552,7 +567,7 @@ ApplExpr
     if (length($2) > 0)
       $$ = cons("oslops:list", $2);
     else
-      $$ = list(mangle_type_constructor("EmptyList"));
+      $$ = list("list.EmptyList");
     bindloc($$, @$);
   }
   | '+' { $$ = "+"; bindloc($$, @$); }
@@ -953,7 +968,7 @@ ExprPattern
   : AtomPattern
   | ExprPattern ':' ExprPattern {
     const value Cons = mangle_type_constructor("Cons");
-    bindloc(Cons, @$);
+    bindloc(Cons, @2);
     $$ = list(Cons, $1, $3);
   }
 ;
@@ -961,8 +976,8 @@ ExprPattern
 AtomPattern
   : IDENT
   | '(' ExprPattern ')' { $$ = $2; }
-  | Ctor %prec AFTER_APPLY { $$ = list($1); }
-  | Ctor '(' ListOfExprPatterns ')' %prec APPLY { $$ = cons($1, $3); }
+  | Ctor_mangled %prec AFTER_APPLY { $$ = list($1); }
+  | Ctor_mangled '(' ListOfExprPatterns ')' %prec APPLY { $$ = cons($1, $3); }
   | '[' ']' {
     const value EmptyList = mangle_type_constructor("EmptyList");
     bindloc(EmptyList, @$);
@@ -987,8 +1002,11 @@ Bind
   }
 ;
 
-Ctor
+Ctor_mangled
   : CAPIDENT { $$ = mangle_type_constructor($1); }
+;
+Ctor
+  : CAPIDENT { $$ = $1; }
 ;
 
 %%
