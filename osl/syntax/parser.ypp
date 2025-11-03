@@ -815,8 +815,12 @@ TopLvlExpr
     if (filename.extension() == "")
       filename += ".osl";
 
-    const std::filesystem::path fullpath =
-        resolve_path(filename, osl::pathes.begin(), osl::pathes.end());
+    std::filesystem::path fullpath;
+    try {
+      fullpath = resolve_path(filename, osl::pathes.begin(), osl::pathes.end());
+    }
+    catch (const std::runtime_error &exn)
+    { throw opi::bad_code {exn.what(), opi::osl::make_location(@$)}; }
 
     if (g_included_files.contains(fullpath))
       $$ = nil;

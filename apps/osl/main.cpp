@@ -194,23 +194,23 @@ main(int argc, char **argv)
     input = stdin;
   }
 
-  execution_timer parse_timer {"parsing OSL"};
-  const value result = osl::parse(inputpath, input);
-  parse_timer.stop();
-
-  if (varmap.contains("opi"))
-  {
-    write_scheme_script(std::cout, result);
-    return EXIT_SUCCESS;
-  }
-
   prolog_repl pl;
-  // Share path prefixes with Prolog interpreter
-  for (const std::string &prefix : osl::pathes)
-    pl.add_path_prefix(prefix);
-
   try
   {
+    execution_timer parse_timer {"parsing OSL"};
+    const value result = osl::parse(inputpath, input);
+    parse_timer.stop();
+
+    if (varmap.contains("opi"))
+    {
+      write_scheme_script(std::cout, result);
+      return EXIT_SUCCESS;
+    }
+
+    // Share path prefixes with Prolog interpreter
+    for (const std::string &prefix : osl::pathes)
+      pl.add_path_prefix(prefix);
+
     generate_scheme(result, pl, opath);
   }
   catch (const opi::ambiguous_type_error &exn)
