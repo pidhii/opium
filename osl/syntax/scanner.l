@@ -78,6 +78,8 @@ require return REQUIRE;
   return STRING_CHUNK;
 }
 
+foreign return FOREIGN;
+
 assert return ASSERT;
 
 for return FOR;

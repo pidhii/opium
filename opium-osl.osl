@@ -1,15 +1,15 @@
 require "osl-config" // generated during build; contains `default_oslpath`
 
 
-type mode = Run | Compile(str)
+type mode = Run | Compile(str) | RunCompiled
 
 ////////////////////////////////////////////////////////////////////////////////
 //                   Process command-line arguments
 //
 // Default options
-mode = Run       // Default mode (run without compilation)
-optimize = false // Default optimization settings (dont optimize compilation target)
-verbose = false  // Default verbosity (silent)
+mode = RunCompiled // Default mode
+optimize = false   // Default optimization settings (dont optimize compilation target)
+verbose = false    // Default verbosity (silent)
 gdb = false
 tracelen = 20
 compile_target = ""
@@ -38,7 +38,7 @@ where options = [
   // --run,-r
   option("run")
     .short("r")
-    .docstring("run the script without compilation (default)")
+    .docstring("run the script without compilation (can't use foreign code)")
     .handle(_ => set mode = Run)
   ,
   // --compile,-c <output-filename>
@@ -47,6 +47,11 @@ where options = [
     .docstring("compile the script into executable file")
     .value("OUTPUT-FILE")
     .handle(output_filename => set mode = Compile(output_filename))
+  ,
+  // --run-compiled
+  option("run-compiled")
+    .docstring("compile the script into an executable and run it (default)")
+    .handle(_ => set mode = RunCompiled)
   ,
   // --optimize,-O
   option("optimize")
@@ -149,3 +154,8 @@ translate_opium_script(input, scm_filename)
 match mode in
 | Run -> run_scheme(scm_filename)
 | Compile(output_filename) -> compile_scheme(scm_filename, output_filename)
+| RunCompiled -> {
+  exec_filename = run("mktemp")#stdout.read().unpack().chomp() // temporary file for executable
+  compile_scheme(scm_filename, exec_filename)
+  system(exec_filename)
+}

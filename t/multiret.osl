@@ -1,4 +1,4 @@
-
+#!./install/bin/opium-osl --run 
 
 foo() = { return 1, 2, "three" }
 a, b, c = foo()
@@ -8,9 +8,9 @@ println("a=", a, ", b=", b, ", c=", c)
 
 bar() = values(1, 2, "three")
 // assert { bar() :: (num, num, str) }
-a, b, c = bar()
+d, e, f = bar()
 assert { a::num b::num c::str }
-println("a=", a, ", b=", b, ", c=", c)
+println("d=", d, ", e=", e, ", f=", f)
 
 // `return <expr>` does not care how many values expr emits
 baz() = { return values(1, 2, 3) }

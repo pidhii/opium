@@ -420,6 +420,62 @@ fix_type_annotations_in_arguments(opi::value l)
   return cons(head, tail);
 }
 
+
+static opi::value // (<chicken-foreign-type>, <osl-type>)
+foreign_type_info(opi::value t)
+{
+  static opi::stl::unordered_map<std::string, opi::value> typemap {
+    {"char", opi::list("char", "char")},
+    {"uchar", opi::list("unsigned-char", "char")},
+    {"short", opi::list("short", "num")},
+    {"ushort", opi::list("unsigned-short", "num")},
+    {"int", opi::list("int", "num")},
+    {"uint", opi::list("unsigned-int", "num")},
+    {"long", opi::list("long", "num")},
+    {"ulong", opi::list("unsigned-long", "num")},
+    {"i8", opi::list("byte", "num")},
+    {"u8", opi::list("unsigned-byte", "num")},
+    {"i16", opi::list("short", "num")},
+    {"u16", opi::list("unsigned-short", "num")},
+    {"i32", opi::list("int32", "num")},
+    {"u32", opi::list("unsigned-int32", "num")},
+    {"i64", opi::list("integer64", "num")},
+    {"u64", opi::list("unsigned-integer64", "num")},
+    {"void", opi::list("void", "void")},
+    {"cstr", opi::list("c-string", "str")},
+  };
+  return typemap.at(std::string(opi::sym_name(t)));
+}
+
+static opi::value // (<chicken-foreign-type>, <osl-type>)
+foreign_pointer_type_info(opi::value t)
+{
+  static opi::stl::unordered_map<std::string, opi::value> typemap {
+    {"char", opi::list("s8vector", "i8array")},
+    {"uchar", opi::list("u8vector", "u8array")},
+    {"short", opi::list("s16vector", "i16array")},
+    {"ushort", opi::list("u16vector", "u16array")},
+    {"int", opi::list("s32vector", "i32array")},
+    {"uint", opi::list("u32vector", "u32array")},
+    {"long", sizeof(long) == 8 ? opi::list("s64vector", "i64array")
+                               : opi::list("s32vector", "i32array")},
+    {"ulong", sizeof(long) == 8 ? opi::list("u64vector", "u64array")
+                                : opi::list("u32vector", "u32array")},
+    {"i8", opi::list("s8vector", "i8array")},
+    {"u8", opi::list("u8vector", "u8array")},
+    {"i16", opi::list("s16vector", "i16array")},
+    {"u16", opi::list("u16vector", "u16array")},
+    {"i32", opi::list("s32vector", "i32array")},
+    {"u32", opi::list("u32vector", "u32array")},
+    {"i64", opi::list("s64vector", "i64array")},
+    {"u64", opi::list("u64vector", "u64array")},
+    {"void", opi::list("c-pointer", "void*")},
+  };
+  return typemap.at(std::string(opi::sym_name(t)));
+}
+
+
+
 %}
 
 %code requires {
@@ -468,9 +524,11 @@ fix_type_annotations_in_arguments(opi::value l)
 
 // =============================================================================
 //                                Tokens
+// Trampolines to steer the parser
 %token PARSE_APPLEXPR PARSE_EXPR PARSE_STMT
 
-%token REQUIRE FOREIGN_INLINE_BEGIN FOREIGN_INLINE_END
+// General syntax tokens
+%token REQUIRE FOREIGN_INLINE_BEGIN FOREIGN_INLINE_END FOREIGN
 %token ASSERT
 %token IDENT
 %token CAPIDENT
@@ -525,6 +583,7 @@ fix_type_annotations_in_arguments(opi::value l)
 %type If
 %type Lambda
 %type ExprWithOptTypeParam
+%type ForeignType ListOfForeignTypes
 
 %nonassoc AFTER_APPLY
 %left APPLY
@@ -866,6 +925,56 @@ TopLvlExpr
         cons($2, list(std::views::all(wrapper_args) | std::views::transform(opi::car))))
     );
   }
+  | EXTERN FOREIGN IDENT AS IDENT '(' ListOfForeignTypes ')' RIGHT_ARROW ForeignType {
+    // Example:
+    //   extern foreign foo as bar(unsigned int, unsigned int) -> int
+    //   (pragma scheme-translator
+    //     (inline
+    //       (define bar (foreign-safe-lambda int foo int int))))
+    //   (pragma prolog
+    //     (predicate (result-of (bar num num) num)))
+    // TODO: bind locations
+    const opi::value chickenrettype = list_ref($10, 0);
+    const opi::value oslrettype = list_ref($10, 1);
+    opi::value chickentypes, osltypes;
+    for (const opi::value t : range($7))
+    {
+      const value chickentype = list_ref(t, 0);
+      const value osltype = list_ref(t, 1);
+      chickentypes = append_mut(chickentypes, list(chickentype));
+      osltypes = append_mut(osltypes, list(osltype));
+    }
+    const opi::value p1 =
+      list("pragma", "scheme-translator",
+        list("inline",
+          list("define", $5, list("foreign-safe-lambda", chickenrettype, $3, opi::dot, chickentypes))));
+    const opi::value p2 =
+      list("pragma", "prolog",
+        list("predicate", list("result-of", list($5, opi::dot, osltypes), oslrettype)));
+    $$ = list(p1, p2);
+  }
+  | EXTERN FOREIGN IDENT '(' ListOfForeignTypes ')' RIGHT_ARROW ForeignType {
+    // See above but no aliasing
+    // TODO: bind locations
+    const opi::value chickenrettype = list_ref($8, 0);
+    const opi::value oslrettype = list_ref($8, 1);
+    opi::value chickentypes, osltypes;
+    for (const opi::value t : range($5))
+    {
+      const value chickentype = list_ref(t, 0);
+      const value osltype = list_ref(t, 1);
+      chickentypes = append_mut(chickentypes, list(chickentype));
+      osltypes = append_mut(osltypes, list(osltype));
+    }
+    const opi::value p1 =
+      list("pragma", "scheme-translator",
+        list("inline",
+          list("define", $3, list("foreign-safe-lambda", chickenrettype, $3, opi::dot, chickentypes))));
+    const opi::value p2 =
+      list("pragma", "prolog",
+        list("predicate", list("result-of", list($3, opi::dot, osltypes), oslrettype)));
+    $$ = list(p1, p2);
+  }
   | FOREIGN_INLINE_BEGIN StringChunks FOREIGN_INLINE_END {
     std::string result;
     result += "\n#>\n";
@@ -1025,6 +1134,17 @@ Ctor_mangled
 ;
 Ctor
   : CAPIDENT { $$ = $1; }
+;
+
+ForeignType
+  : IDENT { $$ = foreign_type_info($1); }
+  | IDENT '*' { $$ = foreign_pointer_type_info($1); }
+;
+
+ListOfForeignTypes
+  : { $$ = opi::nil; }
+  | ForeignType { $$ = list($1); }
+  | ForeignType ',' ListOfForeignTypes { $$ = cons($1, $3); }
 ;
 
 %%

@@ -1,0 +1,16 @@
+#!/usr/bin/env -S ./install/bin/opium-osl --run-compiled --cpp
+
+```c++
+#include <iostream>
+
+int foo(int x, int y)
+{
+  std::cout << "Hello from foo!" << std::endl;
+  return x + y;
+}
+```
+
+extern foreign foo(int, int) -> int
+
+println("invoking foreign foo(1, 2):")
+println("=> ", foo(1, 2))
