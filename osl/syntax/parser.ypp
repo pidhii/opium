@@ -515,7 +515,7 @@ foreign_pointer_type_info(opi::value t)
     location.source = g_source;
     location.start = loc_p->left;
     location.end = loc_p->right;
-    opi::error("parse error: {}\n{}", what, opi::display_location(location));
+    throw opi::bad_code {what, location};
   }
 
 

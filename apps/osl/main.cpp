@@ -216,6 +216,7 @@ main(int argc, char **argv)
   catch (const opi::ambiguous_type_error &exn)
   {
     opi::error("{}", exn.what());
+    return EXIT_FAILURE;
   }
   catch (const opi::typecheck_failure &exn)
   {
