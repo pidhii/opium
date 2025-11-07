@@ -25,7 +25,7 @@ println(dd["one"])
 
 require "trie"
 d = trie()
-d = d.insert("one", 1)
+set d = d.insert("one", 1)
 println(d["one"])
 
 
