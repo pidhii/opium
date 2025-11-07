@@ -1,0 +1,7 @@
+
+type the(T) = { }
+
+#pragma prolog {
+  (predicate (result-of (typein T . Ts) . _)
+    (member T Ts))
+}

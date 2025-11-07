@@ -1,11 +1,13 @@
+(pragma prolog
+  (ensure-loaded "prolog-std.scm"))
 
 (pragma scheme-translator
   (inline
-    (import record-variants)))
+    (import record-variants)
+    (import iterators)))
 
 ;; Alias for builtin (list ...) function
 (pragma prolog
-  (ensure-loaded "prolog-std.scm")
   (predicate (result-of (oslops:list . Ts) (list T)) (all T Ts)))
 (pragma scheme-translator
   (inline (define oslops:list list)))
@@ -26,18 +28,15 @@
   (inline
     (define (assert_thunk x) x)))
 
-(pragma scheme-translator
-  (inline
-    (import iterators)))
-
-
+;; List
 (pragma prolog
   (predicate (result-of (list.Cons T (list T)) (list T)))
   (predicate (result-of (list.EmptyList) (list _))))
 (define-overload (Cons (a T) (b (list T))) (list.Cons a b))
 (define-overload (EmptyList) (list.EmptyList))
 
-  ;; Rules for type-cases
+;; Rules for matching on list
 (pragma prolog
   (predicate (match-on (Cons T (list T)) (list T)))
   (predicate (match-on (EmptyList) (list _))))
+

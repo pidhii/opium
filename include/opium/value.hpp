@@ -694,7 +694,7 @@ equal(value a, value b);
  *
  * \ingroup core
  */
-template <bool Test=false>
+template <bool Test=true>
 [[nodiscard]] inline value
 car(value x)
 {
@@ -716,7 +716,7 @@ car(value x)
  *
  * \ingroup core
  */
-template <bool Test=false>
+template <bool Test=true>
 [[nodiscard]] inline value
 cdr(value x)
 {
@@ -880,11 +880,11 @@ append(value l, value x)
  *
  * \ingroup core
  */
-[[nodiscard]] inline value
-append_mut(value l, value x)
+inline value
+append_mut(value &l, value x)
 {
   if (l->_t != tag::pair)
-    return x;
+    return l = x;
 
   value e;
   for (e = l; cdr(e)->_t == tag::pair; e = cdr(e));

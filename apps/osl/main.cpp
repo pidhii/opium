@@ -1,17 +1,17 @@
+#include "parse.hpp"
+
 #include "opium/logging.hpp"
+#include "opium/opium.hpp"
 #include "opium/scheme/scheme_emitter.hpp"
 #include "opium/scheme/scheme_type_system.hpp"
 #include "opium/source_location.hpp"
 #include "opium/utilities/execution_timer.hpp"
-#include "opium/scheme/scheme_transformations.hpp"
-#include "opium/opium.hpp"
+#include "opium/utilities/path_resolver.hpp"
 
 #include <boost/program_options.hpp>
 #include <cstdlib>
-#include <filesystem>
-#include <cstdlib>
 #include <cstring>
-#include <algorithm>
+#include <filesystem>
 
 #include <dlfcn.h>
 
@@ -19,15 +19,6 @@
 namespace std {
 namespace fs = std::filesystem;
 }
-
-namespace opi::osl {
-
-opi::value
-parse(const std::string &source, std::FILE *file, bool is_root = true);
-
-extern std::vector<std::string> pathes;
-
-} // namespace opi::osl
 
 
 
@@ -197,9 +188,19 @@ main(int argc, char **argv)
   prolog_repl pl;
   try
   {
+    opi::osl::program_sources program;
+    opi::osl::tree_parser parser {program};
+
+    const std::filesystem::path builtinspath = opi::resolve_path(
+        "builtins.osl", osl::pathes.begin(), osl::pathes.end());
+
     execution_timer parse_timer {"parsing OSL"};
-    const value result = osl::parse(inputpath, input);
+    program.append("syntax-requirements", osl::syntax_requirements());
+    parser.load_file(builtinspath);
+    parser.load_file(inputpath);
     parse_timer.stop();
+
+    opi::value result = program.build_program();
 
     if (varmap.contains("opi"))
     {

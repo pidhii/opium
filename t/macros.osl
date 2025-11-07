@@ -1,0 +1,27 @@
+#!/usr/bin/env -S ./install/bin/opium-osl --verbose --run
+
+
+macro xif
+  [xif $expr:cond then $expr:thenbr else $expr:elsebr]
+  = [if $cond then $elsebr else $thenbr]
+
+println("testing `xif`: expect \"else\"")
+xif true then println("then") else println("else")
+
+
+
+iff__(_ assertion_success, thenbr, elsebr) = thenbr()
+iff__(_ assertion_failure, thenbr, elsebr) = elsebr()
+macro ifconstexpr
+  [ifconstexpr $expr:cond then $expr:thenbr else $expr:elsebr]
+  = [iff__(assert_thunk(() => $cond), () => $thenbr, () => $elsebr)]
+
+ifconstexpr 1 :: str then
+  println("1 is a 1")
+else
+  println("1 is not what we expect")
+
+
+require "typeutils"
+macro the [the] = [reinterpret_cast("the") ::]
+assert { typein(the str, the num, the str) }

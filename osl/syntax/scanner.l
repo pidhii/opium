@@ -1,10 +1,9 @@
 %{
 
 #include "osl_parser.hpp"
-//#include "location.hh"
-
 #include "opium/logging.hpp"
 #include "opium/value.hpp"
+#include "parse.hpp"
 
 
 // Helper function to remove underscores from number strings
@@ -20,7 +19,7 @@ remove_underscores(const char* text) {
 }
 
 
-#define YY_DECL extern "C" int yylex_main(opi::value *yylval_p, range_location *loc_p, yyscan_t yyscanner)
+#define YY_DECL int opi::osl::yylex(opi::value *yylval_p, range_location *loc_p, yyscan_t yyscanner)
 #define yylval (*yylval_p)
 
 extern size_t g_fileoffs_left;
@@ -81,6 +80,8 @@ require return REQUIRE;
 foreign return FOREIGN;
 
 assert return ASSERT;
+
+macro return MACRO;
 
 for return FOR;
 do return DO;
@@ -312,6 +313,7 @@ false {
 "{"|"}" |
 "#" |
 "_" |
+"$" |
 "("|")" {
   return yytext[0];
 }

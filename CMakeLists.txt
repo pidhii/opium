@@ -63,7 +63,7 @@ endif (OPIUM_BLOCK_BENCHMARKS)
 # Create an object library for all source files
 file (GLOB src_files src/*.cpp)
 add_library(opium_objects OBJECT ${src_files})
-target_include_directories(opium_objects PUBLIC ${CMAKE_SOURCE_DIR}/include ${READLINE_INCLUDE_DIRS})
+target_include_directories(opium_objects PUBLIC ${PROJECT_SOURCE_DIR}/include ${READLINE_INCLUDE_DIRS})
 target_compile_options(opium_objects PUBLIC ${READLINE_CFLAGS_OTHER})
 set_target_properties(opium_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
@@ -77,13 +77,13 @@ add_library (opium_a STATIC $<TARGET_OBJECTS:opium_objects>)
 target_link_libraries (opium_a PUBLIC -lgc ${Boost_LIBRARIES} ${READLINE_LIBRARIES})
 set_target_properties (opium_a PROPERTIES OUTPUT_NAME opium)
 
-install (DIRECTORY ${CMAKE_SOURCE_DIR}/include/opium DESTINATION include)
+install (DIRECTORY ${PROJECT_SOURCE_DIR}/include/opium DESTINATION include)
 install (TARGETS opium_so opium_a DESTINATION lib)
 
 # Main executable
 file (GLOB opium_exec_src apps/opium/*.cpp)
 add_executable (opium ${opium_exec_src} $<TARGET_OBJECTS:opium_objects>)
-target_include_directories (opium PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_include_directories (opium PUBLIC ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries (opium PUBLIC -lgc ${Boost_LIBRARIES} ${READLINE_LIBRARIES})
 target_include_directories(opium PUBLIC ${READLINE_INCLUDE_DIRS})
 target_compile_options(opium PUBLIC ${READLINE_CFLAGS_OTHER})
@@ -91,7 +91,7 @@ target_compile_options(opium PUBLIC ${READLINE_CFLAGS_OTHER})
 # Preprocessor executable
 file (GLOB opium_pp_exec_src apps/opium-pp/*.cpp)
 add_executable (opium-pp ${opium_pp_exec_src} $<TARGET_OBJECTS:opium_objects>)
-target_include_directories (opium-pp PUBLIC ${CMAKE_SOURCE_DIR}/include)
+target_include_directories (opium-pp PUBLIC ${PROJECT_SOURCE_DIR}/include)
 target_link_libraries (opium-pp PUBLIC -lgc ${Boost_LIBRARIES})
 target_include_directories(opium-pp PUBLIC ${READLINE_INCLUDE_DIRS})
 target_compile_options(opium-pp PUBLIC ${READLINE_CFLAGS_OTHER})
@@ -103,7 +103,7 @@ set (ECO_WITH_VALGRIND OFF)
 add_subdirectory(eco)
 
 # Add eco include directories to opium targets
-target_include_directories(opium_objects PUBLIC ${CMAKE_SOURCE_DIR}/eco/include)
+target_include_directories(opium_objects PUBLIC ${PROJECT_SOURCE_DIR}/eco/include)
 
 # Link eco libraries to opium targets
 target_link_libraries(opium_so PUBLIC eco_so)
@@ -113,7 +113,7 @@ target_link_libraries(opium_a PUBLIC eco_a)
 target_link_libraries(opium PUBLIC eco_a)
 target_link_libraries(opium-pp PUBLIC eco_a)
 
-configure_file(${CMAKE_SOURCE_DIR}/opium.pc ${CMAKE_BINARY_DIR}/opium.pc @ONLY)
+configure_file(${PROJECT_SOURCE_DIR}/opium.pc ${CMAKE_BINARY_DIR}/opium.pc @ONLY)
 install(FILES ${CMAKE_BINARY_DIR}/opium.pc DESTINATION lib/pkgconfig)
 
 option (OPIUM_SCRIPT "Build opium scripting language" ON)
@@ -121,7 +121,7 @@ if (OPIUM_SCRIPT)
   find_package (BISON REQUIRED)
   find_package (FLEX REQUIRED)
 
-  set (osl_prefix ${CMAKE_SOURCE_DIR}/osl)
+  set (osl_prefix ${PROJECT_SOURCE_DIR}/osl)
 
   # Setup Bison and Felx targets
   BISON_TARGET (osl_parser ${osl_prefix}/syntax/parser.ypp ${CMAKE_BINARY_DIR}/osl_parser.cpp)
@@ -138,7 +138,7 @@ if (OPIUM_SCRIPT)
   foreach (plugin_src ${osl_opium_plugins})
     get_filename_component (plugin_name ${plugin_src} NAME_WE)
     add_library (${plugin_name} SHARED ${plugin_src})
-    target_include_directories (${plugin_name} PUBLIC ${CMAKE_SOURCE_DIR}/include)
+    target_include_directories (${plugin_name} PUBLIC ${PROJECT_SOURCE_DIR}/include)
     set_target_properties (${plugin_name}
       PROPERTIES
         POSITION_INDEPENDENT_CODE ON
@@ -152,8 +152,12 @@ if (OPIUM_SCRIPT)
   set(osl_syntax_src ${BISON_osl_parser_OUTPUTS} ${FLEX_osl_scanner_OUTPUTS})
   add_executable (osl apps/osl/main.cpp ${osl_src_files} ${osl_syntax_src})
   target_compile_options (osl PRIVATE -Wno-error=unused-function)
-  target_include_directories(osl PUBLIC ${CMAKE_SOURCE_DIR}/include)
-  target_include_directories(osl PUBLIC ${CMAKE_SOURCE_DIR}/eco/include)
+  target_include_directories(osl
+    PUBLIC
+      ${osl_prefix}
+      ${PROJECT_BINARY_DIR}
+      ${PROJECT_SOURCE_DIR}/include
+      ${PROJECT_SOURCE_DIR}/eco/include)
   target_link_libraries (osl opium_a eco_a)
   install (TARGETS osl DESTINATION bin)
 
@@ -163,21 +167,21 @@ if (OPIUM_SCRIPT)
 
   # OSL compiler and interpreter
   if ("${CMAKE_INSTALL_PREFIX}" EQUAL "")
-    set(OSL_LIB_DIR ${CMAKE_SOURCE_DIR}/osl/lib)
+    set(OSL_LIB_DIR ${PROJECT_SOURCE_DIR}/osl/lib)
   else ()
     set(OSL_LIB_DIR ${CMAKE_INSTALL_PREFIX}/lib)
   endif ()
   add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/opium-osl
-    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     COMMAND echo "'default_oslpath=\"${OSL_LIB_DIR}\"'" > ${CMAKE_BINARY_DIR}/osl-config.osl
     COMMAND ${CMAKE_BINARY_DIR}/osl -o ${CMAKE_BINARY_DIR}/opium-osl.scm
-                                    --oslpath ${CMAKE_SOURCE_DIR}/osl/lib
+                                    --oslpath ${PROJECT_SOURCE_DIR}/osl/lib
                                     --oslpath ${CMAKE_BINARY_DIR}
-                                    ${CMAKE_SOURCE_DIR}/opium-osl.osl
+                                    ${PROJECT_SOURCE_DIR}/opium-osl.osl
     COMMAND chicken-csc -o ${CMAKE_BINARY_DIR}/opium-osl ${CMAKE_BINARY_DIR}/opium-osl.scm
     BYPRODUCTS ${CMAKE_BINARY_DIR}/opium-osl.scm ${CMAKE_BINARY_DIR}/osl-config.osl
-    DEPENDS osl ${CMAKE_SOURCE_DIR}/opium-osl.osl)
+    DEPENDS osl ${PROJECT_SOURCE_DIR}/opium-osl.osl)
   add_custom_target(opium-osl-executable ALL DEPENDS ${CMAKE_BINARY_DIR}/opium-osl)
   install(PROGRAMS ${CMAKE_BINARY_DIR}/opium-osl DESTINATION bin)
 
@@ -200,42 +204,42 @@ if (OPIUM_UNIT_TESTS)
 
   # Tests
   add_executable (test_predicate_runtime tests/test_predicate_runtime.cpp)
-  target_include_directories (test_predicate_runtime PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_include_directories (test_predicate_runtime PUBLIC ${PROJECT_SOURCE_DIR}/include)
   target_link_libraries (test_predicate_runtime PUBLIC opium_objects -lgc GTest::gtest_main eco_a)
 
   # LISP Parser Tests
   add_executable (test_lisp_parser tests/test_lisp_parser.cpp)
-  target_include_directories (test_lisp_parser PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_include_directories (test_lisp_parser PUBLIC ${PROJECT_SOURCE_DIR}/include)
   target_link_libraries (test_lisp_parser PUBLIC opium_objects -lgc GTest::gtest_main eco_a)
 
   # Prolog Tests
   add_executable (test_prolog tests/test_prolog.cpp)
-  target_include_directories (test_prolog PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_include_directories (test_prolog PUBLIC ${PROJECT_SOURCE_DIR}/include)
   target_link_libraries (test_prolog PUBLIC opium_objects -lgc GTest::gtest_main eco_a)
 
   # LISP Reader Tests
   add_executable (test_lisp_reader tests/test_lisp_reader.cpp)
-  target_include_directories (test_lisp_reader PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_include_directories (test_lisp_reader PUBLIC ${PROJECT_SOURCE_DIR}/include)
   target_link_libraries (test_lisp_reader PUBLIC opium_objects -lgc GTest::gtest_main eco_a)
 
   # Equality Tests
   add_executable (test_equality tests/test_equality.cpp)
-  target_include_directories (test_equality PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_include_directories (test_equality PUBLIC ${PROJECT_SOURCE_DIR}/include)
   target_link_libraries (test_equality PUBLIC opium_objects -lgc GTest::gtest_main eco_a)
 
   # Match Tests
   add_executable (test_match tests/test_match.cpp)
-  target_include_directories (test_match PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_include_directories (test_match PUBLIC ${PROJECT_SOURCE_DIR}/include)
   target_link_libraries (test_match PUBLIC opium_objects -lgc GTest::gtest_main eco_a)
 
   # Scheme Unique Identifiers Tests
   add_executable (test_scheme_unique_identifiers tests/test_scheme_unique_identifiers.cpp)
-  target_include_directories (test_scheme_unique_identifiers PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_include_directories (test_scheme_unique_identifiers PUBLIC ${PROJECT_SOURCE_DIR}/include)
   target_link_libraries (test_scheme_unique_identifiers PUBLIC opium_objects -lgc GTest::gtest_main eco_a)
 
   # Quotation Tests
   add_executable (test_quotation tests/test_quotation.cpp)
-  target_include_directories (test_quotation PUBLIC ${CMAKE_SOURCE_DIR}/include)
+  target_include_directories (test_quotation PUBLIC ${PROJECT_SOURCE_DIR}/include)
   target_link_libraries (test_quotation PUBLIC opium_objects -lgc GTest::gtest_main eco_a)
 
   # Register tests with CTest

@@ -2,23 +2,22 @@
 %language "C"
 
 %define parse.error verbose
-/* Just for the sake of safety. */
-/* %define parse.lac full */
-/* LAR(1) has issues after adding module-syntax. */
 %define lr.type ielr
-/*%glr-parser*/
 %define parse.lac full
 %define api.value.type { opi::value }
 
 %define api.pure full
+%define api.push-pull push
 %param { yyscan_t scanner }
 %locations
 %define api.location.type { range_location }
 
 %{
+#include "parse.hpp"
 #include "syntax_definitions.h"
 /*#include "location.hh"*/
-#include "../osl/unroll_flow.hpp" // FIXME
+#include "unroll_flow.hpp" // FIXME
+#include "macros.hpp" // FIXME
 
 #include "opium/value.hpp"
 #include "opium/logging.hpp"
@@ -28,6 +27,8 @@
 #include "opium/utilities/ranges.hpp"
 #include "opium/utilities/state_saver.hpp"
 #include "opium/utilities/path_resolver.hpp"
+#include "opium/stl/unordered_map.hpp"
+#include "opium/hash.hpp"
 
 #include <unordered_set>
 #include <fstream>
@@ -62,9 +63,6 @@ struct range_location;
 
 namespace opi::osl {
 
-opi::value
-parse(const std::string &source, std::FILE *file, bool is_root = false);
-
 std::vector<std::string> pathes = {""};
 
 opi::source_location
@@ -73,11 +71,19 @@ make_location(const range_location &loc);
 static
 std::optional<int> start_token;
 
+static
+std::optional<YYLTYPE> start_location;
+
 }
 
+static
+opi::osl::lexer *g_current_lexer;
+
+static
+opi::osl::tree_parser *g_current_tree_parser;
+
+
 static std::string g_source;
-size_t g_fileoffs_left;
-size_t g_fileoffs_right;
 
 static void
 bindloc(opi::value val, const range_location &loc);
@@ -93,16 +99,12 @@ mangle_type_constructor(opi::value ctor)
 
 static opi::value
 random_access_getter()
-{
-  return "osl:ref";
-}
+{ return "osl:ref"; }
 
 
 static opi::value
 random_access_setter()
-{
-  return "osl:set";
-}
+{ return "osl:set"; }
 
 
 
@@ -325,30 +327,6 @@ generate_record_type(opi::value typesign, opi::value fields, Output output,
 }
 
 
-static std::unordered_set<std::filesystem::path> g_included_files;
-
-opi::value
-load_file(const std::filesystem::path &path)
-{
-  const std::filesystem::path dirpath = path.parent_path();
-
-  if (FILE *file = fopen(path.c_str(), "r"))
-  {
-    const std::filesystem::path curpath = std::filesystem::current_path();
-    if (dirpath != "")
-      std::filesystem::current_path(dirpath);
-    const opi::value result = opi::osl::parse(path, file, false);
-    std::filesystem::current_path(curpath);
-
-    fclose(file);
-
-    return result;
-  }
-  else
-    throw std::runtime_error {std::format("Failed to open file {} for reading", path.c_str())};
-}
-
-
 
 struct loop_unroller: public opi::osl::flow_unroller {
   std::string loopname, varname;
@@ -451,28 +429,52 @@ static opi::value // (<chicken-foreign-type>, <osl-type>)
 foreign_pointer_type_info(opi::value t)
 {
   static opi::stl::unordered_map<std::string, opi::value> typemap {
-    {"char", opi::list("s8vector", "i8array")},
-    {"uchar", opi::list("u8vector", "u8array")},
-    {"short", opi::list("s16vector", "i16array")},
-    {"ushort", opi::list("u16vector", "u16array")},
-    {"int", opi::list("s32vector", "i32array")},
-    {"uint", opi::list("u32vector", "u32array")},
-    {"long", sizeof(long) == 8 ? opi::list("s64vector", "i64array")
-                               : opi::list("s32vector", "i32array")},
-    {"ulong", sizeof(long) == 8 ? opi::list("u64vector", "u64array")
-                                : opi::list("u32vector", "u32array")},
-    {"i8", opi::list("s8vector", "i8array")},
-    {"u8", opi::list("u8vector", "u8array")},
-    {"i16", opi::list("s16vector", "i16array")},
-    {"u16", opi::list("u16vector", "u16array")},
-    {"i32", opi::list("s32vector", "i32array")},
-    {"u32", opi::list("u32vector", "u32array")},
-    {"i64", opi::list("s64vector", "i64array")},
-    {"u64", opi::list("u64vector", "u64array")},
+    {"char", opi::list(opi::list("c-pointer", "char"), "i8array")},
+    {"uchar", opi::list(opi::list("c-pointer", "unsigned-char"), "u8array")},
+    {"short", opi::list(opi::list("c-pointer", "short"), "i16array")},
+    {"ushort", opi::list(opi::list("c-pointer", "unsigned-short"), "u16array")},
+    {"int", opi::list(opi::list("c-pointer", "int"), "i32array")},
+    {"uint", opi::list(opi::list("c-pointer", "unsigned-int"), "u32array")},
+    /*{"long", sizeof(long) == 8 ? opi::list("s64vector", "i64array") : opi::list("s32vector", "i32array")},*/
+    /*{"ulong", sizeof(long) == 8 ? opi::list("u64vector", "u64array") : opi::list("u32vector", "u32array")},*/
+    {"i8", opi::list("s8vector", "i8array")}, // FIXME
+    {"u8", opi::list("u8vector", "u8array")}, // FIXME
+    {"i16", opi::list("s16vector", "i16array")}, // FIXME
+    {"u16", opi::list("u16vector", "u16array")}, // FIXME
+    {"i32", opi::list("s32vector", "i32array")}, // FIXME
+    {"u32", opi::list("u32vector", "u32array")}, // FIXME
+    {"i64", opi::list("s64vector", "i64array")}, // FIXME
+    {"u64", opi::list("u64vector", "u64array")}, // FIXME
     {"void", opi::list("c-pointer", "void*")},
   };
   return typemap.at(std::string(opi::sym_name(t)));
 }
+
+static opi::value // (<chicken-foreign-type>, <osl-type>)
+foreign_pointerpointer_type_info(opi::value t)
+{
+  static opi::stl::unordered_map<std::string, opi::value> typemap {
+    {"char", opi::list(opi::list("c-pointer", opi::list("c-pointer", "char")), "cptr")},
+    {"uchar", opi::list(opi::list("c-pointer", opi::list("c-pointer", "unsigned-char")), "u8array")},
+    {"short", opi::list(opi::list("c-pointer", opi::list("c-pointer", "short")), "i16array")},
+    {"ushort", opi::list(opi::list("c-pointer", opi::list("c-pointer", "unsigned-short")), "u16array")},
+    {"int", opi::list(opi::list("c-pointer", opi::list("c-pointer", "int")), "i32array")},
+    {"uint", opi::list(opi::list("c-pointer", opi::list("c-pointer", "unsigned-int")), "u32array")},
+    /*{"long", sizeof(long) == 8 ? opi::list("s64vector", "i64array") : opi::list("s32vector", "i32array")},*/
+    /*{"ulong", sizeof(long) == 8 ? opi::list("u64vector", "u64array") : opi::list("u32vector", "u32array")},*/
+    {"i8", opi::list("s8vector", "i8array")}, // FIXME
+    {"u8", opi::list("u8vector", "u8array")}, // FIXME
+    {"i16", opi::list("s16vector", "i16array")}, // FIXME
+    {"u16", opi::list("u16vector", "u16array")}, // FIXME
+    {"i32", opi::list("s32vector", "i32array")}, // FIXME
+    {"u32", opi::list("u32vector", "u32array")}, // FIXME
+    {"i64", opi::list("s64vector", "i64array")}, // FIXME
+    {"u64", opi::list("u64vector", "u64array")}, // FIXME
+    {"void", opi::list(opi::list("c-pointer", "c-pointer"), "void*")},
+  };
+  return typemap.at(std::string(opi::sym_name(t)));
+}
+
 
 
 
@@ -493,21 +495,6 @@ foreign_pointer_type_info(opi::value t)
 }
 
 %code {
-  extern "C" int
-  yylex_main(YYSTYPE *yylval_p, YYLTYPE *loc_p, yyscan_t yyscanner);
-
-  int
-  yylex(YYSTYPE *yylval_p, YYLTYPE *loc_p, yyscan_t yyscanner)
-  {
-    if (opi::osl::start_token.has_value())
-    {
-      const int result = opi::osl::start_token.value();
-      opi::osl::start_token = std::nullopt;
-      return result;
-    }
-    return yylex_main(yylval_p, loc_p, yyscanner);
-  }
-
   void
   yyerror(YYLTYPE *loc_p, yyscan_t scnner, const char *what)
   {
@@ -517,17 +504,17 @@ foreign_pointer_type_info(opi::value t)
     location.end = loc_p->right;
     throw opi::bad_code {what, location};
   }
-
-
 }
 
 
 // =============================================================================
 //                                Tokens
 // Trampolines to steer the parser
-%token PARSE_APPLEXPR PARSE_EXPR PARSE_STMT
+%token PARSE_TOPLVL PARSE_IDENT PARSE_APPLEXPR PARSE_EXPR PARSE_STMT
+%token EXPR STMT
 
 // General syntax tokens
+%token MACRO
 %token REQUIRE FOREIGN_INLINE_BEGIN FOREIGN_INLINE_END FOREIGN
 %token ASSERT
 %token IDENT
@@ -594,8 +581,9 @@ foreign_pointer_type_info(opi::value t)
 %%
 
 Entry
-  : TopLvlSeq { *g_result_ptr = append(*g_result_ptr, $1); }
+  : PARSE_TOPLVL TopLvlSeq { *g_result_ptr = $2; }
   | PARSE_APPLEXPR ApplExpr { *g_result_ptr = $2; }
+  | PARSE_IDENT IDENT { *g_result_ptr = $2; }
   | PARSE_EXPR Expr { *g_result_ptr = $2; }
   | PARSE_STMT Stmt { *g_result_ptr = $2; }
 ;
@@ -661,7 +649,8 @@ ApplExpr
 ;
 
 Expr
-  : ApplExpr
+  : EXPR
+  | ApplExpr
   | '_' { $$ = "_"; }
   | SET IDENT '=' Expr { const value set = "set!"; bindloc(set, @1); $$ = list(set, $2, $4); }
   | SET ApplExpr '[' Expr ']' '=' Expr {
@@ -775,7 +764,8 @@ Expr
 ;
 
 Stmt
-  : Expr
+  : STMT
+  | Expr
   | Expr '=' Expr {
     if (issym($1))
     { // define variable
@@ -881,13 +871,10 @@ TopLvlExpr
     catch (const std::runtime_error &exn)
     { throw opi::bad_code {exn.what(), opi::osl::make_location(@$)}; }
 
-    if (g_included_files.contains(fullpath))
-      $$ = nil;
-    else
-    {
-      g_included_files.emplace(fullpath);
-      $$ = load_file(fullpath);
-    }
+    if (not g_current_tree_parser->target().contains(fullpath))
+      g_current_tree_parser->load_file(fullpath);
+
+    $$ = nil;
   }
   | EXTERN IDENT DOUBLE_COLUMN TypeSign {
     $$ = list(
@@ -988,6 +975,35 @@ TopLvlExpr
       list("pragma", "scheme-translator",
         list("inline", sym(result))));
     bindloc($$, @$);
+  }
+  | MACRO {
+    using namespace opi::osl;
+
+    info("encountered macro definition");
+    opi::stl::unordered_map<opi::value, opi::value> paramtypes;
+    lexer::token token;
+    value name;
+
+    lexer &lexer = *g_current_lexer;
+
+    if (lexer.read(token) != IDENT)
+      throw bad_code {"Invalid macro syntax, expected macros' name", token.value};
+    name = token.value;
+
+    if (lexer.read(token) != '[')
+      throw bad_code {"Invalid macro syntax, expected '['", token.value};
+    osl::syntax *pattern = osl::macro_pattern_parser(paramtypes).parse_sequence(lexer, ']');
+
+    if (lexer.read(token) != '=')
+      throw bad_code {"Invalid macro syntax, expected '='", token.value};
+
+    if (lexer.read(token) != '[')
+      throw bad_code {"Invalid macro syntax, expected '['", token.value};
+    osl::syntax *rule = osl::macro_rule_parser().parse_sequence(lexer, ']');
+
+    g_current_tree_parser->add_macro(sym_name(name), {pattern, rule, paramtypes});
+
+    $$ = nil;
   }
 ;
 
@@ -1139,6 +1155,7 @@ Ctor
 ForeignType
   : IDENT { $$ = foreign_type_info($1); }
   | IDENT '*' { $$ = foreign_pointer_type_info($1); }
+  | IDENT '*' '*' { $$ = foreign_pointerpointer_type_info($1); }
 ;
 
 ListOfForeignTypes
@@ -1184,52 +1201,77 @@ opi::osl::make_location(const range_location &loc)
 namespace opi::osl {
 
 opi::value
-parse(const std::string &source, std::FILE *file, bool is_root)
+opi::osl::parser::parse(lexer &lexer, bool force)
 {
-  opi::utl::state_saver _ {g_fileoffs_left, g_fileoffs_right, g_source};
-  g_fileoffs_left = 0;
-  g_fileoffs_right = 0;
-  g_source = source;
+  opi::utl::state_saver _ {g_result_ptr, g_current_lexer};
 
   opi::value result = nil;
+  g_result_ptr = &result;
 
-  opi::value *result_ptr_save = &result;
-  std::swap(result_ptr_save, g_result_ptr);
+  g_current_lexer = &lexer;
 
-  if (is_root)
-  {
-    // Reset memoization on includes files
-    g_included_files.clear();
+  int status;
+  yypstate *ps = yypstate_new();
+  lexer.put(m_entry_token);
+  do {
+    // Read next token
+    lexer::token token;
+    lexer.read(token);
 
-    // Load auxiliary definitions used in syntax
-    opi::lisp_parser parser;
-    const opi::value header = parser.parse_all(osl_syntax_definitions);
-    result = append(result, header);
-
-    // Include builtins
-    try {
-      const std::filesystem::path builtinsfilepath =
-          resolve_path("builtins.osl", osl::pathes.begin(), osl::pathes.end());
-      g_included_files.emplace(builtinsfilepath);
-      const opi::value builtins = load_file(builtinsfilepath);
-      result = append(result, builtins);
-    }
-    catch (const std::exception &exn)
+    // Handle macros
+    if (token.type == IDENT)
     {
-      opi::error("failed to load builtins ({})", exn.what());
-      throw exn;
+      const auto it = m_macros.find(token.value);
+      if (it != m_macros.end())
+      {
+        opi::stl::unordered_map<opi::value, opi::value> paramvals;
+
+        // Put the macro-trigger token back and run the macro
+        lexer.put(token);
+        macro_pattern_matcher(it->second.paramtypes, paramvals)
+          .match_syntax(lexer, it->second.pattern);
+        macro_expander(it->second.paramtypes, paramvals)
+          .expand(lexer, it->second.rule);
+        continue;
+      }
     }
-  }
 
-  yyscan_t scanner;
-  yylex_init(&scanner);
-  yyset_in(file, scanner);
-  yyparse(scanner);
-  yylex_destroy(scanner);
+    // Convert token into bison's representatoin
+    value yylval = token.value;
+    range_location yyloc {token.location.start, token.location.end};
 
-  std::swap(result_ptr_save, g_result_ptr);
+    try {
+      // Run one parser iteration
+      status = yypush_parse(ps, token.type, &yylval, &yyloc, lexer.yyhandle());
+    }
+    catch (...) { // FIXME: must catch exceptions from yyerror and let the rest through
+      if (force)
+      { // Put back the last token weve read and inject and EOF to force parser
+        // to finish
+        lexer.put(token);
+        lexer.put(0);
+        continue;
+      }
+      else
+        throw;
+    }
+  } while (status == YYPUSH_MORE);
+  yypstate_delete(ps);
 
   return result;
+}
+
+
+void
+tree_parser::load_source(const std::string &source, std::FILE *file)
+{
+  opi::utl::state_saver _ {g_source, g_current_tree_parser};
+  g_source = source;
+  g_current_tree_parser = this;
+
+  lexer scanner {{source, 0, 0}, file};
+  const opi::value result = parse(scanner);
+  m_target.append(source, result);
 }
 
 } // namespace opi::osl
