@@ -1,9 +1,8 @@
 #include "unroll_flow.hpp"
 
 #include "opium/exceptions.hpp"
-#include "opium/source_location.hpp"
+#include "opium/stl/vector.hpp"
 #include "opium/value.hpp"
-#include "opium/logging.hpp"
 
 
 std::pair<opi::osl::flow, opi::value>
@@ -79,11 +78,46 @@ opi::osl::flow_unroller::unroll(value expr, value next) const
     }
     else if (form == "cases")
     {
-      // TODO
-      source_location location;
-      if (get_location(expr, location))
-        opi::error("Flow unroll not implemented: {}", display_location(location));
-      throw bad_code {"Unimplemented", expr};
+      const value exprs = car(args);
+      const value clauses = cdr(args);
+      stl::vector<std::pair<flow, value>> branchunrolls;
+      // Unroll branches and figure out resultant flow
+      flow resflow = flow::keep;
+      for (const value clause : range(clauses))
+      {
+        const value pats = car(clause);
+        const value body = cdr(clause);
+        const auto [flow, newbody] = unroll_block(body, next, nil);
+        if (flow == flow::branch)
+          resflow = flow::branch;
+        branchunrolls.emplace_back(flow, cons(pats, newbody));
+      }
+      // Handle the flow
+      const auto second = [](const auto &pair) { return pair.second; };
+      value newclauses;
+      if (resflow == flow::keep)
+      {
+        newclauses = list(std::views::transform(branchunrolls, second));
+      }
+      else // branch
+      {
+        // fix branches that were 'kept'
+        const value newnext = unroll_block(next, nil, nil).second;
+        for (const auto &[flow, clause] : branchunrolls)
+        {
+          if (flow == flow::keep)
+          {
+            const value pats = car(clause);
+            const value body = cdr(clause);
+            const value newbody = append(body, newnext);
+            const value newclause = cons(pats, newbody);
+            append_mut(newclauses, list(newclause));
+          }
+          else
+            append_mut(newclauses, list(clause));
+        }
+      }
+      return {resflow, list("cases", exprs, dot, newclauses)};
     }
     else if (form == "break")
     {
