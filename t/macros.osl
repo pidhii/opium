@@ -1,9 +1,10 @@
 #!/usr/bin/env -S ./install/bin/opium-osl --verbose --run
 
 
-macro xif
+macro xif {
   [xif $expr:cond then $expr:thenbr else $expr:elsebr]
   = [if $cond then $elsebr else $thenbr]
+}
 
 println("testing `xif`: expect \"else\"")
 xif true then println("then") else println("else")
@@ -12,16 +13,93 @@ xif true then println("then") else println("else")
 
 iff__(_ assertion_success, thenbr, elsebr) = thenbr()
 iff__(_ assertion_failure, thenbr, elsebr) = elsebr()
-macro ifconstexpr
-  [ifconstexpr $expr:cond then $expr:thenbr else $expr:elsebr]
+macro if {
+  [if constexpr $expr:cond then $expr:thenbr else $expr:elsebr]
   = [iff__(assert_thunk(() => $cond), () => $thenbr, () => $elsebr)]
+}
 
-ifconstexpr 1 :: str then
+if constexpr 1 :: str then
   println("1 is a 1")
 else
   println("1 is not what we expect")
 
 
 require "typeutils"
-macro the [the] = [reinterpret_cast("the") ::]
+macro the {[the] = [reinterpret_cast("the") ::]}
 assert { typein(the str, the num, the str) }
+
+
+macro while {
+  [while $expr:cond do $expr:body] = [
+    letrec while_loop() = {
+      if $cond then
+      {
+        $body
+        while_loop()
+      }
+      void()
+    }
+    in while_loop()
+  ]
+}
+
+macro foreach {
+  [foreach $expat:x in $expr:seq do $expr:body] = [
+    letrec for_loop(__it) = {
+      match next(__it) in
+      | Some($x) -> {
+        $body
+        for_loop(__it)
+      }
+    }
+    in for_loop(iter($seq))
+  ]
+}
+
+foreach x in [1, 2, 3, 4] do
+  println("foreach: - ", x)
+
+let x = 1 in
+while x < 10 do {
+  println("while: - ", x)
+  set x = x + 2
+}
+
+
+macro case {[case $expr:x in] = [let __case_x = $x in __case]}
+macro __case {
+  [__case | $expr:case -> $expr:body] = [if __case_x == $case then $body else __case]
+  [__case | otherwize -> $expr:body] = [$body]
+  [__case] = [void()]
+}
+
+case 2 + 2 in
+| 1 -> println("one")
+| 2 -> println("two")
+| 3 -> println("three")
+| 4 -> println("four")
+| 5 -> println("five")
+| otherwize -> println("idk")
+
+
+// macro with [with $expr:ctor as $ident:bind do $expr:body] = [
+//   let o = $ctor in
+//   let $bind = __enter__(o) in
+//   {
+//     try
+//     {
+//       $body
+//     }
+//     catch(exn)
+//     {
+//       if not bool(__exit__(o, exn)) then
+//         throw exn
+//     }
+//     __exit__(o, void())
+//   }
+// ]
+
+// macro try [try $expr:try catch($ident) $expr:catch] = [
+//   let exn_handler = ... in
+//   in identifier!(with-exception-handler)(exn_handler, () => $try)
+// ]

@@ -34,3 +34,32 @@ opi::osl::dump_syntax(std::ostream &os, const syntax *syn)
       break;
   }
 }
+
+
+int
+opi::osl::entry_token_for(std::string_view parameter_type)
+{
+  static const std::unordered_map<std::string_view, int> t {
+    {"ident", PARSE_IDENT},
+    {"expr", PARSE_EXPR},
+    {"stmt", PARSE_STMT},
+    {"atpat", PARSE_ATPAT},
+    {"expat", PARSE_EXPAT},
+  };
+  return t.at(parameter_type);
+}
+
+int
+opi::osl::token_for(std::string_view parameter_type)
+{
+  static const std::unordered_map<std::string_view, int> t {
+    {"ident", IDENT},
+    {"expr", EXPR},
+    {"stmt", STMT},
+    {"atpat", ATPAT},
+    {"expat", EXPAT},
+  };
+  return t.at(parameter_type);
+}
+
+

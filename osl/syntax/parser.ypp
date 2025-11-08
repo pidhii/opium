@@ -77,7 +77,7 @@ std::optional<YYLTYPE> start_location;
 }
 
 static
-opi::osl::lexer *g_current_lexer;
+opi::osl::generic_lexer *g_current_lexer;
 
 static
 opi::osl::tree_parser *g_current_tree_parser;
@@ -475,7 +475,62 @@ foreign_pointerpointer_type_info(opi::value t)
   return typemap.at(std::string(opi::sym_name(t)));
 }
 
+static bool
+is_opening_bracket(int c)
+{ return c == '(' or c == '[' or c == '{'; }
 
+static int
+closing_bracket_for(int c)
+{
+  assert(is_opening_bracket(c));
+  switch (c)
+  {
+    case '(': return ')';
+    case '[': return ']';
+    case '{': return '}';
+    default: std::terminate();
+  }
+}
+
+static void
+parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parser)
+{
+  int big_bracket;
+  opi::osl::lexer::token nametoken, token;
+  opi::value name;
+
+  lexer.read(nametoken);
+
+  if (not is_opening_bracket(big_bracket = lexer.read(token)))
+    throw opi::bad_code {"Invalid macro syntax, expected opening bracket", token.location};
+
+  opi::osl::macro result;
+  while (lexer.peek(token) != closing_bracket_for(big_bracket))
+  {
+    int bracket;
+    opi::stl::unordered_map<opi::value, opi::value> paramtypes;
+
+    // Read pattern
+    if (not is_opening_bracket(bracket = lexer.read(token)))
+      throw opi::bad_code {"Invalid macro syntax, expected opening bracket", token.location};
+    osl::syntax *pattern = osl::macro_pattern_parser(paramtypes)
+                           .parse_sequence(lexer, closing_bracket_for(bracket));
+
+    if (lexer.read(token) != '=')
+      throw opi::bad_code {"Invalid macro syntax, expected '='", token.location};
+
+    // Read rule
+    if (not is_opening_bracket(bracket = lexer.read(token)))
+      throw opi::bad_code {"Invalid macro syntax, expected opening bracket", token.location};
+      opi::osl::syntax *rule = osl::macro_rule_parser()
+                               .parse_sequence(lexer, closing_bracket_for(bracket));
+
+    result.emplace_back(pattern, rule, paramtypes);
+  }
+  lexer.read(token); // read closing bracket
+
+  parser.add_macro({nametoken.type, nametoken.value}, result);
+}
 
 
 %}
@@ -510,8 +565,8 @@ foreign_pointerpointer_type_info(opi::value t)
 // =============================================================================
 //                                Tokens
 // Trampolines to steer the parser
-%token PARSE_TOPLVL PARSE_IDENT PARSE_APPLEXPR PARSE_EXPR PARSE_STMT
-%token EXPR STMT
+%token PARSE_TOPLVL PARSE_IDENT PARSE_EXPR PARSE_STMT PARSE_ATPAT PARSE_EXPAT
+%token EXPR STMT ATPAT EXPAT
 
 // General syntax tokens
 %token MACRO
@@ -582,10 +637,11 @@ foreign_pointerpointer_type_info(opi::value t)
 
 Entry
   : PARSE_TOPLVL TopLvlSeq { *g_result_ptr = $2; }
-  | PARSE_APPLEXPR ApplExpr { *g_result_ptr = $2; }
   | PARSE_IDENT IDENT { *g_result_ptr = $2; }
   | PARSE_EXPR Expr { *g_result_ptr = $2; }
   | PARSE_STMT Stmt { *g_result_ptr = $2; }
+  | PARSE_ATPAT AtomPattern { *g_result_ptr = $2; }
+  | PARSE_EXPAT ExprPattern { *g_result_ptr = $2; }
 ;
 
 String
@@ -977,32 +1033,7 @@ TopLvlExpr
     bindloc($$, @$);
   }
   | MACRO {
-    using namespace opi::osl;
-
-    info("encountered macro definition");
-    opi::stl::unordered_map<opi::value, opi::value> paramtypes;
-    lexer::token token;
-    value name;
-
-    lexer &lexer = *g_current_lexer;
-
-    if (lexer.read(token) != IDENT)
-      throw bad_code {"Invalid macro syntax, expected macros' name", token.value};
-    name = token.value;
-
-    if (lexer.read(token) != '[')
-      throw bad_code {"Invalid macro syntax, expected '['", token.value};
-    osl::syntax *pattern = osl::macro_pattern_parser(paramtypes).parse_sequence(lexer, ']');
-
-    if (lexer.read(token) != '=')
-      throw bad_code {"Invalid macro syntax, expected '='", token.value};
-
-    if (lexer.read(token) != '[')
-      throw bad_code {"Invalid macro syntax, expected '['", token.value};
-    osl::syntax *rule = osl::macro_rule_parser().parse_sequence(lexer, ']');
-
-    g_current_tree_parser->add_macro(sym_name(name), {pattern, rule, paramtypes});
-
+    parse_syntax_cases_macro(*g_current_lexer, *g_current_tree_parser);
     $$ = nil;
   }
 ;
@@ -1093,12 +1124,13 @@ ExprWithOptTypeParam
 
 
 MatchClauses
-  :  MatchClause { $$ = list($1); }
-  |  MatchClause MatchClauses { $$ = cons($1, $2); }
+  : MatchClause { $$ = list($1); }
+  | MatchClause MatchClauses { $$ = cons($1, $2); }
 ;
 
 MatchClause
   : '|' ListOfExprPatterns RIGHT_ARROW Expr { $$ = cons($2, list($4)); }
+  | '|' OTHERWIZE RIGHT_ARROW Expr { $$ = cons(list("otherwize"), list($4)); }
 ;
 
 ListOfExprPatterns
@@ -1108,7 +1140,8 @@ ListOfExprPatterns
 ;
 
 ExprPattern
-  : AtomPattern
+  : EXPAT
+  | AtomPattern
   | ExprPattern ':' ExprPattern {
     const value Cons = mangle_type_constructor("Cons");
     bindloc(Cons, @2);
@@ -1117,7 +1150,8 @@ ExprPattern
 ;
 
 AtomPattern
-  : IDENT
+  : ATPAT
+  | IDENT
   | '(' ExprPattern ')' { $$ = $2; }
   | Ctor_mangled %prec AFTER_APPLY { $$ = list($1); }
   | Ctor_mangled '(' ListOfExprPatterns ')' %prec APPLY { $$ = cons($1, $3); }
@@ -1126,7 +1160,6 @@ AtomPattern
     bindloc(EmptyList, @$);
     $$ = list(EmptyList);
   }
-  | OTHERWIZE { $$ = "otherwize"; bindloc($$, @$); }
 ;
 
 
@@ -1138,6 +1171,7 @@ ListOfBinds
 Bind
   : IDENT '=' Expr { $$ = list($1, $3); }
   | IDENT '(' ListOfExprs ')' '=' Expr {
+    // TODO: use function unroller
     const value lambda = "lambda";
     bindloc(lambda, @$);
     const value lambdaexpr = list(lambda, $3, $6);
@@ -1201,7 +1235,7 @@ opi::osl::make_location(const range_location &loc)
 namespace opi::osl {
 
 opi::value
-opi::osl::parser::parse(lexer &lexer, bool force)
+opi::osl::parser::parse(generic_lexer &lexer, bool force)
 {
   opi::utl::state_saver _ {g_result_ptr, g_current_lexer};
 
@@ -1211,28 +1245,46 @@ opi::osl::parser::parse(lexer &lexer, bool force)
   g_current_lexer = &lexer;
 
   int status;
+  bool enforced = false;
   yypstate *ps = yypstate_new();
   lexer.put(m_entry_token);
   do {
+L_read_next:
     // Read next token
     lexer::token token;
     lexer.read(token);
 
     // Handle macros
-    if (token.type == IDENT)
+    auto [begin, end] = m_macros.equal_range({token.type, token.value});
+    for (const auto &[_, macro] : std::ranges::subrange(begin, end))
     {
-      const auto it = m_macros.find(token.value);
-      if (it != m_macros.end())
+      for (const macro_case &mcase : macro)
       {
         opi::stl::unordered_map<opi::value, opi::value> paramvals;
 
         // Put the macro-trigger token back and run the macro
-        lexer.put(token);
-        macro_pattern_matcher(it->second.paramtypes, paramvals)
-          .match_syntax(lexer, it->second.pattern);
-        macro_expander(it->second.paramtypes, paramvals)
-          .expand(lexer, it->second.rule);
-        continue;
+        stateful_lexer stlexer {lexer};
+        stateful_lexer::state lexst = stlexer.current_state();
+        try
+        {
+          debug("testing macro {}", token.value);
+          stlexer.put(token);
+          macro_pattern_matcher(mcase.paramtypes, paramvals)
+            .match_syntax(stlexer, mcase.pattern);
+          macro_expander(mcase.paramtypes, paramvals)
+            .expand(stlexer, mcase.rule);
+          debug("successfuly aplied macro {}", token.value);
+          goto L_read_next;
+        }
+        catch (...)
+        {
+          debug("recovering lexer state after failed attempt to use macro {}",
+                token.value);
+          stlexer.recover_state(lexst);
+          lexer::token nexttoken;
+          lexer.peek(nexttoken);
+          debug("next token: {}", nexttoken.value);
+        }
       }
     }
 
@@ -1242,14 +1294,15 @@ opi::osl::parser::parse(lexer &lexer, bool force)
 
     try {
       // Run one parser iteration
-      status = yypush_parse(ps, token.type, &yylval, &yyloc, lexer.yyhandle());
+      status = yypush_parse(ps, token.type, &yylval, &yyloc, nullptr);
     }
     catch (...) { // FIXME: must catch exceptions from yyerror and let the rest through
-      if (force)
+      if (force and not enforced)
       { // Put back the last token weve read and inject and EOF to force parser
         // to finish
         lexer.put(token);
-        lexer.put(0);
+        lexer.put(YYEOF);
+        enforced = true;
         continue;
       }
       else

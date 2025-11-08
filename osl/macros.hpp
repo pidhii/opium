@@ -31,6 +31,14 @@ struct syntax {
 };
 
 
+int
+entry_token_for(std::string_view parameter_type);
+
+int
+token_for(std::string_view parameter_type);
+
+
+
 static inline bool
 is_token(const syntax *syn, int toktype) noexcept
 { return syn->kind == syntax::kind::token and syn->token.type == toktype; }
@@ -94,7 +102,7 @@ enum parse_param_flags : unsigned { type = 1, name = 2, all = 3 };
 
 // <type> ':' <name>
 static inline std::pair<value /*type*/, value /*name*/>
-parse_pattern_parameter(lexer &lex, unsigned flags = all)
+parse_pattern_parameter(generic_lexer &lex, unsigned flags = all)
 { // TODO: pass locations to the exceptions
   lexer::token dolar, type, colon, name;
   int toktype;
@@ -140,13 +148,13 @@ class macro_pattern_parser {
 
   template <std::output_iterator<syntax *> Out>
   void
-  parse_list(lexer &lex, int listend, Out out);
+  parse_list(generic_lexer &lex, int listend, Out out);
 
   syntax *
-  parse_syntax(lexer &lex);
+  parse_syntax(generic_lexer &lex);
 
   syntax *
-  parse_sequence(lexer &lex, int listend)
+  parse_sequence(generic_lexer &lex, int listend)
   {
     stl::vector<const syntax *> syntaxes;
     parse_list(lex, listend, std::back_inserter(syntaxes));
@@ -160,7 +168,7 @@ class macro_pattern_parser {
 
 template <associative_container<value, value> ParamDict>
 syntax *
-macro_pattern_parser<ParamDict>::parse_syntax(lexer &lex)
+macro_pattern_parser<ParamDict>::parse_syntax(generic_lexer &lex)
 {
   lexer::token token;
   switch (lex.read(token))
@@ -199,7 +207,7 @@ macro_pattern_parser<ParamDict>::parse_syntax(lexer &lex)
 template <associative_container<value, value> ParamDict>
 template <std::output_iterator<syntax *> Out>
 void
-macro_pattern_parser<ParamDict>::parse_list(lexer &lex, int listend, Out out)
+macro_pattern_parser<ParamDict>::parse_list(generic_lexer &lex, int listend, Out out)
 {
   while (true)
   {
@@ -220,13 +228,13 @@ class macro_rule_parser {
   public:
   template <std::output_iterator<syntax *> Out>
   void
-  parse_list(lexer &lex, int listend, Out out);
+  parse_list(generic_lexer &lex, int listend, Out out);
 
   syntax *
-  parse_syntax(lexer &lex);
+  parse_syntax(generic_lexer &lex);
 
   syntax *
-  parse_sequence(lexer &lex, int listend)
+  parse_sequence(generic_lexer &lex, int listend)
   {
     stl::vector<const syntax *> syntaxes;
     parse_list(lex, listend, std::back_inserter(syntaxes));
@@ -236,7 +244,7 @@ class macro_rule_parser {
 
 
 inline syntax *
-macro_rule_parser::parse_syntax(lexer &lex)
+macro_rule_parser::parse_syntax(generic_lexer &lex)
 {
   lexer::token token;
   switch (lex.read(token))
@@ -274,7 +282,7 @@ macro_rule_parser::parse_syntax(lexer &lex)
 
 template <std::output_iterator<syntax *> Out>
 void
-macro_rule_parser::parse_list(lexer &lex, int listend, Out out)
+macro_rule_parser::parse_list(generic_lexer &lex, int listend, Out out)
 {
   while (true)
   {
@@ -301,7 +309,7 @@ class macro_pattern_matcher {
   { }
 
   void
-  match_syntax(lexer &lex, const syntax *pattern);
+  match_syntax(generic_lexer &lex, const syntax *pattern);
 
   private:
   const ParamTypeDict &m_parameter_types;
@@ -312,7 +320,7 @@ template <associative_container<value, value> ParamTypeDict,
           associative_container<value, value> ParamValDict>
 void
 macro_pattern_matcher<ParamTypeDict, ParamValDict>::match_syntax(
-    lexer &lex, const syntax *pattern)
+    generic_lexer &lex, const syntax *pattern)
 {
   switch (pattern->kind)
   {
@@ -328,13 +336,9 @@ macro_pattern_matcher<ParamTypeDict, ParamValDict>::match_syntax(
     {
       const value name = pattern->parameter;
       const value type = m_parameter_types.at(name);
-      if (type == "expr")
-        m_parameter_vals[name] = parser(PARSE_EXPR).parse(lex, true);
-      else if (type == "stmt")
-        m_parameter_vals[name] = parser(PARSE_STMT).parse(lex, true);
-      else
-        throw bad_code {"Invalid macro parameter type", type};
-      info("matched parameter {}: {}", name, m_parameter_vals[name]);
+      m_parameter_vals[name] =
+          parser(entry_token_for(sym_name(type))).parse(lex, true);
+      debug("matched parameter {}: {}", name, m_parameter_vals[name]);
       break;
     }
 
@@ -359,7 +363,7 @@ class macro_expander {
   { }
 
   void
-  expand(lexer &lex, const syntax *rule)
+  expand(generic_lexer &lex, const syntax *rule)
   {
     stl::deque<lexer::token> result;
     _expand(rule, result);
@@ -396,10 +400,7 @@ macro_expander<ParamTypeDict, ParamValDict>::_expand(
       const value val = m_parameter_vals.at(name);
       source_location location;
       if (get_location(val, location)) { };
-      if (type == "expr")
-        result.emplace_back(location, val, EXPR);
-      else if (type == "stmt")
-        result.emplace_back(location, val, STMT);
+      result.emplace_back(location, val, token_for(sym_name(type)));
       break;
     }
 

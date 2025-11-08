@@ -21,6 +21,15 @@ extern int
 opi::osl::yylex(opi::value *yylval_p, range_location *loc_p, yyscan_t yyscanner);
 
 
+int
+opi::osl::generic_lexer::peek(token &result)
+{
+  if (read(result) != 0)
+    put(result);
+  return result.type;
+}
+
+  
 opi::osl::lexer::lexer(const source_location &start_location, FILE *input)
 : m_location {start_location}
 {
@@ -30,7 +39,6 @@ opi::osl::lexer::lexer(const source_location &start_location, FILE *input)
 
 opi::osl::lexer::~lexer()
 { yylex_destroy(m_yyscanner); }
-
 
 int
 opi::osl::lexer::read(token &result)
@@ -48,22 +56,11 @@ opi::osl::lexer::read(token &result)
   return result.type;
 }
 
-
 void
 opi::osl::lexer::put(const token &token)
 { m_tokbuf.push(token); }
 
 
-int
-opi::osl::lexer::peek(token &result)
-{
-  if (read(result) != 0)
-    put(result);
-  return result.type;
-}
-
-
-  
 opi::value
 opi::osl::syntax_requirements()
 {
@@ -81,7 +78,7 @@ opi::osl::tree_parser::tree_parser(program_sources &target)
 void
 opi::osl::tree_parser::load_file(const std::string &pathstr)
 {
-  const std::filesystem::path path {pathstr};
+  const std::filesystem::path path = std::filesystem::absolute(pathstr);
   const std::filesystem::path dirpath = path.parent_path();
 
   if (FILE *file = fopen(path.c_str(), "r"))

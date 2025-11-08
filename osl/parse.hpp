@@ -24,34 +24,42 @@ int
 yylex(YYSTYPE *yylval_p, YYLTYPE *loc_p, yyscan_t yyscanner);
 
 
-class lexer {
-  public:
+
+struct generic_lexer {
   struct token {
     source_location location;
     opi::value value;
     int type;
   }; // struct opi::osl::token
 
+  virtual int
+  read(token &result) = 0;
+
+  virtual void
+  put(const token &token) = 0;
+
+  void
+  put(int token)
+  { put({{"<injection>", 0, 0}, nil, token}); }
+
+  int
+  peek(token &result);
+}; // class opi::osl::lexer
+
+
+class lexer: public generic_lexer {
+  public:
   lexer(const source_location &start_location, FILE *input);
 
   ~lexer();
 
-  void*
-  yyhandle() const noexcept
-  { return m_yyscanner; }
-
   int
-  read(token &result);
+  read(token &result) override;
 
   void
-  put(const token &token);
+  put(const token &token) override;
 
-  void
-  put(int token)
-  { put({{}, nil, token}); }
-
-  int
-  peek(token &result);
+  using generic_lexer::put;
 
   private:
   std::stack<token, stl::deque<token>> m_tokbuf;
@@ -60,13 +68,142 @@ class lexer {
 }; // class opi::osl::lexer
 
 
+class stateful_lexer: public generic_lexer {
+  struct state_data {
+    enum tag { root, read, put } tag;
+    lexer::token token;
+    state_data *prev {nullptr};
+    state_data *next {nullptr};
+  };
+
+  public:
+  using state = state_data*;
+
+  stateful_lexer(generic_lexer &lexer)
+  : m_lexer {lexer},
+    m_state {make<state_data>(state_data::root, lexer::token {}, nullptr, nullptr)}
+  { }
+
+  state
+  current_state() const noexcept
+  { return m_state; }
+
+  int
+  read(token &result) override
+  {
+    const int toktype = m_lexer.read(result);
+    state_data *new_state = make<state_data>(state_data::read, result, m_state, nullptr);
+    m_state->next = new_state;
+    m_state = new_state;
+    return toktype;
+  }
+
+  void
+  put(const token &token) override
+  {
+    m_lexer.put(token);
+    state_data *new_state = make<state_data>(state_data::put, token, m_state, nullptr);
+    m_state->next = new_state;
+    m_state = new_state;
+  }
+
+  // Iterating from the end, erase all paris of nodes matching [p]->[r]
+  void
+  _erase_pr(state target_state, bool &isnop)
+  {
+    isnop = true;
+
+    for (state st = target_state; st->next; st = st->next)
+    {
+      if (st->tag == state_data::put and st->next->tag == state_data::read)
+      {
+        const state left = st->prev;
+        const state right = st->next->next;
+        // [left]->[p]->[r]->[right] ~> [left]->[right]
+        if (left != nullptr)
+          left->next = right;
+        if (right != nullptr)
+          right->prev = left;
+        isnop = false;
+      }
+    }
+  }
+
+  // Trim trailing [p]s
+  void
+  _trim_p(state target_state)
+  {
+    // find start of the trailing [p]s
+    state trail_start;
+    for (trail_start = target_state;
+         trail_start and trail_start->tag != state_data::put;
+         trail_start = trail_start->next)
+      ;
+
+    // read them all out
+    lexer::token token;
+    for (state st = trail_start; st; st = st->next)
+      m_lexer.read(token);
+
+    // and erase from the state-list
+    if (trail_start)
+    {
+      assert(trail_start->prev);
+      trail_start->prev->next = nullptr;
+    }
+  }
+
+  void
+  recover_state(state target_state)
+  {
+    bool isnop;
+    do { _erase_pr(target_state, isnop); } while (not isnop);
+
+    _trim_p(target_state);
+
+    state last_read = target_state;
+    assert(last_read->next);
+    for (; last_read->next; last_read = last_read->next)
+      ;
+
+    for (state st = last_read; st; st = st->prev)
+    {
+      assert(st->tag != state_data::put);
+      if (st->tag == state_data::read)
+        m_lexer.put(st->token);
+    }
+  }
+
+  using generic_lexer::put;
+
+  private:
+  generic_lexer &m_lexer;
+  state_data *m_state;
+};
+
+
 
 struct syntax;
-struct macro {
+struct macro_case {
   const syntax *pattern, *rule;
   opi::stl::unordered_map<opi::value, opi::value> paramtypes;
 };
-using macros_library = stl::unordered_map<value, macro>;
+using macro = stl::vector<macro_case>;
+
+using macro_key = std::pair<int, value>;
+
+struct macro_key_hash {
+  size_t
+  operator () (const macro_key &key) const noexcept
+  {
+    size_t hash = 0;
+    hash_combine(hash, key.first);
+    hash_combine(hash, key.second);
+    return hash;
+  }
+};
+
+using macros_library = stl::unordered_multimap<macro_key, macro, macro_key_hash>;
 
 
 class parser {
@@ -74,15 +211,15 @@ class parser {
   parser(int entry_token): m_entry_token {entry_token} { }
 
   opi::value
-  parse(lexer &lexer, bool force = false);
+  parse(generic_lexer &lexer, bool force = false);
 
   void
-  add_macro(std::string_view name, const macro &macro)
-  { m_macros.emplace(sym(name), macro); }
+  add_macro(const macro_key &key, const macro &macro)
+  { m_macros.emplace(key, macro); }
 
   void
-  add_macro(std::string_view name, macro &&macro)
-  { m_macros.emplace(sym(name), std::move(macro)); }
+  add_macro(const macro_key &key, macro &&macro)
+  { m_macros.emplace(key, std::move(macro)); }
 
   private:
   macros_library m_macros;
