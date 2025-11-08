@@ -309,7 +309,7 @@ class macro_pattern_matcher {
   { }
 
   void
-  match_syntax(generic_lexer &lex, const syntax *pattern);
+  match_syntax(generic_lexer &lex, parser &prs, const syntax *pattern);
 
   private:
   const ParamTypeDict &m_parameter_types;
@@ -320,7 +320,7 @@ template <associative_container<value, value> ParamTypeDict,
           associative_container<value, value> ParamValDict>
 void
 macro_pattern_matcher<ParamTypeDict, ParamValDict>::match_syntax(
-    generic_lexer &lex, const syntax *pattern)
+    generic_lexer &lex, parser &prs, const syntax *pattern)
 {
   switch (pattern->kind)
   {
@@ -337,7 +337,7 @@ macro_pattern_matcher<ParamTypeDict, ParamValDict>::match_syntax(
       const value name = pattern->parameter;
       const value type = m_parameter_types.at(name);
       m_parameter_vals[name] =
-          parser(entry_token_for(sym_name(type))).parse(lex, true);
+          prs.parse(entry_token_for(sym_name(type)), lex, true);
       debug("matched parameter {}: {}", name, m_parameter_vals[name]);
       break;
     }
@@ -346,7 +346,7 @@ macro_pattern_matcher<ParamTypeDict, ParamValDict>::match_syntax(
     case syntax::kind::group:
     {
       for (const syntax *s : pattern->sequence)
-        match_syntax(lex, s);
+        match_syntax(lex, prs, s);
       break;
     }
   }

@@ -71,8 +71,7 @@ opi::osl::syntax_requirements()
 
 
 opi::osl::tree_parser::tree_parser(program_sources &target)
-: parser(PARSE_TOPLVL),
-  m_target {target}
+: m_target {target}
 { }
 
 void

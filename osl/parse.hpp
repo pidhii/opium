@@ -208,10 +208,8 @@ using macros_library = stl::unordered_multimap<macro_key, macro, macro_key_hash>
 
 class parser {
   public:
-  parser(int entry_token): m_entry_token {entry_token} { }
-
   opi::value
-  parse(generic_lexer &lexer, bool force = false);
+  parse(int entry_token, generic_lexer &lexer, bool force = false);
 
   void
   add_macro(const macro_key &key, const macro &macro)
@@ -223,7 +221,6 @@ class parser {
 
   private:
   macros_library m_macros;
-  int m_entry_token;
 }; // class opi::osl::parser
 
 
