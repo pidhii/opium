@@ -581,12 +581,12 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %token TYPE
 %token SET
 %token FN
-%token FOR DO BREAK CONTINUE RETURN YIELD
+%token RETURN YIELD
 %token EXTERN AS
 
 %right '|'
 
-%nonassoc IF IFLET THEN
+%nonassoc IF THEN
 %right ELSE
 
 %left '='
@@ -754,47 +754,6 @@ Expr
     bindloc($$, @$);
   }
   | YIELD Expr { const value yield = "yield"; bindloc(yield, @1); $$ = list(yield, $2); }
-  | BREAK %prec AFTER_APPLY { $$ = list("break"); bindloc($$, @$); }
-  | BREAK '(' ListOfExprs ')' %prec APPLY { $$ = cons("break", $3); bindloc($$, @$); }
-  | CONTINUE %prec AFTER_APPLY { $$ = list("continue"); }
-  | FOR IDENT IN Expr DO Expr {
-    loop_unroller unroller {"<loop>", "<it>", "void"};
-
-    const value Nothing = mangle_type_constructor("Nothing");
-    const value Some = mangle_type_constructor("Some");
-
-    const value ifpat = list(Some, $2);
-    const value thenblock = list($6, list("<loop>", "<it>"));
-    const value thenbr = unroller.unroll_block(thenblock, nil, nil).second;
-    const value ifclause = cons(list(ifpat), thenbr);
-    const value elsepat = list(Nothing);
-    const value elsebr = list(list("void"));
-    const value elseclause = cons(list(elsepat), elsebr);
-    const value expr = list("next", "<it>");
-
-    const value loopbody = list("cases", list(expr), ifclause, elseclause);
-    const value lambda = list("lambda", list("<it>"), loopbody);
-    $$ = list("letrec", list(list("<loop>", lambda)), list("<loop>", list("iter", $4)));
-  }
-  | FOR IDENT IN Expr DO Expr ELSE Expr {
-    loop_unroller unroller {"<loop>", "<it>", "values"};
-
-    const value Nothing = mangle_type_constructor("Nothing");
-    const value Some = mangle_type_constructor("Some");
-
-    const value ifpat = list(Some, $2);
-    const value thenblock = list($6, list("<loop>", "<it>"));
-    const value thenbr = unroller.unroll_block(thenblock, nil, nil).second;
-    const value ifclause = cons(list(ifpat), thenbr);
-    const value elsepat = list(Nothing);
-    const value elsebr = list($8);
-    const value elseclause = cons(list(elsepat), elsebr);
-    const value expr = list("next", "<it>");
-
-    const value loopbody = list("cases", list(expr), ifclause, elseclause);
-    const value lambda = list("lambda", list("<it>"), loopbody);
-    $$ = list("letrec", list(list("<loop>", lambda)), list("<loop>", list("iter", $4)));
-  }
   | ASSERT '{' SeqOfExprs '}' {
     $$ = list("if", False, cons("begin", $3));
   }
@@ -851,16 +810,6 @@ Lambda
 If
   : IF Expr THEN Expr ELSE Expr { $$ = list("if", $2, $4, $6); }
   | IF Expr THEN Expr { $$ = list("if", $2, $4); }
-  | IFLET ExprPattern '=' Expr THEN Expr ELSE Expr {
-    const value thenclause = list(list($2), $6);
-    const value elseclause = list(list("_"), $8);
-    $$ = list("cases", list($4), thenclause, elseclause);
-  }
-  | IFLET ExprPattern '=' Expr THEN Expr {
-    const value thenclause = list(list($2), $6);
-    const value elseclause = list(list("_"), list("void"));
-    $$ = list("cases", list($4), thenclause, elseclause);
-  }
 ;
 
 Match

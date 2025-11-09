@@ -1,0 +1,48 @@
+
+macro for {
+  [for $expat:x in $expr:seq do $expr:body else $expr:fin] = [
+    let __Loop_It = iter($seq) in
+    letrec __Loop() = {
+      match next(__Loop_It) in
+      | Some($x) -> { $body __Loop() }
+      | otherwize -> $fin
+    }
+    in __Loop()
+  ]
+  [for $expat:x in $expr:seq do $expr:body] = [
+    let __Loop_It = iter($seq) in
+    letrec __Loop() = {
+      match next(__Loop_It) in
+      | Some($x) -> { $body __Loop() }
+    }
+    in __Loop()
+  ]
+}
+
+macro while {
+  [while $expr:cond do $expr:body else $expr:fin] = [
+    letrec __Loop() = {
+      if $cond then
+      {
+        $body
+        __Loop()
+      }
+      else
+        $fin
+    }
+    in __Loop()
+  ]
+  [while $expr:cond do $expr:body] = [
+    letrec __Loop() = {
+      if $cond then
+      {
+        $body
+        __Loop()
+      }
+    }
+    in __Loop()
+  ]
+}
+
+macro continue {[continue] = [return __Loop()]}
+macro break {[break] = [return]}

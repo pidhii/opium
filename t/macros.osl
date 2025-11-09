@@ -28,21 +28,6 @@ require "typeutils"
 macro the {[the] = [reinterpret_cast("the") ::]}
 assert { typein(the str, the num, the str) }
 
-
-macro while {
-  [while $expr:cond do $expr:body] = [
-    letrec while_loop() = {
-      if $cond then
-      {
-        $body
-        while_loop()
-      }
-      void()
-    }
-    in while_loop()
-  ]
-}
-
 macro foreach {
   [foreach $expat:x in $expr:seq do $expr:body] = [
     letrec for_loop(__it) = {
@@ -58,28 +43,6 @@ macro foreach {
 
 foreach x in [1, 2, 3, 4] do
   println("foreach: - ", x)
-
-let x = 1 in
-while x < 10 do {
-  println("while: - ", x)
-  set x = x + 2
-}
-
-
-macro case {[case $expr:x in] = [let __case_x = $x in __case]}
-macro __case {
-  [__case | $expr:case -> $expr:body] = [if __case_x == $case then $body else __case]
-  [__case | otherwize -> $expr:body] = [$body]
-  [__case] = [void()]
-}
-
-case 2 + 2 in
-| 1 -> println("one")
-| 2 -> println("two")
-| 3 -> println("three")
-| 4 -> println("four")
-| 5 -> println("five")
-| otherwize -> println("idk")
 
 
 // macro with [with $expr:ctor as $ident:bind do $expr:body] = [

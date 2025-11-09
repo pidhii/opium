@@ -1,4 +1,6 @@
 require "base"
+require "loops"
+require "conditionals"
 require "error"
 require "number"
 require "string"

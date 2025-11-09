@@ -1,0 +1,19 @@
+
+macro if {
+  [if let $expat:pat = $expr:expr then $expr:thenexpr else $expr:elseexpr] = [
+    match $expr in
+    | $pat -> $thenexpr
+    | otherwize -> $elseexpr
+  ]
+  [if let $expat:pat = $expr:expr then $expr:thenexpr] = [
+    match $expr in
+    | $pat -> $thenexpr
+  ]
+}
+
+macro case {[case $expr:x in] = [let __Case_X = $x in __Case]}
+macro __Case {
+  [__Case | $expr:case -> $expr:body] = [if __Case_X == $case then $body else __Case]
+  [__Case | otherwize -> $expr:body] = [$body]
+  [__Case] = [void()]
+}

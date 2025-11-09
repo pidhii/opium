@@ -162,7 +162,6 @@ class stateful_lexer: public generic_lexer {
     _trim_p(target_state);
 
     state last_read = target_state;
-    assert(last_read->next);
     for (; last_read->next; last_read = last_read->next)
       ;
 

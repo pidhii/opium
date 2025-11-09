@@ -83,17 +83,12 @@ assert return ASSERT;
 
 macro return MACRO;
 
-for return FOR;
-do return DO;
-break return BREAK;
-continue return CONTINUE;
 return return RETURN;
 yield__ return YIELD;
 
 match return MATCH;
 in    return IN;
 
-if[[:space:]]+let return IFLET;
 if return IF;
 then return THEN;
 else return ELSE;
