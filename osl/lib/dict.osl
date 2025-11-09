@@ -50,7 +50,7 @@ require "base"
 // Constructors
 //
 dict() = {
-  equalfn = coerce(==) :: fn(K, K) -> bool
+  equalfn = coerce((==)) :: fn(K, K) -> bool
   hashfn = coerce(hash) :: fn(K) -> num
   return makeHashTable(equalfn, hashfn)
 }

@@ -36,7 +36,7 @@ empty(trie trie(K, V)) = hashTrieEmpty(trie)
 contains(trie trie(K, V), key K) = hashTrieContains(trie, key)
 
 trie() = {
-  equalfn = coerce(==) :: fn(K, K) -> bool
+  equalfn = coerce((==)) :: fn(K, K) -> bool
   hashfn = coerce(hash) :: fn(K) -> num
   trietype = makeHashTrieType(equalfn, hashfn)
   return makeHashTrie(trietype)

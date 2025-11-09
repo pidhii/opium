@@ -113,4 +113,16 @@ println("blb: ", blb)
 set blb#u16[0] = 0xBEAF
 println("blb: ", blb)
 
-// println("read_blob() -> ", read_blob().unpack())
+
+case 1 + 2 in 
+| 1 -> println("one")
+| 2 -> println("two")
+| 3 -> println("three")
+| 4 -> println("four")
+| otherwize -> println("idk")
+
+
+println("test division: ", 4 / 2 / 2)
+
+let x = 1 in
+println("test unary: ", -x < 0)

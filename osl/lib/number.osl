@@ -48,6 +48,10 @@ require "base"
   )
 }
 
+// Unary plus and minus
+(+)(x num) = x
+(-)(x num) = 0 - x
+
 // Arithmetic operations
 x + y = sum(x, y)
 x - y = difference(x, y)

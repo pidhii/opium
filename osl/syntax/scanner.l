@@ -127,6 +127,18 @@ identifier"!("[^)]+")" {
   return IDENT;
 }
 
+"("\s*[-+=!*/%<>:&]+\s*")" {
+  std::string ident {yytext + 1, yytext + yyleng - 1};
+  while (std::isspace(ident.front()))
+    ident.erase(ident.begin());
+  while (std::isspace(ident.back()))
+    ident.pop_back();
+  yylval = sym(ident);
+  opi::set_location(yylval, opi::osl::make_location(*loc_p));
+  return IDENT;
+}
+
+
 \" {
   BEGIN(STRING);
   return BEGIN_STRING;
@@ -284,16 +296,51 @@ false {
   return CAPIDENT;
 }
 
-"->" return RIGHT_ARROW;
-"=>" return FAT_RIGHT_ARROW;
-
-"==" return EQ;
-"!=" return NE;
-"<"  return LT;
-"<=" return LE;
-">"  return GT;
-">=" return GE;
-"::" return DOUBLE_COLUMN;
+"->" {
+  yylval = opi::sym(yytext);
+  opi::set_location(yylval, opi::osl::make_location(*loc_p));
+  return RIGHT_ARROW;
+}
+"=>" {
+  yylval = opi::sym(yytext);
+  opi::set_location(yylval, opi::osl::make_location(*loc_p));
+  return  FAT_RIGHT_ARROW;
+}
+"==" {
+  yylval = opi::sym(yytext);
+  opi::set_location(yylval, opi::osl::make_location(*loc_p));
+  return EQ;
+}
+"!=" {
+  yylval = opi::sym(yytext);
+  opi::set_location(yylval, opi::osl::make_location(*loc_p));
+  return NE;
+}
+"<"  {
+  yylval = opi::sym(yytext);
+  opi::set_location(yylval, opi::osl::make_location(*loc_p));
+  return LT;
+}
+"<=" {
+  yylval = opi::sym(yytext);
+  opi::set_location(yylval, opi::osl::make_location(*loc_p));
+  return LE;
+}
+">"  {
+  yylval = opi::sym(yytext);
+  opi::set_location(yylval, opi::osl::make_location(*loc_p));
+  return GT;
+}
+">=" {
+  yylval = opi::sym(yytext);
+  opi::set_location(yylval, opi::osl::make_location(*loc_p));
+  return GE;
+}
+"::" {
+  yylval = opi::sym(yytext);
+  opi::set_location(yylval, opi::osl::make_location(*loc_p));
+  return DOUBLE_COLUMN;
+}
 "=" |
 "+" |
 "-" |
@@ -310,6 +357,8 @@ false {
 "_" |
 "$" |
 "("|")" {
+  yylval = opi::sym(yytext);
+  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return yytext[0];
 }
 

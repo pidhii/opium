@@ -605,7 +605,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %right ':'
 %left '+' '-' '%'
 %left '*' '/'
-%left NOT
+%right NOT UNARY_OPERATOR
 %nonassoc DOUBLE_COLUMN
 %left '.' '#'
 
@@ -673,17 +673,6 @@ ApplExpr
       $$ = list("list.EmptyList");
     bindloc($$, @$);
   }
-  | '+' { $$ = "+"; bindloc($$, @$); }
-  | '-' { $$ = "-"; bindloc($$, @$); }
-  | '*' { $$ = "*"; bindloc($$, @$); }
-  | '/' { $$ = "/"; bindloc($$, @$); }
-  | '%' { $$ = "%"; bindloc($$, @$); }
-  | EQ { $$ = "=="; bindloc($$, @$); }
-  | NE { $$ = "!="; bindloc($$, @$); }
-  | GT { $$ = ">"; bindloc($$, @$); }
-  | LT { $$ = "<"; bindloc($$, @$); }
-  | GE { $$ = ">="; bindloc($$, @$); }
-  | LE { $$ = "<="; bindloc($$, @$); }
   | Ctor '(' ListOfExprs ')' %prec APPLY {
     $$ = cons($1, $3);
     bindloc($$, @$);
@@ -707,7 +696,7 @@ ApplExpr
 Expr
   : EXPR
   | ApplExpr
-  | '_' { $$ = "_"; }
+  | '_' { $$ = "_"; } // FIXME (why is this an Expr?)
   | SET IDENT '=' Expr { const value set = "set!"; bindloc(set, @1); $$ = list(set, $2, $4); }
   | SET ApplExpr '[' Expr ']' '=' Expr {
     const value setter = random_access_setter();
@@ -719,6 +708,18 @@ Expr
     bindloc(setter, @1);
     $$ = list(setter, $2, $6);
   }
+  | ':' ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
+  | '+' ApplExpr %prec UNARY_OPERATOR { $$ = isnum($2) ? $2 : list($1, $2); }
+  | '-' ApplExpr %prec UNARY_OPERATOR { $$ = isnum($2) ? num(-num_val($2)) : list($1, $2); }
+  | '*' ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
+  | '/' ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
+  | '%' ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
+  | EQ ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
+  | NE ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
+  | GT ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
+  | LT ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
+  | GE ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
+  | LE ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
   | Expr ':' Expr { const value op = ":"; bindloc(op, @$); $$ = list(op, $1, $3); }
   | Expr '+' Expr { const value op = "+"; bindloc(op, @$); $$ = list(op, $1, $3); }
   | Expr '-' Expr { const value op = "-"; bindloc(op, @$); $$ = list(op, $1, $3); }
