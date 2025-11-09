@@ -743,6 +743,11 @@ Expr
     bindloc(setter, @1);
     $$ = list(setter, $2, $6);
   }
+  | SET '*' ApplExpr '=' Expr {
+    const value store = "osl#store";
+    bindloc(store, @1);
+    $$ = list(store, $3, $5);
+  }
   | ':' ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
   | '+' ApplExpr %prec UNARY_OPERATOR { $$ = isnum($2) ? $2 : list($1, $2); }
   | '-' ApplExpr %prec UNARY_OPERATOR { $$ = isnum($2) ? num(-num_val($2)) : list($1, $2); }
@@ -755,6 +760,7 @@ Expr
   | LT ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
   | GE ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
   | LE ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
+  | '&' ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
   | Expr ':' Expr { $$ = list($2, $1, $3); }
   | Expr '+' Expr { $$ = list($2, $1, $3); }
   | Expr '-' Expr { $$ = list($2, $1, $3); }
