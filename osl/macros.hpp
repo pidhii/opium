@@ -328,7 +328,7 @@ macro_pattern_matcher<ParamTypeDict, ParamValDict>::match_syntax(
     {
       lexer::token token;
       if (lex.read(token) != pattern->token.type)
-        throw bad_code {"token mismatch", token.value};
+        throw parse_error {"token mismatch", token.value};
       break;
     }
 

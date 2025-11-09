@@ -15,9 +15,8 @@
 %{
 #include "parse.hpp"
 #include "syntax_definitions.h"
-/*#include "location.hh"*/
-#include "unroll_flow.hpp" // FIXME
-#include "macros.hpp" // FIXME
+#include "unroll_flow.hpp"
+#include "macros.hpp"
 
 #include "opium/value.hpp"
 #include "opium/logging.hpp"
@@ -402,77 +401,110 @@ fix_type_annotations_in_arguments(opi::value l)
 static opi::value // (<chicken-foreign-type>, <osl-type>)
 foreign_type_info(opi::value t)
 {
+  using opi::list;
   static opi::stl::unordered_map<std::string, opi::value> typemap {
-    {"char", opi::list("char", "char")},
-    {"uchar", opi::list("unsigned-char", "char")},
-    {"short", opi::list("short", "num")},
-    {"ushort", opi::list("unsigned-short", "num")},
-    {"int", opi::list("int", "num")},
-    {"uint", opi::list("unsigned-int", "num")},
-    {"long", opi::list("long", "num")},
-    {"ulong", opi::list("unsigned-long", "num")},
-    {"i8", opi::list("byte", "num")},
-    {"u8", opi::list("unsigned-byte", "num")},
-    {"i16", opi::list("short", "num")},
-    {"u16", opi::list("unsigned-short", "num")},
-    {"i32", opi::list("int32", "num")},
-    {"u32", opi::list("unsigned-int32", "num")},
-    {"i64", opi::list("integer64", "num")},
-    {"u64", opi::list("unsigned-integer64", "num")},
-    {"void", opi::list("void", "void")},
-    {"cstr", opi::list("c-string", "str")},
+    {"char",   list("char",               "char")},
+    {"uchar",  list("unsigned-char",      "char")},
+    {"short",  list("short",              "num")},
+    {"ushort", list("unsigned-short",     "num")},
+    {"int",    list("int",                "num")},
+    {"uint",   list("unsigned-int",       "num")},
+    {"long",   list("long",               "num")},
+    {"ulong",  list("unsigned-long",      "num")},
+    {"float",  list("float",              "num")},
+    {"double", list("double",             "num")},
+    {"i8",     list("byte",               "num")},
+    {"u8",     list("unsigned-byte",      "num")},
+    {"i16",    list("short",              "num")},
+    {"u16",    list("unsigned-short",     "num")},
+    {"i32",    list("int32",              "num")},
+    {"u32",    list("unsigned-int32",     "num")},
+    {"i64",    list("integer64",          "num")},
+    {"u64",    list("unsigned-integer64", "num")},
+    {"f32",    list("float",              "num")},
+    {"f64",    list("double",             "num")},
+    {"void",   list("void",               "void")},
+    {"cstr",   list("c-string",           "str")},
+    {"blob",   list("blob",               "blob")},
   };
-  return typemap.at(std::string(opi::sym_name(t)));
+  try { return typemap.at(std::string(opi::sym_name(t))); }
+  catch (...) { throw opi::bad_code {"Invalid foreign type specifier", t}; }
 }
 
 static opi::value // (<chicken-foreign-type>, <osl-type>)
 foreign_pointer_type_info(opi::value t)
 {
+  using opi::list;
   static opi::stl::unordered_map<std::string, opi::value> typemap {
-    {"char", opi::list(opi::list("c-pointer", "char"), "i8array")},
-    {"uchar", opi::list(opi::list("c-pointer", "unsigned-char"), "u8array")},
-    {"short", opi::list(opi::list("c-pointer", "short"), "i16array")},
-    {"ushort", opi::list(opi::list("c-pointer", "unsigned-short"), "u16array")},
-    {"int", opi::list(opi::list("c-pointer", "int"), "i32array")},
-    {"uint", opi::list(opi::list("c-pointer", "unsigned-int"), "u32array")},
-    /*{"long", sizeof(long) == 8 ? opi::list("s64vector", "i64array") : opi::list("s32vector", "i32array")},*/
-    /*{"ulong", sizeof(long) == 8 ? opi::list("u64vector", "u64array") : opi::list("u32vector", "u32array")},*/
-    {"i8", opi::list("s8vector", "i8array")}, // FIXME
-    {"u8", opi::list("u8vector", "u8array")}, // FIXME
-    {"i16", opi::list("s16vector", "i16array")}, // FIXME
-    {"u16", opi::list("u16vector", "u16array")}, // FIXME
-    {"i32", opi::list("s32vector", "i32array")}, // FIXME
-    {"u32", opi::list("u32vector", "u32array")}, // FIXME
-    {"i64", opi::list("s64vector", "i64array")}, // FIXME
-    {"u64", opi::list("u64vector", "u64array")}, // FIXME
-    {"void", opi::list("c-pointer", "void*")},
+    {"char",   list(list("c-pointer", "char"),               list("ptr", "i8"))},
+    {"uchar",  list(list("c-pointer", "unsigned-char"),      list("ptr", "u8"))},
+    {"short",  list(list("c-pointer", "short"),              list("ptr", "i16"))},
+    {"ushort", list(list("c-pointer", "unsigned-short"),     list("ptr", "u16"))},
+    {"int",    list(list("c-pointer", "int"),                list("ptr", "i32"))},
+    {"uint",   list(list("c-pointer", "unsigned-int"),       list("ptr", "u32"))},
+    {"long",   list(list("c-pointer", "long"),               list("ptr", sizeof(long) == 8 ? "i64" : "i32"))},
+    {"ulong",  list(list("c-pointer", "unsigned-long"),      list("ptr", sizeof(long) == 8 ? "u64" : "i64"))},
+    {"float",  list(list("c-pointer", "float"),              list("ptr", "f32"))},
+    {"double", list(list("c-pointer", "double"),             list("ptr", "f64"))},
+    {"i8",     list(list("c-pointer", "byte"),               list("ptr", "i8"))},
+    {"u8",     list(list("c-pointer", "unsigned-byte",       list("ptr", "u8")))},
+    {"i16",    list(list("c-pointer", "short"),              list("ptr", "i16"))},
+    {"u16",    list(list("c-pointer", "unsigned-short"),     list("ptr", "u16"))},
+    {"i32",    list(list("c-pointer", "int32"),              list("ptr", "i32"))},
+    {"u32",    list(list("c-pointer", "unsigned-int32"),     list("ptr", "u32"))},
+    {"i64",    list(list("c-pointer", "integer64"),          list("ptr", "i64"))},
+    {"u64",    list(list("c-pointer", "unsigned-integer64"), list("ptr", "u64"))},
+    {"f32",    list(list("c-pointer", "float"),              list("ptr", "f32"))},
+    {"f64",    list(list("c-pointer", "double"),             list("ptr", "f64"))},
+    {"void",   list("c-pointer",                             list("ptr", "void"))},
   };
-  return typemap.at(std::string(opi::sym_name(t)));
+  try { return typemap.at(std::string(opi::sym_name(t))); }
+  catch (...) { throw opi::bad_code {"Invalid foreign type pointer-specifier", t}; }
+}
+
+static opi::value // (<chicken-foreign-type>, <osl-type>)
+foreign_array_type_info(opi::value t)
+{
+  using opi::list;
+  static opi::stl::unordered_map<std::string, opi::value> typemap {
+    {"char",    list("s8vector",  "i8array")},
+    {"uchar",   list("u8vector",  "i8array")},
+    {"short",   list("s16vector", "i16array")},
+    {"ushort",  list("u16vector", "i16array")},
+    {"int",     list("s32vector", "i32array")},
+    {"uint",    list("u32vector", "u32array")},
+    {"long",    sizeof(long) == 8 ?
+                list("s64vector", "i64array") :
+                list("s32vector", "i32array")},
+    {"ulong",   sizeof(long) == 8 ?
+                list("u64vector", "u64array") :
+                list("u32vector", "u32array")},
+    {"i8",      list("s8vector",  "i8array")},
+    {"u8",      list("u8vector",  "u8array")},
+    {"i16",     list("s16vector", "i16array")},
+    {"u16",     list("u16vector", "u16array")},
+    {"i32",     list("s32vector", "i32array")},
+    {"u32",     list("u32vector", "u32array")},
+    {"i64",     list("s64vector", "i64array")},
+    {"u64",     list("u64vector", "u64array")},
+    {"f32",     list("f32vector", "f32array")},
+    {"f64",     list("f64vector", "f64array")},
+  };
+  try { return typemap.at(std::string(opi::sym_name(t))); }
+  catch (...) { throw opi::bad_code {"Invalid foreign type array-specifier", t}; }
 }
 
 static opi::value // (<chicken-foreign-type>, <osl-type>)
 foreign_pointerpointer_type_info(opi::value t)
 {
-  static opi::stl::unordered_map<std::string, opi::value> typemap {
-    {"char", opi::list(opi::list("c-pointer", opi::list("c-pointer", "char")), "cptr")},
-    {"uchar", opi::list(opi::list("c-pointer", opi::list("c-pointer", "unsigned-char")), "u8array")},
-    {"short", opi::list(opi::list("c-pointer", opi::list("c-pointer", "short")), "i16array")},
-    {"ushort", opi::list(opi::list("c-pointer", opi::list("c-pointer", "unsigned-short")), "u16array")},
-    {"int", opi::list(opi::list("c-pointer", opi::list("c-pointer", "int")), "i32array")},
-    {"uint", opi::list(opi::list("c-pointer", opi::list("c-pointer", "unsigned-int")), "u32array")},
-    /*{"long", sizeof(long) == 8 ? opi::list("s64vector", "i64array") : opi::list("s32vector", "i32array")},*/
-    /*{"ulong", sizeof(long) == 8 ? opi::list("u64vector", "u64array") : opi::list("u32vector", "u32array")},*/
-    {"i8", opi::list("s8vector", "i8array")}, // FIXME
-    {"u8", opi::list("u8vector", "u8array")}, // FIXME
-    {"i16", opi::list("s16vector", "i16array")}, // FIXME
-    {"u16", opi::list("u16vector", "u16array")}, // FIXME
-    {"i32", opi::list("s32vector", "i32array")}, // FIXME
-    {"u32", opi::list("u32vector", "u32array")}, // FIXME
-    {"i64", opi::list("s64vector", "i64array")}, // FIXME
-    {"u64", opi::list("u64vector", "u64array")}, // FIXME
-    {"void", opi::list(opi::list("c-pointer", "c-pointer"), "void*")},
-  };
-  return typemap.at(std::string(opi::sym_name(t)));
+  using opi::list;
+  using opi::list_ref;
+
+  const opi::value tinfo = foreign_pointer_type_info(t);
+  return list(
+    list("c-pointer", opi::list_ref(tinfo, 0)),
+    list("ptr", opi::list_ref(tinfo, 1))
+  );
 }
 
 static bool
@@ -557,7 +589,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
     location.source = g_source;
     location.start = loc_p->left;
     location.end = loc_p->right;
-    throw opi::bad_code {what, location};
+    throw opi::osl::parse_error {what, location};
   }
 }
 
@@ -664,6 +696,10 @@ ApplExpr
   | INTEGER
   | FLOAT
   | BOOLEAN
+  | '_' {
+    static size_t counter = 0;
+    $$ = sym(std::format("osl#unanimous#{}", counter++));
+  }
   | String { $$ = $1; bindloc($$, @$); }
   | '{' SeqOfExprs '}' { $$ = cons("begin", $2); bindloc($$, @$); }
   | '[' ListOfExprs ']' %prec AFTER_APPLY {
@@ -696,7 +732,6 @@ ApplExpr
 Expr
   : EXPR
   | ApplExpr
-  | '_' { $$ = "_"; } // FIXME (why is this an Expr?)
   | SET IDENT '=' Expr { const value set = "set!"; bindloc(set, @1); $$ = list(set, $2, $4); }
   | SET ApplExpr '[' Expr ']' '=' Expr {
     const value setter = random_access_setter();
@@ -1133,6 +1168,7 @@ Ctor
 ForeignType
   : IDENT { $$ = foreign_type_info($1); }
   | IDENT '*' { $$ = foreign_pointer_type_info($1); }
+  | IDENT '[' ']' { $$ = foreign_array_type_info($1); }
   | IDENT '*' '*' { $$ = foreign_pointerpointer_type_info($1); }
 ;
 
@@ -1220,7 +1256,7 @@ L_read_next:
           debug("successfuly aplied macro {}", token.value);
           goto L_read_next;
         }
-        catch (...)
+        catch (const parse_error&)
         {
           debug("recovering lexer state after failed attempt to use macro {}",
                 token.value);
@@ -1240,7 +1276,7 @@ L_read_next:
       // Run one parser iteration
       status = yypush_parse(ps, token.type, &yylval, &yyloc, nullptr);
     }
-    catch (...) { // FIXME: must catch exceptions from yyerror and let the rest through
+    catch (const parse_error&) {
       if (force and not enforced)
       { // Put back the last token weve read and inject and EOF to force parser
         // to finish

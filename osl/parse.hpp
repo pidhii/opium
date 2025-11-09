@@ -8,6 +8,7 @@
 #include "opium/stl/unordered_map.hpp"
 #include "opium/value.hpp"
 #include "opium/hash.hpp"
+#include "opium/exceptions.hpp"
 
 #include <readline/history.h>
 #include <string>
@@ -204,6 +205,11 @@ struct macro_key_hash {
 
 using macros_library = stl::unordered_multimap<macro_key, macro, macro_key_hash>;
 
+
+/** Specific exception type raised by the parser */
+struct parse_error: public bad_code {
+  using bad_code::bad_code;
+};
 
 class parser {
   public:

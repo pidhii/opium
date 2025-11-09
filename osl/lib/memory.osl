@@ -1,14 +1,6 @@
 require "typeutils"
 
 // Foreign types primitives:
-// - char
-// - uchar
-// - short
-// - ushort
-// - int
-// - uint
-// - long
-// - ulong
 // - i8
 // - u8
 // - i16
@@ -17,17 +9,11 @@ require "typeutils"
 // - u32
 // - i64
 // - u64
+// - f32
+// - f54
 // - void
 // - cstr
 
-sizeof(_ the(char)) = 1
-sizeof(_ the(uchar)) = 1
-sizeof(_ the(short)) = 2
-sizeof(_ the(ushort)) = 2
-sizeof(_ the(int)) = 4
-sizeof(_ the(uint)) = 4
-sizeof(_ the(long)) = 8 // FIXME (platform dependent)
-sizeof(_ the(ulong)) = 8 // FIXME (platform dependent)
 sizeof(_ the(i8)) = 1
 sizeof(_ the(u8)) = 1
 sizeof(_ the(i16)) = 2
@@ -36,6 +22,8 @@ sizeof(_ the(i32)) = 4
 sizeof(_ the(u32)) = 4
 sizeof(_ the(i64)) = 8
 sizeof(_ the(u64)) = 8
+sizeof(_ the(f32)) = 4
+sizeof(_ the(f64)) = 8
 sizeof(_ the(ptr(_))) = 8 // FIXME (platform dependent)
 
 
@@ -46,53 +34,49 @@ sizeof(_ the(ptr(_))) = 8 // FIXME (platform dependent)
 // - locatives for records
 // - store & load operations
 
-extern identifier!(make-locative) as getlocation(array(T), num) -> locative(T)
-// extern identifier!(make-locative) as getlocation(list(T), num) -> locative(T)
-extern identifier!(make-locative) as getlocation(str, num) -> locative(char)
-extern identifier!(make-locative) as getlocation(blob, num) -> locative(num)
-extern identifier!(make-locative) as getlocation(i8array, num) -> locative(num)
-extern identifier!(make-locative) as getlocation(u8array, num) -> locative(num)
-extern identifier!(make-locative) as getlocation(i16array, num) -> locative(num)
-extern identifier!(make-locative) as getlocation(u16array, num) -> locative(num)
-extern identifier!(make-locative) as getlocation(i32array, num) -> locative(num)
-extern identifier!(make-locative) as getlocation(u32array, num) -> locative(num)
-extern identifier!(make-locative) as getlocation(i64array, num) -> locative(num)
-extern identifier!(make-locative) as getlocation(u64array, num) -> locative(num)
+extern identifier!(make-locative) as getlocation(array(T), num) -> locative(T, array)
+// extern identifier!(make-locative) as getlocation(list(T), num) -> locative(T, array)
+extern identifier!(make-locative) as getlocation(str, num) -> locative(char, ptr(i8))
+extern identifier!(make-locative) as getlocation(blob, num) -> locative(num, ptr(u8))
+extern identifier!(make-locative) as getlocation(i8array, num) -> locative(num, ptr(i8))
+extern identifier!(make-locative) as getlocation(u8array, num) -> locative(num, ptr(u8))
+extern identifier!(make-locative) as getlocation(i16array, num) -> locative(num, ptr(i16))
+extern identifier!(make-locative) as getlocation(u16array, num) -> locative(num, ptr(u16))
+extern identifier!(make-locative) as getlocation(i32array, num) -> locative(num, ptr(i31))
+extern identifier!(make-locative) as getlocation(u32array, num) -> locative(num, ptr(u32))
+extern identifier!(make-locative) as getlocation(i64array, num) -> locative(num, ptr(i64))
+extern identifier!(make-locative) as getlocation(u64array, num) -> locative(num, ptr(u64))
+extern identifier!(make-locative) as getlocation(f32array, num) -> locative(num, ptr(f32))
+extern identifier!(make-locative) as getlocation(f64array, num) -> locative(num, ptr(f64))
 
-extern identifier!(make-locative) as getlocation(array(T)) -> locative(T)
-extern identifier!(make-locative) as getlocation(list(T)) -> locative(T)
-extern identifier!(make-locative) as getlocation(str) -> locative(char)
-extern identifier!(make-locative) as getlocation(blob) -> locative(num)
-extern identifier!(make-locative) as getlocation(u64array) -> locative(num)
-extern identifier!(make-locative) as getlocation(i8array) -> locative(num)
-extern identifier!(make-locative) as getlocation(u8array) -> locative(num)
-extern identifier!(make-locative) as getlocation(i16array) -> locative(num)
-extern identifier!(make-locative) as getlocation(u16array) -> locative(num)
-extern identifier!(make-locative) as getlocation(i32array) -> locative(num)
-extern identifier!(make-locative) as getlocation(u32array) -> locative(num)
-extern identifier!(make-locative) as getlocation(i64array) -> locative(num)
-extern identifier!(make-locative) as getlocation(u64array) -> locative(num)
+extern identifier!(make-locative) as getlocation(array(T)) -> locative(T, array)
+extern identifier!(make-locative) as getlocation(list(T)) -> locative(T, array)
+extern identifier!(make-locative) as getlocation(str) -> locative(char, ptr(i8))
+extern identifier!(make-locative) as getlocation(blob) -> locative(num, ptr(u8))
+extern identifier!(make-locative) as getlocation(i8array) -> locative(num, ptr(i8))
+extern identifier!(make-locative) as getlocation(u8array) -> locative(num, ptr(u8))
+extern identifier!(make-locative) as getlocation(i16array) -> locative(num, ptr(i16))
+extern identifier!(make-locative) as getlocation(u16array) -> locative(num, ptr(u16))
+extern identifier!(make-locative) as getlocation(i32array) -> locative(num, ptr(i32))
+extern identifier!(make-locative) as getlocation(u32array) -> locative(num, ptr(u32))
+extern identifier!(make-locative) as getlocation(i64array) -> locative(num, ptr(i64))
+extern identifier!(make-locative) as getlocation(u64array) -> locative(num, ptr(u64))
+extern identifier!(make-locative) as getlocation(f32array) -> locative(num, ptr(f32))
+extern identifier!(make-locative) as getlocation(f64array) -> locative(num, ptr(f64))
 
+ptr(l locative(_, ptr(D))) = reinterpret_cast(l) :: ptr(D)
 
 #pragma scheme-translator { (inline (import (chicken memory))) }
 // TODO:
 // - load
 
 extern identifier!(pointer->address) as num(ptr(_)) -> num
-extern identifier!(pointer->address) as num(locative(_)) -> num
+extern identifier!(pointer->address) as num(locative(_, _)) -> num
 
 extern identifier!(pointer+)(ptr(T), num) -> ptr(T)
 p::ptr(T) + n::num = identifier!(pointer+)(p, n * sizeof(the() :: the(T)))
 p::ptr(T) - n::num = identifier!(pointer+)(p, (0-n) * sizeof(the() :: the(T)))
 
-extern identifier!(pointer-s8-set!) as store(ptr(char), num) -> void
-extern identifier!(pointer-u8-set!) as store(ptr(uchar), num) -> void
-extern identifier!(pointer-s16-set!) as store(ptr(short), num) -> void
-extern identifier!(pointer-u16-set!) as store(ptr(ushort), num) -> void
-extern identifier!(pointer-s32-set!) as store(ptr(int), num) -> void
-extern identifier!(pointer-u32-set!) as store(ptr(uint), num) -> void
-extern identifier!(pointer-s64-set!) as store(ptr(long), num) -> void // FIXME (platform dependent)
-extern identifier!(pointer-u64-set!) as store(ptr(ulong), num) -> void // FIXME (platform dependent)
 extern identifier!(pointer-s8-set!) as store(ptr(i8), num) -> void
 extern identifier!(pointer-u8-set!) as store(ptr(u8), num) -> void
 extern identifier!(pointer-s16-set!) as store(ptr(i16), num) -> void
@@ -101,6 +85,8 @@ extern identifier!(pointer-s32-set!) as store(ptr(i32), num) -> void
 extern identifier!(pointer-u32-set!) as store(ptr(u32), num) -> void
 extern identifier!(pointer-s64-set!) as store(ptr(i64), num) -> void
 extern identifier!(pointer-u64-set!) as store(ptr(u64), num) -> void
+extern identifier!(pointer-f32-set!) as store(ptr(f32), num) -> void
+extern identifier!(pointer-f64-set!) as store(ptr(f64), num) -> void
 extern identifier!(pointer-u64-set!)(ptr(ptr(_)), num) -> void
 store(p ptr(ptr(T)), v ptr(T)) = identifier!(pointer-u64-set!)(p, num(v))
 set p::ptr(T)[k::num] = v = store(p + k, v)
