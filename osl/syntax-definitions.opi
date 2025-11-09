@@ -6,13 +6,6 @@
     (import record-variants)
     (import iterators)))
 
-;; Alias for builtin (list ...) function
-(pragma prolog
-  (predicate (result-of (oslops:list . Ts) (list T)) (all T Ts)))
-(pragma scheme-translator
-  (inline (define oslops:list list)))
-
-
 ;; Void and values
 (pragma prolog
   (predicate (result-of (void) void))
@@ -29,6 +22,15 @@
     (define (assert_thunk x) x)))
 
 ;; List
+;; o aliases for builtin `[ ... ]`-function
+(pragma prolog
+  (predicate (result-of (osl#list . Ts) (list T)) (all T Ts)))
+(pragma scheme-translator
+  (inline
+    (define osl#list list)
+    (define osl#nil '()))
+  (declare osl#nil (list _)))
+;; o pattern matching
 (pragma prolog
   (predicate (result-of (list.Cons T (list T)) (list T)))
   (predicate (result-of (list.EmptyList) (list _))))

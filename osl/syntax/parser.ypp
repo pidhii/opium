@@ -90,7 +90,7 @@ bindloc(opi::value val, const range_location &loc);
 static opi::value
 mangle_type_constructor(opi::value ctor)
 {
-  const opi::value result = opi::sym("oslctor:" + std::string(opi::sym_name(ctor)));
+  const opi::value result = opi::sym("osl#ctor#" + std::string(opi::sym_name(ctor)));
   copy_location(ctor, result);
   return result;
 }
@@ -266,7 +266,7 @@ generate_variant_type(opi::value typesign, opi::value variants, Output output,
 static opi::value
 overloaded_getter_name(opi::value fieldname)
 {
-  const opi::value result = opi::sym(std::format("osl:#{}", fieldname));
+  const opi::value result = opi::sym(std::format("osl#{}-ref", fieldname));
   copy_location(fieldname, result);
   return result;
 }
@@ -274,7 +274,7 @@ overloaded_getter_name(opi::value fieldname)
 static opi::value
 overloaded_setter_name(opi::value fieldname)
 {
-  const opi::value result = opi::sym(std::format("osl:#set-{}!", fieldname));
+  const opi::value result = opi::sym(std::format("osl#set-{}!", fieldname));
   copy_location(fieldname, result);
   return result;
 }
@@ -704,9 +704,9 @@ ApplExpr
   | '{' SeqOfExprs '}' { $$ = cons("begin", $2); bindloc($$, @$); }
   | '[' ListOfExprs ']' %prec AFTER_APPLY {
     if (length($2) > 0)
-      $$ = cons("oslops:list", $2);
+      $$ = cons("osl#list", $2);
     else
-      $$ = list("list.EmptyList");
+      $$ = "osl#nil";
     bindloc($$, @$);
   }
   | Ctor '(' ListOfExprs ')' %prec APPLY {
@@ -755,18 +755,18 @@ Expr
   | LT ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
   | GE ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
   | LE ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
-  | Expr ':' Expr { const value op = ":"; bindloc(op, @$); $$ = list(op, $1, $3); }
-  | Expr '+' Expr { const value op = "+"; bindloc(op, @$); $$ = list(op, $1, $3); }
-  | Expr '-' Expr { const value op = "-"; bindloc(op, @$); $$ = list(op, $1, $3); }
-  | Expr '*' Expr { const value op = "*"; bindloc(op, @$); $$ = list(op, $1, $3); }
-  | Expr '/' Expr { const value op = "/"; bindloc(op, @$); $$ = list(op, $1, $3); }
-  | Expr '%' Expr { const value op = "%"; bindloc(op, @$); $$ = list(op, $1, $3); }
-  | Expr EQ Expr { const value op = "=="; bindloc(op, @$); $$ = list(op, $1, $3); }
-  | Expr NE Expr { const value op = "!="; bindloc(op, @$); $$ = list(op, $1, $3); }
-  | Expr GT Expr { const value op = ">"; bindloc(op, @$); $$ = list(op, $1, $3); }
-  | Expr LT Expr { const value op = "<"; bindloc(op, @$); $$ = list(op, $1, $3); }
-  | Expr GE Expr { const value op = ">="; bindloc(op, @$); $$ = list(op, $1, $3); }
-  | Expr LE Expr { const value op = "<="; bindloc(op, @$); $$ = list(op, $1, $3); }
+  | Expr ':' Expr { $$ = list($2, $1, $3); }
+  | Expr '+' Expr { $$ = list($2, $1, $3); }
+  | Expr '-' Expr { $$ = list($2, $1, $3); }
+  | Expr '*' Expr { $$ = list($2, $1, $3); }
+  | Expr '/' Expr { $$ = list($2, $1, $3); }
+  | Expr '%' Expr { $$ = list($2, $1, $3); }
+  | Expr EQ Expr { $$ = list($2, $1, $3); }
+  | Expr NE Expr { $$ = list($2, $1, $3); }
+  | Expr GT Expr { $$ = list($2, $1, $3); }
+  | Expr LT Expr { $$ = list($2, $1, $3); }
+  | Expr GE Expr { $$ = list($2, $1, $3); }
+  | Expr LE Expr { $$ = list($2, $1, $3); }
   | Expr AND Expr { const value op = "and"; bindloc(op, @$); $$ = list(op, $1, $3); }
   | Expr OR Expr { const value op = "or"; bindloc(op, @$); $$ = list(op, $1, $3); }
   | NOT Expr { $$ = list("not", $2); bindloc(car($$), @1); }

@@ -712,6 +712,6 @@ opi::scheme_unique_identifiers::_into_unique_symbol(
     throw bad_code {
         std::format("Invalid identifier ({}{})", prefix, identifier),
         identifier};
-  const std::string fmt = format("{}{}{{}}", prefix, identifier);
+  const std::string fmt = std::format("{}{}{{}}", prefix, identifier);
   return m_gensym(fmt);
 }

@@ -124,6 +124,7 @@ identifier"!("[^)]+")" {
     text.pop_back();
 
   yylval = sym(text);
+  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return IDENT;
 }
 

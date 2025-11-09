@@ -30,20 +30,18 @@
   (predicate (result-of (car (list T)) T))
   (predicate (result-of (cdr (list T)) (list T)))
 }
-extern cons(T, list(T)) -> list(T)
-x::T : xs::list(T) = cons(x, xs)
+extern cons as identifier!(:) (T, list(T)) -> list(T)
 //
 #pragma scheme-translator {
   ;; Rules for translation of cases expressions with list
-  (cases-rule (oslctor:Cons _ _) (list _) pair? unpack-pair)
-  (cases-rule (oslctor:EmptyList) (list _) null? <unused>) ;; nothing to unpack
+  (cases-rule (osl#ctor#Cons _ _) (list _) pair? unpack-pair)
+  (cases-rule (osl#ctor#EmptyList) (list _) null? <unused>) ;; nothing to unpack
 
   ;; Inline auxiliary functions to avoid type-check and name mangling
   (inline
     (define (unpack-pair p) (values (car p) (cdr p)))
     (define list.Cons cons)
     (define (list.EmptyList) '())
-    (define osl_list list)
   )
 }
 

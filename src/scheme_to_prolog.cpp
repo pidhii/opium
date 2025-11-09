@@ -307,17 +307,6 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value type = cons("#template", typevar);
     m_alist = cons(cons(ovident, type), m_alist);
     copy_location(ident, type);
-    // if (not has_location(type))
-    // {
-    //   warning("Failed to assign location to function template");
-    //   source_location location;
-    //   if (get_location(fm, location))
-    //     warning("{}", display_location(location));
-    //   else if (get_location(ovident, location))
-    //     warning("{}", display_location(location));
-    //   else if (get_location(ident, location))
-    //     warning("{}", display_location(location));
-    // }
 
     return list("and");
   });
@@ -386,10 +375,9 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
         xtype = car(cdr(x));
         x = car(x);
       }
-      plparams = cons(xtype, plparams);
+      plparams = append_mut(plparams, list(xtype));
       m_alist = cons(cons(x, xtype), m_alist);
     }
-    plparams = reverse(plparams); // We were inserting at front, so now reverse
 
     // (local) Type variable to hold function return type
     const value plresults = sym("Results");
@@ -406,6 +394,8 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value function_template =
         list("quasiquote", list("#dynamic-function-dispatch", ident, plparams,
                                 plresults, plbody));
+    if (sym_name(ident).find("<") != std::string_view::npos)
+      info("dyn func body example: {} = {}", ident, plbody);
     copy_location(fm, function_template);
 
     return list("=", proxyvar, function_template);

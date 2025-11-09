@@ -5,10 +5,8 @@ require "base"
 }
 
 // Constructors
-extern identifier!(make-blob)(num) -> blob
-extern identifier!(string->blob)(str) -> blob
-blob(size num) = identifier!(make-blob)(size)
-blob(s str) = identifier!(string->blob)(s)
+extern identifier!(make-blob) as blob(num) -> blob
+extern identifier!(string->blob) as blob(str) -> blob
 
 // Interface casts
 extern identifier!(blob->u8vector/shared)(blob) -> u8array
