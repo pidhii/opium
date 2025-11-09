@@ -35,7 +35,6 @@ sizeof(_ the(ptr(_))) = 8 // FIXME (platform dependent)
 // - I think for a locative of a k-th element of a list we have to first iterate
 //   through the list (manualy) to reach the correct pair
 // - locatives for records
-// - store & load operations
 
 extern identifier!(make-locative) as locationof(array(T), num) -> locative(T, array)
 // extern identifier!(make-locative) as locationof(list(T), num) -> locative(T, array)
@@ -76,8 +75,6 @@ ptr(l locative(_, ptr(D))) = reinterpret_cast(l) :: ptr(D)
 //                             Pointers
 //
 #pragma scheme-translator { (inline (import (chicken memory))) }
-// TODO:
-// - load
 
 extern identifier!(pointer->address) as num(ptr(_)) -> num
 extern identifier!(pointer->address) as num(locative(_, _)) -> num
@@ -102,3 +99,42 @@ set p::ptr(T)[k::num] = v = set *(p + k) =  v
 
 extern allocate(num) -> ptr(_)
 extern free(ptr(_)) -> void
+
+// Data layout compatability rules
+extern bloblike(blob) -> t
+extern bloblike(str) -> t
+extern bloblike(i8array) -> t
+extern bloblike(u8array) -> t
+extern bloblike(i16array) -> t
+extern bloblike(u16array) -> t
+extern bloblike(i32array) -> t
+extern bloblike(u32array) -> t
+extern bloblike(i64array) -> t
+extern bloblike(u64array) -> t
+extern bloblike(f32array) -> t
+extern bloblike(f64array) -> t
+extern bloblike(ptr(_)) -> t
+extern bloblike(locative(_, ptr(_))) -> t
+
+compatible_storage(a locative(_, DataRepr), b locative(_, DataRepr)) = void()
+compatible_storage(a, b) = { assert { bloblike(a) bloblike(b) } }
+
+extern identifier!(move-memory!)(Src, Dst) -> void
+extern identifier!(move-memory!)(Src, Dst, num) -> void
+extern identifier!(move-memory!)(Src, Dst, num, num) -> void
+extern identifier!(move-memory!)(Src, Dst, num, num, num) -> void
+
+copy(src, dst, bytes num, srcoffs num, dstoffs num) = {
+  assert { compatible_storage(src, dst) }
+  identifier!(move-memory!)(src, dst, bytes, srcoffs, dstoffs)
+}
+copy(src, dst, bytes num, srcoffs num) = copy(src, dst, bytes, srcoffs, 0)
+copy(src, dst, bytes num) = copy(src, dst, bytes, 0, 0)
+
+strdup(s str) = {
+  n = length(s)
+  p = allocate(n + 1) :: ptr(i8)
+  copy(s, p, n)
+  p[n] = 0
+  return p
+}
