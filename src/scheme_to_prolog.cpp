@@ -85,9 +85,9 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 cases
   const match casesmatch {
-      list("cases"), list("cases", "exprs", cons("patterns", "branch"), "...")};
-  append_rule(casesmatch, [this, &counter](const auto &ms) {
-    const value exprs = ms.at("exprs");
+      list("cases"), list("cases", "idents", cons("patterns", "branch"), "...")};
+  append_rule(casesmatch, [this](const auto &ms) {
+    const value idents = ms.at("idents");
     const value patterns = ms.contains("patterns") ? ms.at("patterns") : nil;
     const value branches = ms.contains("branch") ? ms.at("branch") : nil;
 
@@ -97,15 +97,12 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     utl::state_saver _ {m_targets};
 
     // Translate all expressions
-    opi::stl::vector<value> exprproxies;
-    value plexprs = nil;
-    for (const value expr : range(exprs))
+    opi::stl::vector<value> identtypes;
+    // value plexprs = nil;
+    for (const value ident : range(idents))
     {
-      const value exprproxy = sym(std::format("CaseProxy_{}", counter++));
-      m_targets = list(exprproxy, dot, "_");
-      const value plexpr = (*this)(expr);
-      plexprs = append(plexprs, list(plexpr));
-      exprproxies.push_back(exprproxy);
+      const value type = _generate_type_and_copy_location(ident);
+      identtypes.push_back(type);
     }
 
     // Translate cases
@@ -118,7 +115,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       // Process each pattern in the row
       value plmatches = nil;
       for (const auto &[pattern, exprproxy] :
-           utl::zip(range(rowpatterns), exprproxies))
+           utl::zip(range(rowpatterns), identtypes))
       {
         if (ispair(pattern))
         { // Generate patter matching via match-on predicate
@@ -150,7 +147,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     }
 
     // Combine all expressions and cases
-    return cons("and", append(plexprs, plcases));
+    return cons("and", plcases);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>

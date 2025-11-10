@@ -91,7 +91,8 @@ main(int argc, char **argv)
     ("oslpath", po::value(&extra_oslpathes),
      "specify additional directory for filename resolution")
     ("trace-length", po::value(&tracelen), "maximal back-trace length")
-    ("opi", "stop after translation to opium DSL");
+    ("opi", "stop after translation to opium DSL")
+    ("no-builtins", "don't inject `require \"builtins\"` into the input");
 
   po::positional_options_description posdesc;
   posdesc.add("input-file", 1);
@@ -191,12 +192,14 @@ main(int argc, char **argv)
     opi::osl::program_sources program;
     opi::osl::tree_parser parser {program};
 
-    const std::filesystem::path builtinspath = opi::resolve_path(
-        "builtins.osl", osl::pathes.begin(), osl::pathes.end());
-
     execution_timer parse_timer {"parsing OSL"};
     program.append("syntax-requirements", osl::syntax_requirements());
-    parser.load_file(builtinspath);
+    if (not varmap.contains("no-builtins"))
+    {
+      const std::filesystem::path builtinspath = opi::resolve_path(
+          "builtins.osl", osl::pathes.begin(), osl::pathes.end());
+      parser.load_file(builtinspath);
+    }
     parser.load_file(inputpath);
     parse_timer.stop();
 
@@ -204,7 +207,8 @@ main(int argc, char **argv)
 
     if (varmap.contains("opi"))
     {
-      write_scheme_script(std::cout, result);
+      std::ofstream out {opath};
+      write_scheme_script(out, result);
       return EXIT_SUCCESS;
     }
 

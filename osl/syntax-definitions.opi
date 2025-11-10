@@ -4,7 +4,8 @@
 (pragma scheme-translator
   (inline
     (import record-variants)
-    (import iterators)))
+    (import iterators)
+    (import (chicken foreign))))
 
 ;; Void and values
 (pragma prolog
@@ -39,6 +40,6 @@
 
 ;; Rules for matching on list
 (pragma prolog
-  (predicate (match-on (Cons T (list T)) (list T)))
-  (predicate (match-on (EmptyList) (list _))))
+  (predicate (match-on (osl#ctor#Cons T (list T)) (list T)))
+  (predicate (match-on (osl#ctor#EmptyList) (list _))))
 
