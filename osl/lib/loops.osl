@@ -45,4 +45,4 @@ macro while {
 }
 
 macro continue {[continue] = [return __Loop()]}
-macro break {[break] = [return]}
+macro break {[break] = [{ return }]}

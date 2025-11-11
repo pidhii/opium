@@ -28,7 +28,6 @@
 
 #include <asm-generic/errno.h>
 #include <concepts>
-#include <iterator>
 #include <string>
 #include <cassert>
 #include <ranges>
@@ -192,6 +191,16 @@ class prolog {
   std::ranges::range auto
   predicates() const noexcept
   { return m_db; }
+
+  bool
+  is_true(value plexpr) const
+  {
+    predicate_runtime prt;
+    bool success = false;
+    make_true(prt, insert_cells(prt, plexpr),
+              [&success]() { success = true; });
+    return success;
+  }
 
   template <
     prolog_continuation Cont,

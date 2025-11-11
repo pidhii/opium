@@ -45,12 +45,11 @@ for key in dictkeys(dd) do
 
 println("testing regex")
 re = regexp("([a-z]+)([0-9]+)")
-match "___adfasd12312".find(re) in
-| Some(ms) ->
-    for m in ms do {
-      println("-", m)
-    }
-| otherwize -> println("didnt match")
+ms = "___adfasd12312".find(re)
+for m in *ms do {
+  if bool(m) then
+    println("- ", m)
+}
 
 require "argv"
 my_option = ""

@@ -62,8 +62,12 @@ endif (OPIUM_BLOCK_BENCHMARKS)
 
 # Create an object library for all source files
 file (GLOB src_files src/*.cpp)
-add_library(opium_objects OBJECT ${src_files})
-target_include_directories(opium_objects PUBLIC ${PROJECT_SOURCE_DIR}/include ${READLINE_INCLUDE_DIRS})
+add_library (opium_objects OBJECT ${src_files})
+target_include_directories (opium_objects
+  PUBLIC
+    ${PROJECT_SOURCE_DIR}/include
+    ${PROJECT_SOURCE_DIR}/eco/include
+    ${READLINE_INCLUDE_DIRS})
 target_compile_options(opium_objects PUBLIC ${READLINE_CFLAGS_OTHER})
 set_target_properties(opium_objects PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
@@ -83,7 +87,10 @@ install (TARGETS opium_so opium_a DESTINATION lib)
 # Main executable
 file (GLOB opium_exec_src apps/opium/*.cpp)
 add_executable (opium ${opium_exec_src} $<TARGET_OBJECTS:opium_objects>)
-target_include_directories (opium PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_include_directories (opium
+  PUBLIC
+    ${PROJECT_SOURCE_DIR}/include
+    ${PROJECT_SOURCE_DIR}/eco/include)
 target_link_libraries (opium PUBLIC -lgc ${Boost_LIBRARIES} ${READLINE_LIBRARIES})
 target_include_directories(opium PUBLIC ${READLINE_INCLUDE_DIRS})
 target_compile_options(opium PUBLIC ${READLINE_CFLAGS_OTHER})
@@ -91,7 +98,10 @@ target_compile_options(opium PUBLIC ${READLINE_CFLAGS_OTHER})
 # Preprocessor executable
 file (GLOB opium_pp_exec_src apps/opium-pp/*.cpp)
 add_executable (opium-pp ${opium_pp_exec_src} $<TARGET_OBJECTS:opium_objects>)
-target_include_directories (opium-pp PUBLIC ${PROJECT_SOURCE_DIR}/include)
+target_include_directories (opium-pp
+  PUBLIC
+    ${PROJECT_SOURCE_DIR}/include
+    ${PROJECT_SOURCE_DIR}/eco/include)
 target_link_libraries (opium-pp PUBLIC -lgc ${Boost_LIBRARIES})
 target_include_directories(opium-pp PUBLIC ${READLINE_INCLUDE_DIRS})
 target_compile_options(opium-pp PUBLIC ${READLINE_CFLAGS_OTHER})
@@ -138,7 +148,10 @@ if (OPIUM_SCRIPT)
   foreach (plugin_src ${osl_opium_plugins})
     get_filename_component (plugin_name ${plugin_src} NAME_WE)
     add_library (${plugin_name} SHARED ${plugin_src})
-    target_include_directories (${plugin_name} PUBLIC ${PROJECT_SOURCE_DIR}/include)
+    target_include_directories (${plugin_name}
+      PUBLIC
+        ${PROJECT_SOURCE_DIR}/include
+        ${PROJECT_SOURCE_DIR}/eco/include)
     set_target_properties (${plugin_name}
       PROPERTIES
         POSITION_INDEPENDENT_CODE ON

@@ -61,6 +61,92 @@ opi::osl::lexer::put(const token &token)
 { m_tokbuf.push(token); }
 
 
+int
+opi::osl::stateful_lexer::read(token &result)
+{
+  const int toktype = m_lexer.read(result);
+  state_data *new_state = make<state_data>(state_data::read, result, m_state, nullptr);
+  m_state->next = new_state;
+  m_state = new_state;
+  return toktype;
+}
+
+void
+opi::osl::stateful_lexer::put(const token &token)
+{
+  m_lexer.put(token);
+  state_data *new_state = make<state_data>(state_data::put, token, m_state, nullptr);
+  m_state->next = new_state;
+  m_state = new_state;
+}
+
+// Iterating from the end, erase all paris of nodes matching [p]->[r]
+void
+opi::osl::stateful_lexer::_erase_pr(state target_state, bool &isnop)
+{
+  isnop = true;
+
+  for (state st = target_state; st->next; st = st->next)
+  {
+    if (st->tag == state_data::put and st->next->tag == state_data::read)
+    {
+      const state left = st->prev;
+      const state right = st->next->next;
+      // [left]->[p]->[r]->[right] ~> [left]->[right]
+      if (left != nullptr)
+        left->next = right;
+      if (right != nullptr)
+        right->prev = left;
+      isnop = false;
+    }
+  }
+}
+
+// Trim trailing [p]s
+void
+opi::osl::stateful_lexer::_trim_p(state target_state)
+{
+  // find start of the trailing [p]s
+  state trail_start;
+  for (trail_start = target_state;
+        trail_start and trail_start->tag != state_data::put;
+        trail_start = trail_start->next)
+    ;
+
+  // read them all out
+  lexer::token token;
+  for (state st = trail_start; st; st = st->next)
+    m_lexer.read(token);
+
+  // and erase from the state-list
+  if (trail_start)
+  {
+    assert(trail_start->prev);
+    trail_start->prev->next = nullptr;
+  }
+}
+
+void
+opi::osl::stateful_lexer::recover_state(state target_state)
+{
+  bool isnop;
+  do { _erase_pr(target_state, isnop); } while (not isnop);
+
+  _trim_p(target_state);
+
+  state last_read = target_state;
+  for (; last_read->next; last_read = last_read->next)
+    ;
+
+  for (state st = last_read; st; st = st->prev)
+  {
+    assert(st->tag != state_data::put);
+    if (st->tag == state_data::read)
+      m_lexer.put(st->token);
+  }
+}
+
+
 opi::value
 opi::osl::syntax_requirements()
 {

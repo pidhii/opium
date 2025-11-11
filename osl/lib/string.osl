@@ -103,6 +103,8 @@ parse(s str) = Some(s)
 list(s str) = str2list(s)
 parse(s str) = str2num(s)
 num(s str) = str2num(s).expect("Not a number")
+extern identifier!(integer->char) as char(num) -> char
+extern identifier!(char->integer) as num(char) -> num
 
 // chomp(STRING) -> str
 // chomp(STRING, SUFFIX) -> str

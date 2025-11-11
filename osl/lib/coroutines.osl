@@ -1,5 +1,12 @@
 require "base"
 
+// TODO:
+// The 'iterators' library used here is crap as it iterates the coroutine past
+// the yield (and till the subsequent yeld) while returning value of the first
+// yield. Consequently, functions that rely on execution state AT yeld can't use
+// it (and are very funny to debug).
+//
+// So change the backend or implement it yourself (be a man).
 
 #pragma scheme-translator {
   (inline
@@ -31,4 +38,15 @@ next(gen generator(T)) = {
     return Some(co_value(co))
   }
 }
-  
+
+macro generator {
+  [generator {] = [generator(__Generator_yield => { __Generator]
+}
+macro __Generator {
+  [__Generator }] = [})]
+  [__Generator $stmt:stmt] = [$stmt __Generator]
+}
+macro yield {
+  [yield $expr:expr] = [__Generator_yield($expr)]
+}
+

@@ -78,10 +78,11 @@ ptr(l locative(_, ptr(D))) = reinterpret_cast(l) :: ptr(D)
 
 extern identifier!(pointer->address) as num(ptr(_)) -> num
 extern identifier!(pointer->address) as num(locative(_, _)) -> num
+extern identifier!(address->pointer) as ptr(num) -> ptr(_)
 
 extern identifier!(pointer+)(ptr(T), num) -> ptr(T)
 p::ptr(T) + n::num = identifier!(pointer+)(p, n * sizeof(the() :: the(T)))
-p::ptr(T) - n::num = identifier!(pointer+)(p, (0-n) * sizeof(the() :: the(T)))
+p::ptr(T) - n::num = identifier!(pointer+)(p, -n * sizeof(the() :: the(T)))
 
 extern identifier!(pointer-s8-set!)  as identifier!(osl#store)(ptr(i8), num) -> void
 extern identifier!(pointer-u8-set!)  as identifier!(osl#store)(ptr(u8), num) -> void
@@ -93,9 +94,29 @@ extern identifier!(pointer-s64-set!) as identifier!(osl#store)(ptr(i64), num) ->
 extern identifier!(pointer-u64-set!) as identifier!(osl#store)(ptr(u64), num) -> void
 extern identifier!(pointer-f32-set!) as identifier!(osl#store)(ptr(f32), num) -> void
 extern identifier!(pointer-f64-set!) as identifier!(osl#store)(ptr(f64), num) -> void
-extern identifier!(pointer-u64-set!)(ptr(ptr(_)), num) -> void
+extern identifier!(pointer-u64-set!)(ptr(ptr(_)), num) -> void // FIXME (platform dependent)
 set *p::ptr(ptr(T)) = v::ptr(T) = identifier!(pointer-u64-set!)(p, num(v))
-set p::ptr(T)[k::num] = v = set *(p + k) =  v
+set p::ptr(_)[k::num] = v = set *(p + k) =  v
+
+
+extern identifier!(pointer-s8-ref)  as (*) (ptr(i8)) -> num
+extern identifier!(pointer-u8-ref)  as (*) (ptr(u8)) -> num
+extern identifier!(pointer-s16-ref) as (*) (ptr(i16)) -> num
+extern identifier!(pointer-u16-ref) as (*) (ptr(u16)) -> num
+extern identifier!(pointer-s32-ref) as (*) (ptr(i32)) -> num
+extern identifier!(pointer-u32-ref) as (*) (ptr(u32)) -> num
+extern identifier!(pointer-s64-ref) as (*) (ptr(i64)) -> num
+extern identifier!(pointer-u64-ref) as (*) (ptr(u64)) -> num
+extern identifier!(pointer-f32-ref) as (*) (ptr(f32)) -> num
+extern identifier!(pointer-f64-ref) as (*) (ptr(f64)) -> num
+// FIXME (platform dependent)
+(*)(p ptr(ptr(T))) = ptr(*(reinterpret_cast(p) :: ptr(u64))) :: ptr(T)
+p::ptr(T)[k::num] = *(p + k)
+
+#pragma scheme-translator {
+  (inline (define (osl#ptrbool x) (not (eq? x #f))))
+}
+extern identifier!(osl#ptrbool) as bool(ptr(_)) -> bool // FIXME
 
 extern allocate(num) -> ptr(_)
 extern free(ptr(_)) -> void
