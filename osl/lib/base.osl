@@ -71,24 +71,13 @@ bool(x maybe(T)) = match x in
 
 
 
-////
-//
-// Function type coercion
-//
+////////////////////////////////////////////////////////////////////////////////
+//                            Function classes
 #pragma prolog {
   (predicate (result-of ((fn Args Result) . Args) Result))
-
-  ;; NOTE: can't use coerce-predicate directly
-  (predicate (result-of (coerce Fn) (fn Args Result))
-    (result-of (Fn . Args) Result))
-
-
-  ;(predicate (coerce Fn (fn Args Result))
-  ;  (result-of (Fn . Args) Result))
-  (predicate (coerce T U)
-    (result-of (coerce T) U))
+  (predicate (coerce Fn (fn Args . Results))
+    (result-of (Fn . Args) . Results))
 }
-#pragma scheme-translator { (inline (define (coerce x) x)) }
 
 
 extern identifier!(string->symbol) as sym(str) -> sym
@@ -106,7 +95,9 @@ iter(it) = {
 // reinterpret_cast
 #pragma scheme-translator {
   (inline
-    (define (reinterpret_cast x) x))
+    (define-compiler-syntax reinterpret_cast
+      (syntax-rules ()
+        ((_ x) x))))
 }
 extern reinterpret_cast(_) -> _
 

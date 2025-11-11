@@ -5,8 +5,6 @@
 
     (define osl_regexp regexp)
 
-    (define osl_glob_to_regexp glob->regexp)
-
     (define (osl_string_match REGEXP STRING)
       (let ((match (string-match REGEXP STRING)))
         (if (not match)
@@ -28,28 +26,20 @@
 #pragma prolog {
   (predicate (result-of (osl_glob_to_regexp str) regexp))
   (predicate (result-of (osl_regexp str) regexp))
-  (predicate (result-of (osl_grep REGEXP (list str)) (list str))
-    (or (= REGEXP str)
-        (= REGEXP regexp)))
-  (predicate (result-of (osl_string_match REGEXP str) (maybe (list str)))
-    (or (= REGEXP str)
-        (= REGEXP regexp)))
-  (predicate (result-of (osl_string_search REGEXP str) (maybe (list str)))
-    (or (= REGEXP str)
-        (= REGEXP regexp)))
-  (predicate (result-of (osl_string_split_fields REGEXP str) (list str))
-    (or (= REGEXP str)
-        (= REGEXP regexp)))
+
+  (predicate (coerce str regexlike))
+  (predicate (coerce regexp regexlike))
 }
 
-glob = osl_glob_to_regexp
+extern regexp(str) -> regexp
 
-regexp = osl_regexp
+extern identifier!(string-match)(regexlike, str) -> list(str?)?
+// TODO: expose via `=~`-operator
 
-grep(l list(str), pattern) = osl_grep(pattern, l)
+extern identifier!(string-search)(regexlike, str) -> list(str?)?
+find(string str, pattern regexlike) =
+  identifier!(string-search)(pattern, string)
 
-find(string str, pattern) =
-  osl_string_search(pattern, string)
-
+extern identifier!(string-split-fields)(regexlike, str) -> list(str)
 split(string str, pattern) =
-  osl_string_split_fields(pattern, string)
+  identifier!(string-split-fields)(pattern, string)

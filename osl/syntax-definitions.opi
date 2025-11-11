@@ -43,3 +43,33 @@
   (predicate (match-on (osl#ctor#Cons T (list T)) (list T)))
   (predicate (match-on (osl#ctor#EmptyList) (list _))))
 
+;; Explicit coercion
+(pragma prolog
+  (predicate (result-of (coerce T) U)
+    (coerce T U)))
+(pragma scheme-translator
+  (inline
+    (define-compiler-syntax coerce
+      (syntax-rules ()
+        ((_ x) x)))))
+
+;; Optional values
+(pragma scheme-translator
+  (inline
+    (define osl#unspecified)
+    (define (osl#?->bool x)
+      (and x (not (eq? x osl#unspecified))))
+    (define (osl#?* x)
+      (if (osl#?->bool x) x (error osl#?* "dereferencing a nonvalue"))))
+    (define-compiler-syntax osl#?*
+      (syntax-rules ()
+        ((_ x) (if (osl#?->bool x) x (error osl#?* "dereferencing a nonvalue"))))))
+(pragma prolog
+  (predicate (coerce T (? T)))
+  (predicate (coerce bool (? T)))
+  (predicate (result-of (osl#?* (? T)) T))
+  (predicate (result-of (osl#?->bool (? T)) bool)))
+(define-overload (* x) (osl#?* x)) ;; FIXME: investigate why cant set type to `x`
+                                   ;;        (breaks pointer dereferencing)
+(define-overload (bool x) (osl#?->bool x))
+

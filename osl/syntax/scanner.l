@@ -358,6 +358,7 @@ false {
 "#" |
 "_" |
 "$" |
+"?" |
 "("|")" {
   yylval = opi::sym(yytext);
   opi::set_location(yylval, opi::osl::make_location(*loc_p));

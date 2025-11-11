@@ -424,7 +424,7 @@ foreign_type_info(opi::value t)
     {"f32",    list("float",              "num")},
     {"f64",    list("double",             "num")},
     {"void",   list("void",               "void")},
-    {"cstr",   list("c-string",           "str")},
+    {"cstr",   list("c-string",           list("?", "str"))},
     {"blob",   list("blob",               "blob")},
   };
   try { return typemap.at(std::string(opi::sym_name(t))); }
@@ -601,6 +601,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %token EXPR STMT ATPAT EXPAT
 
 // General syntax tokens
+%token INLINE_TYPCHECK
 %token MACRO
 %token REQUIRE FOREIGN_INLINE_BEGIN FOREIGN_INLINE_END FOREIGN
 %token ASSERT
@@ -640,6 +641,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %right NOT UNARY_OPERATOR
 %nonassoc DOUBLE_COLUMN
 %left '.' '#'
+%left '?'
 
 // =============================================================================
 //                              Structures
@@ -926,7 +928,8 @@ TopLvlExpr
   | EXTERN IDENT '(' ListOfTypeParams ')' RIGHT_ARROW ListOfTypeParams {
     $$ = list(
       list("pragma", "prolog",
-        list("predicate", list("result-of", list($2, dot, $4), dot, $7)))
+        list("predicate", list("result-of", list($2, dot, "Args"), dot, $7),
+          list("coerce-list", "Args", $4)))
     );
   }
   | EXTERN IDENT AS IDENT '(' ListOfTypeParams ')' RIGHT_ARROW ListOfTypeParams {
@@ -940,7 +943,8 @@ TopLvlExpr
     }
     $$ = list(
       list("pragma", "prolog",
-        list("predicate", list("result-of", cons($2, $6), dot, $9))),
+        list("predicate", list("result-of", list($2, dot, "Args"), dot, $9),
+          list("coerce-list", "Args", $6))),
       list("define-overload", cons($4, list(wrapper_args)),
         cons($2, list(std::views::all(wrapper_args) | std::views::transform(opi::car))))
     );
@@ -970,7 +974,8 @@ TopLvlExpr
           list("define", $5, list("foreign-safe-lambda", chickenrettype, $3, opi::dot, chickentypes))));
     const opi::value p2 =
       list("pragma", "prolog",
-        list("predicate", list("result-of", list($5, opi::dot, osltypes), oslrettype)));
+        list("predicate", list("result-of", list($5, opi::dot, "Args"), oslrettype),
+          list("coerce-list", "Args", osltypes)));
     $$ = list(p1, p2);
   }
   | EXTERN FOREIGN IDENT '(' ListOfForeignTypes ')' RIGHT_ARROW ForeignType {
@@ -983,8 +988,8 @@ TopLvlExpr
     {
       const value chickentype = list_ref(t, 0);
       const value osltype = list_ref(t, 1);
-      chickentypes = append_mut(chickentypes, list(chickentype));
-      osltypes = append_mut(osltypes, list(osltype));
+      append_mut(chickentypes, list(chickentype));
+      append_mut(osltypes, list(osltype));
     }
     const opi::value p1 =
       list("pragma", "scheme-translator",
@@ -992,8 +997,35 @@ TopLvlExpr
           list("define", $3, list("foreign-safe-lambda", chickenrettype, $3, opi::dot, chickentypes))));
     const opi::value p2 =
       list("pragma", "prolog",
-        list("predicate", list("result-of", list($3, opi::dot, osltypes), oslrettype)));
+        list("predicate", list("result-of", list($3, opi::dot, "Args"), oslrettype),
+          list("coerce-list", "Args", osltypes)));
+    if ($3 == "c_foo")
+    {
+      warning("p2: {}", p2);
+    }
     $$ = list(p1, p2);
+  }
+  | EXTERN FOREIGN String AS IDENT DOUBLE_COLUMN ForeignType {
+    // TODO: bind locations
+    const opi::value chickentype = list_ref($7, 0);
+    const opi::value osltype = list_ref($7, 1);
+    const opi::value p1 =
+      list("pragma", "scheme-translator",
+        list("inline",
+          list("define-foreign-variable", $5, chickentype, $3)),
+        list("declare", $5, osltype));
+    $$ = list(p1);
+  }
+  | EXTERN FOREIGN IDENT DOUBLE_COLUMN ForeignType {
+    // TODO: bind locations
+    const opi::value chickentype = list_ref($5, 0);
+    const opi::value osltype = list_ref($5, 1);
+    const opi::value p1 =
+      list("pragma", "scheme-translator",
+        list("inline",
+          list("define-foreign-variable", $3, chickentype)),
+        list("declare", $3, osltype));
+    $$ = list(p1);
   }
   | FOREIGN_INLINE_BEGIN StringChunks FOREIGN_INLINE_END {
     std::string result;
@@ -1052,6 +1084,7 @@ TypeSign
     bindloc(fn, @1);
     $$ = list(fn, $3, dot, $7);
   }
+  | TypeSign '?' { $$ = list($2, $1); }
 ;
 
 ListOfCtorSigns
@@ -1072,6 +1105,7 @@ ListOfTypeParams
 
 TypeParam
   : CAPIDENT
+  | CAPIDENT '?' { $$ = list($2, $1); }
   | TypeSign
   | '_' { $$ = "_"; }
 ;

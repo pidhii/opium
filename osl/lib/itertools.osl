@@ -40,7 +40,7 @@ next(it mapIterator(Iter, T, U)) =
     | Nothing -> Nothing
   )
 
-map(it, f) = mapIterator(it, coerce(f))
+map(it, f) = mapIterator(it, f)
 // map(it, f) = generator { for x in it do yield f(x) }
 
 
@@ -61,7 +61,7 @@ next(it whileIterator(Iter, T)) =
     | otherwize -> Nothing
   )
 
-while(it, p) = whileIterator(it, coerce(p), false)
+while(it, p) = whileIterator(it, p, false)
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -105,7 +105,7 @@ next(it filterIterator(Iter, T)) =
     | otherwize -> Nothing
   )
 
-filter(it, pred) = filterIterator(it, coerce(pred))
+filter(it, pred) = filterIterator(it, pred)
 
 
 ////////////////////////////////////////////////////////////////////////////////

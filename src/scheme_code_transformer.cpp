@@ -261,4 +261,15 @@ opi::ext_scheme_code_transformer::ext_scheme_code_transformer()
     warning("new cases: {}", newcases);
     return list("cases", newexprs, dot, newcases);
   });
+
+  /** 
+   * pragma
+   *
+   * Pass as is without modifications. This results in all transformers that are
+   * not explicitly handle this case to, effectively, ignore it, without applying
+   * any permutations; and only those transformers that explicitly overwrite this
+   * rule will affect the propagation of such expression.
+   */
+  const match tchmatch {list("pragma"), list("pragma", dot, "_")};
+  prepend_rule(tchmatch, [](const auto &, value fm) { return fm; });
 }

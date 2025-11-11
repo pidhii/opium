@@ -76,6 +76,37 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
   m_alist {nil},
   m_overload_alist {nil}
 {
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                form
+  append_rule(match {nil, list("f", dot, "xs")}, [this](const auto &ms) {
+    const value f = ms.at("f");
+    const value xs = ms.at("xs");
+    const value form = cons(f, xs);
+    return list(range(form) | std::views::transform(T));
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                atoms
+  append_rule({nil, "ident"}, [this](const auto &ms) {
+    const value ident = ms.at("ident");
+    if (ispair(ident))
+      throw code_transformation_error {
+          std::format("scheme_code_transformer rule [<ident> -> ...] - "
+                      "expected atom, got {}; likely unmatched syntax",
+                      ident),
+          ident};
+    // Lookup for identifier 
+    value newident = nil;
+    if (issym(ident))
+    {
+      if (ident == "_")
+        return ident;
+      else if (assoc(ident, m_alist, newident))
+        return sym(sym_name(newident)); // Copy it for pointer-based code tracking
+    }
+    return ident;
+  });
+
   flip_page();
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
@@ -480,37 +511,6 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                           IMPORT PLUGINS
   scheme_syntax_plugin::apply_all(*this);
-
-  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
-  //                                form
-  append_rule(match {nil, list("f", dot, "xs")}, [this](const auto &ms) {
-    const value f = ms.at("f");
-    const value xs = ms.at("xs");
-    const value form = cons(f, xs);
-    return list(range(form) | std::views::transform(T));
-  });
-
-  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
-  //                                atoms
-  append_rule({nil, "ident"}, [this](const auto &ms) {
-    const value ident = ms.at("ident");
-    if (ispair(ident))
-      throw code_transformation_error {
-          std::format("scheme_code_transformer rule [<ident> -> ...] - "
-                      "expected atom, got {}; likely unmatched syntax",
-                      ident),
-          ident};
-    // Lookup for identifier 
-    value newident = nil;
-    if (issym(ident))
-    {
-      if (ident == "_")
-        return ident;
-      else if (assoc(ident, m_alist, newident))
-        return sym(sym_name(newident)); // Copy it for pointer-based code tracking
-    }
-    return ident;
-  });
 }
 
 

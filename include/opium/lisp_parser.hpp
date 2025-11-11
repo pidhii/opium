@@ -133,3 +133,11 @@ struct parse_error: public bad_code {
 };
 
 } // namespace opi
+
+
+static inline opi::value
+operator ""_lisp (const char *str, size_t len)
+{
+  opi::lisp_parser parser;
+  return parser.parse({str, str + len}, "<string>");
+}

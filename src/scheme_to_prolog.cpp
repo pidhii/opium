@@ -35,19 +35,26 @@ using namespace std::placeholders;
 void
 opi::scheme_to_prolog::set_up_prolog(prolog &pl) const noexcept
 {
-  // Add a predicate for dynamic function specialization
-  lisp_parser parser;
-  {
-    const value signature = parser.parse(R"(
-      (result-of ((#dynamic-function-dispatch _ Args Results Body) . Args) . Results)
-    )");
-    const value rule = parser.parse(R"(
-      (call Body)
-    )");
-    pl.add_predicate(signature, rule);
-  }
-}
+  // Helpers for type coercions
+  pl.add_predicate("(coerce-list In Out)"_lisp,
+                   "(if (= In Out) #t (fast-coerce-list In Out))"_lisp);
 
+  pl.add_predicate("(fast-coerce-list (In) (Out))"_lisp, "(fast-coerce In Out)"_lisp);
+  pl.add_predicate(
+      "(fast-coerce-list (InHead . InTail) (OutHead . OutTail))"_lisp,
+      "(and (fast-coerce InHead OutHead) (fast-coerce-list InTail OutTail))"_lisp);
+
+  pl.add_predicate("(fast-coerce In Out)"_lisp,
+                   "(if (= In Out) #t (coerce In Out))"_lisp);
+
+  // Type-check rule for dynamic function specialization
+  pl.add_predicate(
+      "(result-of ((#dynamic-function-dispatch _ Args Results Body) . ArgsIn) . Results)"_lisp,
+      // inline of `coerce-list` from above
+      "(and (if (= ArgsIn Args) #t                     \
+                (fast-coerce-list ArgsIn Args))        \
+            (call Body))"_lisp);
+}
 
 opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
                                         type_format_string format)
@@ -59,7 +66,15 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   m_lambda_gensym {counter, "Lambda{}"}
 {
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
-  //                               annotate-type
+  //                            inline-typecheck
+  const match tchmatch {list("pragma", "inline-prolog"),
+                        list("pragma", "inline-prolog", dot, "statements")};
+  append_rule(tchmatch, [](const auto &ms) {
+    return cons("and", ms.at("statements"));
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                             annotate-type
   const match asstypematch {list("annotate-type"),
                             list("annotate-type", "expr", "type")};
   append_rule(asstypematch, [this](const auto &ms) {
@@ -153,17 +168,19 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 if
   const match ifmatch {list("if"), list("if", "cond", "then", "else")};
-  append_rule(ifmatch, [this](const auto &ms) {
+  append_rule(ifmatch, [this, &counter](const auto &ms) {
     const value cond = ms.at("cond");
     const value thenbr = ms.at("then");
     const value elsebr = ms.at("else");
 
-
     // <cond> must evaluate into boolean
     const value newcond = ({
       utl::state_saver _ {m_targets};
-      m_targets = list("bool", dot, "_");
-      (*this)(cond);
+      // m_targets = list("bool", dot, "_");
+      // (*this)(cond);
+      const value condtgt = sym(std::format("Cond{}", counter++));
+      m_targets = list(condtgt, dot, "_");
+      list("and", (*this)(cond), list("fast-coerce", condtgt, "bool"));
     });
 
     const value newthen = (*this)(thenbr);
@@ -175,9 +192,22 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 if (no else-branch)
   const match ifnoelsematch {list("if"), list("if", "cond", "then")};
-  append_rule(ifnoelsematch, [this](const auto &ms, value fm) {
+  append_rule(ifnoelsematch, [this, &counter](const auto &ms) {
+    // TODO: remove this '?'-related stuff from here (revert the changes), and
+    //       it to a separate plugin
     const value cond = ms.at("cond");
     const value thenbr = ms.at("then");
+
+    // Since there is no <else> branch this expression is only valid with a
+    // wildcard target (NOT ANYMORE)
+    // if (m_targets != "_")
+    // {
+    //   throw bad_code {
+    //       std::format(
+    //           "Can't evaluate else-less if-expression with exact target ({})",
+    //           m_targets),
+    //       fm};
+    // }
 
     // <cond> must evaluate into boolean
     const value newcond = ({
@@ -186,20 +216,29 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       (*this)(cond);
     });
 
-    const value newthen = (*this)(thenbr);
-
-    // Since there is no <else> branch this expression is only valid with a
-    // wildcard target
+    value newthen;
     if (m_targets != "_")
-    {
-      throw bad_code {
-          std::format(
-              "Can't evaluate else-less if-expression with exact target ({})",
-              m_targets),
-          fm};
-    }
+    { // TODO: make this optional
+      // FIXME: this should be implemented elsewhere
+      const value thentgt = sym(std::format("ThenTarget{}", counter++));
 
-    return list("and", newcond, newthen);
+      newthen = ({
+        utl::state_saver _ {m_targets};
+        m_targets = list(thentgt, dot, "_");
+        (*this)(thenbr);
+      });
+
+      return list("and",
+        newcond,
+        newthen,
+        list("=", m_targets, list(list("?", thentgt)))
+      );
+    }
+    else
+    {
+      const value newthen = (*this)(thenbr);
+      return list("and", newcond, newthen);
+    }
   });
 
 
@@ -547,7 +586,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     tape.push_back(plexpr);
 
     // Bind `ident` with result of `expr`
-    const value bindexpr = list("=", identtype, exprresult);
+    const value bindexpr = list("fast-coerce", exprresult, identtype);
     tape.push_back(bindexpr);
 
     // Wrap everything in an AND expression
@@ -582,10 +621,18 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value xs = ms.at("xs");
 
     opi::stl::vector<value> code;
+  // #define ARGUMENT_COERSIONS
+  #ifdef ARGUMENT_COERSIONS
+    // const auto cxs = std::views::transform(range(xs), [](const auto &x) {
+    //   return x;
+    // });
+    // const value form = list(range(cons(f, xs)) | std::views::transform(totype));
+  #else
     const auto totype = [&](value atom) {
       return to_type(atom, true, std::back_inserter(code));
     };
     const value form = list(range(cons(f, xs)) | std::views::transform(totype));
+  #endif
     const value plform = list("result-of", form, dot, m_targets);
     code.push_back(plform);
     copy_location(fm, plform);

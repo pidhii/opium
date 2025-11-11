@@ -46,6 +46,12 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
 : m_dont_emit_symbol {"<dont-emit>"}, m_query_result {query}, m_ctx {ctx}
 {
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                         pragma (omit)
+  m_transformer.prepend_rule(
+      {list("pragma"), list("pragma", dot, "_")},
+      [this](const auto &) { return m_dont_emit_symbol; });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               annotate-type
   const match asstypematch {list("annotate-type"),
                             list("annotate-type", "expr", "type")};
