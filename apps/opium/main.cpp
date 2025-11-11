@@ -203,7 +203,8 @@ main(int argc, char **argv)
     assert(inputfile.is_open());
     value in = parser.parse_all(inputfile, inputpath);
 
-    generate_scheme(in, pl, opath);
+    scheme_preprocessor pp;
+    generate_scheme(in, pp, pl, opath);
   }
   else
     read_eval_print_loop(parser, pl);

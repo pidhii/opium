@@ -46,15 +46,21 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
 : m_dont_emit_symbol {"<dont-emit>"}, m_query_result {query}, m_ctx {ctx}
 {
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
-  //                         pragma (omit)
+  //                         other pragmas (omit)
   m_transformer.prepend_rule(
       {list("pragma"), list("pragma", dot, "_")},
       [this](const auto &) { return m_dont_emit_symbol; });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                         inline-scheme
+  m_transformer.prepend_rule(
+      {list("pragma", "inline-scheme"), list("pragma", "inline-scheme", "expr")},
+      [](const auto &ms) { return ms.at("expr"); });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               annotate-type
   const match asstypematch {list("annotate-type"),
-                            list("annotate-type", "expr", "type")};
+                            list("annotate-type", "expr", dot, "types")};
   m_transformer.prepend_rule(asstypematch, [this](const auto &ms) {
     const value expr = ms.at("expr");
 

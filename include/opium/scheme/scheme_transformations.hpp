@@ -33,18 +33,16 @@ namespace opi {
 //       it has to be done by a separate transformer
 class scheme_unique_identifiers: public ext_scheme_code_transformer {
   public:
-  scheme_unique_identifiers(symbol_generator &gensym);
+  scheme_unique_identifiers(
+      symbol_generator &gensym,
+      const std::optional<std::string> &norename_prefix = std::nullopt);
+
+  void
+  set_norename_prefix(std::string_view prefix)
+  { m_norename_prefix = prefix; }
 
   value
   transform_block(value block) const;
-
-  void
-  enable_values(bool enable) noexcept
-  { m_values_enabled = enable; }
-
-  bool
-  values_enabled() const noexcept
-  { return m_values_enabled; }
 
   private:
   value
@@ -59,7 +57,7 @@ class scheme_unique_identifiers: public ext_scheme_code_transformer {
   std::function<value(value)> T;
 
   private:
-  bool m_values_enabled;
+  std::optional<std::string> m_norename_prefix;
   symbol_generator &m_gensym;
   mutable value m_alist;
   mutable value m_overload_alist;
@@ -88,6 +86,10 @@ class scheme_preprocessor {
     m_flattener {m_default_symbol_generator.value()},
     m_unique_identifiers {m_default_symbol_generator.value()}
   { }
+
+  void
+  set_norename_prefix(std::string_view prefix)
+  { m_unique_identifiers.set_norename_prefix(prefix); }
 
   value
   operator () (value expr) const

@@ -439,20 +439,11 @@ opi::scheme_code_flattener::scheme_code_flattener(symbol_generator &gensym)
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                             annotate-type
   const match asstypematch {list("annotate-type"),
-                            list("annotate-type", "expr", "type")};
+                            list("annotate-type", "expr", dot, "types")};
   append_rule(asstypematch, [this](const auto &ms) {
     const value expr = ms.at("expr");
-    const value type = ms.at("type");
-
-    // Only flatten the expr
-    if (ispair(expr))
-    {
-      const value uid = m_gensym();
-      const value newexpr = (*this)(expr);
-      return list("let", list(list(uid, newexpr)), list("annotate-type", uid, type));
-    }
-    else // Already flat
-      return list("annotate-type", expr, type);
+    const value types = ms.at("types");
+    return list("annotate-type", (*this)(expr), dot, types);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>

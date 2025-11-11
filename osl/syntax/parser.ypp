@@ -705,10 +705,7 @@ ApplExpr
   | String { $$ = $1; bindloc($$, @$); }
   | '{' SeqOfExprs '}' { $$ = cons("begin", $2); bindloc($$, @$); }
   | '[' ListOfExprs ']' %prec AFTER_APPLY {
-    if (length($2) > 0)
-      $$ = cons("osl#list", $2);
-    else
-      $$ = "osl#nil";
+    $$ = cons("osl#list", $2);
     bindloc($$, @$);
   }
   | Ctor '(' ListOfExprs ')' %prec APPLY {
@@ -933,20 +930,19 @@ TopLvlExpr
     );
   }
   | EXTERN IDENT AS IDENT '(' ListOfTypeParams ')' RIGHT_ARROW ListOfTypeParams {
-    const size_t nargs = length($6);
-    stl::vector<value> wrapper_args;
-    for (size_t i = 0; i < nargs; ++i)
+    stl::vector<value> wrapperargs, argnames;
+    static int counter = 0;
+    for (const value argtype : range($6))
     {
-      const value arg_name = sym(std::format("x{}", i));
-      const value arg_type = list_ref($6, i);
-      wrapper_args.push_back(list(arg_name, arg_type));
+      const value argname = sym(std::format("norename#osl#argument-{}", counter++));
+      argnames.push_back(argname);
+      wrapperargs.push_back(list(argname, argtype));
     }
     $$ = list(
-      list("pragma", "prolog",
-        list("predicate", list("result-of", list($2, dot, "Args"), dot, $9),
-          list("coerce-list", "Args", $6))),
-      list("define-overload", cons($4, list(wrapper_args)),
-        cons($2, list(std::views::all(wrapper_args) | std::views::transform(opi::car))))
+      list("define-overload", cons($4, list(wrapperargs)),
+        list("annotate-type",
+          list("pragma", "inline-scheme", cons($2, list(argnames))),
+          dot, $9))
     );
   }
   | EXTERN FOREIGN IDENT AS IDENT '(' ListOfForeignTypes ')' RIGHT_ARROW ForeignType {

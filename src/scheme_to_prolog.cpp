@@ -66,7 +66,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   m_lambda_gensym {counter, "Lambda{}"}
 {
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
-  //                            inline-typecheck
+  //                            inline-prolog
   const match tchmatch {list("pragma", "inline-prolog"),
                         list("pragma", "inline-prolog", dot, "statements")};
   append_rule(tchmatch, [](const auto &ms) {
@@ -74,17 +74,22 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                            other pragmas (omit)
+  const match pragmatch {list("pragma"), list("pragma", dot, "_")};
+  append_rule(pragmatch, [](const auto &) { return True; });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                             annotate-type
   const match asstypematch {list("annotate-type"),
-                            list("annotate-type", "expr", "type")};
+                            list("annotate-type", "expr", dot, "types")};
   append_rule(asstypematch, [this](const auto &ms) {
     const value expr = ms.at("expr");
-    const value type = ms.at("type");
+    const value types = ms.at("types");
 
     // Evaluate `expr` with target set to `type`
     const value plexpr = ({
       utl::state_saver _ {m_targets};
-      m_targets = list(type, dot, "_");
+      m_targets = types;
       (*this)(expr);
     });
 
@@ -93,7 +98,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       return plexpr;
 
     // Otherwise, also bind current target with the `type`
-    const value bindtarget = list("=", m_targets, list(type));
+    const value bindtarget = list("=", m_targets, types);
     return list("and", plexpr, bindtarget);
   });
 
@@ -344,7 +349,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     m_alist = cons(cons(ovident, type), m_alist);
     copy_location(ident, type);
 
-    return list("and");
+    return True;
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
@@ -360,7 +365,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     m_alist = cons(cons(ident, type), m_alist);
     copy_location(ident, type);
 
-    return list("and");
+    return True;
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
@@ -375,7 +380,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     m_alist = cons(cons(ident, type), m_alist);
     copy_location(ident, type);
 
-    return list("and");
+    return True;
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>

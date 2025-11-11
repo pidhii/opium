@@ -29,8 +29,7 @@
 (pragma scheme-translator
   (inline
     (define osl#list list)
-    (define osl#nil '()))
-  (declare osl#nil (list _)))
+    (define osl#nil '())))
 ;; o pattern matching
 (pragma prolog
   (predicate (result-of (list.Cons T (list T)) (list T)))

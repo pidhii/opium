@@ -1,5 +1,6 @@
 #include "opium/opium.hpp"
 #include "opium/logging.hpp"
+#include "opium/scheme/scheme_transformations.hpp"
 #include "opium/scheme/scheme_type_system.hpp"
 
 
@@ -44,8 +45,8 @@ _write_scheme_script(std::ostream &os, opi::value script)
 
 
 void
-opi::generate_scheme(opi::value in, opi::prolog_repl &pl,
-                     const std::filesystem::path &opath)
+opi::generate_scheme(opi::value in, opi::scheme_preprocessor &pp,
+                     opi::prolog_repl &pl, const std::filesystem::path &opath)
 {
   using namespace opi;
 
@@ -58,7 +59,6 @@ opi::generate_scheme(opi::value in, opi::prolog_repl &pl,
     pl << plexpr;
 
   opi::execution_timer preprocessor_timer {"Preprocessor"};
-  scheme_preprocessor pp;
   const value ppcode = pp.transform_block(in);
   preprocessor_timer.stop();
 

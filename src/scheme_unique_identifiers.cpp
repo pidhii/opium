@@ -70,8 +70,9 @@ _rename_pattern(opi::value pattern, opi::symbol_generator &gensym,
 
 
 opi::scheme_unique_identifiers::scheme_unique_identifiers(
-    symbol_generator &gensym)
+    symbol_generator &gensym, const std::optional<std::string> &norename_prefix)
 : T {std::bind(&scheme_unique_identifiers::_T, this, _1)},
+  m_norename_prefix {norename_prefix},
   m_gensym {gensym},
   m_alist {nil},
   m_overload_alist {nil}
@@ -112,15 +113,15 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                              annotate-type
   const match asstypematch {list("annotate-type"),
-                            list("annotate-type", "expr", "type")};
+                            list("annotate-type", "expr", dot, "types")};
   append_rule(asstypematch, [this](const auto &ms) {
     const value expr = ms.at("expr");
-    const value type = ms.at("type");
+    const value types = ms.at("types");
 
     // Only transform the expression
     const value newexpr = (*this)(expr);
 
-    return list("annotate-type", newexpr, type);
+    return list("annotate-type", newexpr, dot, types);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
@@ -708,10 +709,13 @@ opi::value
 opi::scheme_unique_identifiers::_into_unique_symbol(
     value identifier, std::string_view prefix) const
 {
-  if (not issym(identifier) or sym_name(identifier) == "")
+  if (not issym(identifier) or identifier == "")
     throw bad_code {
         std::format("Invalid identifier ({}{})", prefix, identifier),
         identifier};
+  if (m_norename_prefix and
+      sym_name(identifier).starts_with(m_norename_prefix.value()))
+    return identifier;
   const std::string fmt = std::format("{}{}{{}}", prefix, identifier);
   return m_gensym(fmt);
 }

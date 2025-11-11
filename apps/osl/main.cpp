@@ -1,3 +1,4 @@
+#include "opium/scheme/scheme_transformations.hpp"
 #include "parse.hpp"
 
 #include "opium/logging.hpp"
@@ -212,11 +213,15 @@ main(int argc, char **argv)
       return EXIT_SUCCESS;
     }
 
+    // Set up preprocessor
+    scheme_preprocessor pp;
+    pp.set_norename_prefix("norename#");
+
     // Share path prefixes with Prolog interpreter
     for (const std::string &prefix : osl::pathes)
       pl.add_path_prefix(prefix);
 
-    generate_scheme(result, pl, opath);
+    generate_scheme(result, pp, pl, opath);
   }
   catch (const opi::ambiguous_type_error &exn)
   {
