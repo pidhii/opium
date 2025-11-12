@@ -99,12 +99,12 @@ mangle_type_constructor(opi::value ctor)
 
 static opi::value
 random_access_getter()
-{ return "osl:ref"; }
+{ return "osl#ref"; }
 
 
 static opi::value
 random_access_setter()
-{ return "osl:set"; }
+{ return "osl#set"; }
 
 
 
@@ -647,7 +647,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 // =============================================================================
 //                              Structures
 %type ApplExpr Expr Stmt
-%type ListOfExprs ListOfArgs
+%type ListOfExprs ListOfArgs NonZeroListOfIdents
 %type SeqOfExprs
 %type TopLvlExpr
 %type Match MatchClause MatchClauses
@@ -778,9 +778,53 @@ Expr
   | Lambda
   | If
   | Match
-  | LET ListOfBinds IN Expr { $$ = list("let", $2, $4); }
-  | LETREC ListOfBinds IN Expr { $$ = list("letrec", $2, $4); }
-  | Expr WHERE ListOfBinds { $$ = list("letrec", $3, $1); }
+  | LET ListOfBinds IN Expr {
+    bool usevalues = false;
+    stl::vector<opi::value> letbinds;
+    for (const value bind : range($2))
+    {
+      assert(length(car(bind)) >= 1);
+      if (length(car(bind)) > 1)
+        usevalues = true;
+      letbinds.push_back(cons(car(car(bind)), cdr(bind)));
+    }
+    if (usevalues)
+      $$ = list("let-values", $2, $4);
+    else
+      $$ = list("let", list(letbinds), $4);
+  }
+  | LETREC ListOfBinds IN Expr {
+    bool usevalues = false;
+    stl::vector<opi::value> letbinds;
+    for (const value bind : range($2))
+    {
+      assert(length(car(bind)) >= 1);
+      if (length(car(bind)) > 1)
+        usevalues = true;
+      letbinds.push_back(cons(car(car(bind)), cdr(bind)));
+    }
+    if (usevalues)
+      throw opi::bad_code {"Invalid use of multiple-bindings with letrec-syntax",
+                           opi::osl::make_location(@2)};
+    else
+      $$ = list("letrec", list(letbinds), $4);
+  }
+  | Expr WHERE ListOfBinds {
+    bool usevalues = false;
+    stl::vector<opi::value> letbinds;
+    for (const value bind : range($3))
+    {
+      assert(length(car(bind)) >= 1);
+      if (length(car(bind)) > 1)
+        usevalues = true;
+      letbinds.push_back(cons(car(car(bind)), cdr(bind)));
+    }
+    if (usevalues)
+      throw opi::bad_code {"Invalid use of multiple-bindings with where-syntax",
+                           opi::osl::make_location(@3)};
+    else
+      $$ = list("letrec", list(letbinds), $1);
+  }
   | PRAGMA_ IDENT STRING_CHUNK {
     lisp_parser parser;
     assert(isstr($3));
@@ -1130,6 +1174,11 @@ ListOfArgs
   | ExprWithOptTypeParam ',' ListOfArgs { $$ = cons($1, $3); }
 ;
 
+NonZeroListOfIdents
+  : IDENT { $$ = list($1); }
+  | IDENT ',' NonZeroListOfIdents { $$ = cons($1, $3); }
+;
+
 ExprWithOptTypeParam
   : Expr
   | Expr TypeParam { $$ = list($1, $2); }
@@ -1182,7 +1231,8 @@ ListOfBinds
 ;
 
 Bind
-  : IDENT '=' Expr { $$ = list($1, $3); }
+  /*: IDENT '=' Expr { $$ = list($1, $3); }*/
+  : NonZeroListOfIdents '=' Expr { $$ = list($1, $3); }
   | IDENT '(' ListOfExprs ')' '=' Expr {
     const value lambda = "lambda";
     bindloc(lambda, @$);
@@ -1196,7 +1246,7 @@ Bind
     }
     else
       lambdaexpr = list(lambda, $3, $6);
-    $$ = list($1, lambdaexpr);
+    $$ = list(list($1), lambdaexpr);
   }
 ;
 

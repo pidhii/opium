@@ -210,7 +210,7 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                       let-values/let*-values
-#if 0
+#if 1
   const auto valuesrule = [this](const auto &ms, value fm) {
     const value binds = ms.at("binds");
     const value body = ms.at("body");
