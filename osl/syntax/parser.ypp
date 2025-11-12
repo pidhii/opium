@@ -38,6 +38,7 @@
 
 
 static opi::value* g_result_ptr;
+static int g_counter = 0;
 
 #define YYMALLOC opi::allocate
 #define YYREALLOC GC_realloc
@@ -699,8 +700,7 @@ ApplExpr
   | FLOAT
   | BOOLEAN
   | '_' {
-    static size_t counter = 0;
-    $$ = sym(std::format("osl#unanimous#{}", counter++));
+    $$ = sym(std::format("osl#unanimous#{}", g_counter++));
   }
   | String { $$ = $1; bindloc($$, @$); }
   | '{' SeqOfExprs '}' { $$ = cons("begin", $2); bindloc($$, @$); }
@@ -840,6 +840,102 @@ Stmt
     bindloc(define, @$);
     $$ = list(define, idents, $5);
   }
+  | EXTERN IDENT DOUBLE_COLUMN TypeSign {
+    $$ =
+      list("define", $2,
+        list("annotate-type", list("pragma", "inline-scheme", $2), $4));
+  }
+  | EXTERN IDENT AS IDENT DOUBLE_COLUMN TypeSign {
+    $$ =
+      list("define", $4,
+        list("annotate-type", list("pragma", "inline-scheme", $2), $6));
+  }
+  | EXTERN IDENT '(' ListOfTypeParams ')' RIGHT_ARROW ListOfTypeParams {
+    stl::vector<value> wrapperargs, argnames;
+    for (const value argtype : range($4))
+    {
+      const value argname = sym(std::format("norename#osl#argument{}", g_counter++));
+      argnames.push_back(argname);
+      wrapperargs.push_back(list(argname, argtype));
+    }
+
+    $$ =
+      list("define-overload", cons($2, list(wrapperargs)),
+        list("annotate-type",
+          list("pragma", "inline-scheme", cons($2, list(argnames))),
+          dot, $7));
+  }
+  | EXTERN IDENT AS IDENT '(' ListOfTypeParams ')' RIGHT_ARROW ListOfTypeParams {
+    stl::vector<value> wrapperargs, argnames;
+    for (const value argtype : range($6))
+    {
+      const value argname = sym(std::format("norename#osl#argument{}", g_counter++));
+      argnames.push_back(argname);
+      wrapperargs.push_back(list(argname, argtype));
+    }
+    $$ =
+      list("define-overload", cons($4, list(wrapperargs)),
+        list("annotate-type",
+          list("pragma", "inline-scheme", cons($2, list(argnames))),
+          dot, $9));
+  }
+  | EXTERN FOREIGN IDENT AS IDENT '(' ListOfForeignTypes ')' RIGHT_ARROW ForeignType {
+    // TODO: bind locations
+    const opi::value chickenrettype = list_ref($10, 0);
+    const opi::value oslrettype = list_ref($10, 1);
+    opi::value chickentypes, osltypes;
+    opi::value argnames = nil;
+    opi::value oslargs = nil;
+    for (const opi::value t : range($7))
+    {
+      const opi::value argname =
+          sym(std::format("norename#osl#argument{}", g_counter++));
+      const value chickentype = list_ref(t, 0);
+      const value osltype = list_ref(t, 1);
+      append_mut(chickentypes, list(chickentype));
+      append_mut(osltypes, list(osltype));
+      append_mut(argnames, list(argname));
+      append_mut(oslargs, list(list(argname, osltype)));
+    }
+
+    const opi::value foreign_safe_lambda =
+      list("foreign-safe-lambda", chickenrettype, $3, opi::dot, chickentypes);
+    const opi::value foreign_call =
+      list("annotate-type",
+        list("pragma", "inline-scheme",
+          list(foreign_safe_lambda, dot, argnames)),
+        oslrettype);
+    $$ = list("define-overload", cons($5, oslargs), foreign_call);
+  }
+  | EXTERN FOREIGN IDENT '(' ListOfForeignTypes ')' RIGHT_ARROW ForeignType {
+    // See above but no aliasing
+    // TODO: bind locations
+    const opi::value chickenrettype = list_ref($8, 0);
+    const opi::value oslrettype = list_ref($8, 1);
+    opi::value chickentypes, osltypes;
+    opi::value argnames = nil;
+    opi::value oslargs = nil;
+    for (const opi::value t : range($5))
+    {
+      const opi::value argname =
+          sym(std::format("norename#osl#argument{}", g_counter++));
+      const value chickentype = list_ref(t, 0);
+      const value osltype = list_ref(t, 1);
+      append_mut(chickentypes, list(chickentype));
+      append_mut(osltypes, list(osltype));
+      append_mut(argnames, list(argname));
+      append_mut(oslargs, list(list(argname, osltype)));
+    }
+
+    const opi::value foreign_safe_lambda =
+      list("foreign-safe-lambda", chickenrettype, $3, opi::dot, chickentypes);
+    const opi::value foreign_call =
+      list("annotate-type",
+        list("pragma", "inline-scheme",
+          list(foreign_safe_lambda, dot, argnames)),
+        oslrettype);
+    $$ = list("define-overload", cons($3, oslargs), foreign_call);
+  }
 ;
 
 Lambda
@@ -908,111 +1004,20 @@ TopLvlExpr
 
     $$ = nil;
   }
-  | EXTERN IDENT DOUBLE_COLUMN TypeSign {
-    $$ = list(
-      list("pragma", "scheme-translator",
-        list("declare", $2, $4))
-    );
-  }
-  | EXTERN IDENT AS IDENT DOUBLE_COLUMN TypeSign {
-    $$ = list(
-      list("pragma", "scheme-translator",
-        list("declare", $2, $6),
-        list("inline", list("define", $4, $2))
-      )
-    );
-  }
-  | EXTERN IDENT '(' ListOfTypeParams ')' RIGHT_ARROW ListOfTypeParams {
-    $$ = list(
-      list("pragma", "prolog",
-        list("predicate", list("result-of", list($2, dot, "Args"), dot, $7),
-          list("coerce-list", "Args", $4)))
-    );
-  }
-  | EXTERN IDENT AS IDENT '(' ListOfTypeParams ')' RIGHT_ARROW ListOfTypeParams {
-    stl::vector<value> wrapperargs, argnames;
-    static int counter = 0;
-    for (const value argtype : range($6))
-    {
-      const value argname = sym(std::format("norename#osl#argument-{}", counter++));
-      argnames.push_back(argname);
-      wrapperargs.push_back(list(argname, argtype));
-    }
-    $$ = list(
-      list("define-overload", cons($4, list(wrapperargs)),
-        list("annotate-type",
-          list("pragma", "inline-scheme", cons($2, list(argnames))),
-          dot, $9))
-    );
-  }
-  | EXTERN FOREIGN IDENT AS IDENT '(' ListOfForeignTypes ')' RIGHT_ARROW ForeignType {
-    // Example:
-    //   extern foreign foo as bar(unsigned int, unsigned int) -> int
-    //   (pragma scheme-translator
-    //     (inline
-    //       (define bar (foreign-safe-lambda int foo int int))))
-    //   (pragma prolog
-    //     (predicate (result-of (bar num num) num)))
-    // TODO: bind locations
-    const opi::value chickenrettype = list_ref($10, 0);
-    const opi::value oslrettype = list_ref($10, 1);
-    opi::value chickentypes, osltypes;
-    for (const opi::value t : range($7))
-    {
-      const value chickentype = list_ref(t, 0);
-      const value osltype = list_ref(t, 1);
-      chickentypes = append_mut(chickentypes, list(chickentype));
-      osltypes = append_mut(osltypes, list(osltype));
-    }
-    const opi::value p1 =
-      list("pragma", "scheme-translator",
-        list("inline",
-          list("define", $5, list("foreign-safe-lambda", chickenrettype, $3, opi::dot, chickentypes))));
-    const opi::value p2 =
-      list("pragma", "prolog",
-        list("predicate", list("result-of", list($5, opi::dot, "Args"), oslrettype),
-          list("coerce-list", "Args", osltypes)));
-    $$ = list(p1, p2);
-  }
-  | EXTERN FOREIGN IDENT '(' ListOfForeignTypes ')' RIGHT_ARROW ForeignType {
-    // See above but no aliasing
-    // TODO: bind locations
-    const opi::value chickenrettype = list_ref($8, 0);
-    const opi::value oslrettype = list_ref($8, 1);
-    opi::value chickentypes, osltypes;
-    for (const opi::value t : range($5))
-    {
-      const value chickentype = list_ref(t, 0);
-      const value osltype = list_ref(t, 1);
-      append_mut(chickentypes, list(chickentype));
-      append_mut(osltypes, list(osltype));
-    }
-    const opi::value p1 =
-      list("pragma", "scheme-translator",
-        list("inline",
-          list("define", $3, list("foreign-safe-lambda", chickenrettype, $3, opi::dot, chickentypes))));
-    const opi::value p2 =
-      list("pragma", "prolog",
-        list("predicate", list("result-of", list($3, opi::dot, "Args"), oslrettype),
-          list("coerce-list", "Args", osltypes)));
-    if ($3 == "c_foo")
-    {
-      warning("p2: {}", p2);
-    }
-    $$ = list(p1, p2);
-  }
-  | EXTERN FOREIGN String AS IDENT DOUBLE_COLUMN ForeignType {
+/*
+  | EXTERN FOREIGN IDENT AS IDENT DOUBLE_COLUMN ForeignType {
+    // TODO: refactor and make it a Stmt
     // TODO: bind locations
     const opi::value chickentype = list_ref($7, 0);
     const opi::value osltype = list_ref($7, 1);
     const opi::value p1 =
-      list("pragma", "scheme-translator",
-        list("inline",
-          list("define-foreign-variable", $5, chickentype, $3)),
+      list("pragma", "inline-scheme",
+          list("define-foreign-variable", $5, chickentype, $3),
         list("declare", $5, osltype));
     $$ = list(p1);
   }
   | EXTERN FOREIGN IDENT DOUBLE_COLUMN ForeignType {
+    // TODO: refactor and make it a Stmt
     // TODO: bind locations
     const opi::value chickentype = list_ref($5, 0);
     const opi::value osltype = list_ref($5, 1);
@@ -1023,6 +1028,7 @@ TopLvlExpr
         list("declare", $3, osltype));
     $$ = list(p1);
   }
+*/
   | FOREIGN_INLINE_BEGIN StringChunks FOREIGN_INLINE_END {
     std::string result;
     result += "\n#>\n";
