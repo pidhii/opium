@@ -1,6 +1,8 @@
 #pragma once
 
+#include "opium/lisp_parser.hpp"
 #include "opium/source_location.hpp"
+#include "opium/stl/unordered_map.hpp"
 #include "parse.hpp"
 #include "osl_parser.hpp" // FIXME
 
@@ -25,7 +27,7 @@ struct syntax {
   union {
     lexer::token token;
     detail::syntax_group sequence;
-    detail::syntax_group group;
+    struct { detail::syntax_group sequence; value name; } group;
     value parameter;
   };
 };
@@ -77,12 +79,13 @@ make_syntax_sequence(Iter begin, End end)
 
 template <std::input_iterator Iter, std::sentinel_for<Iter> End>
 static inline syntax *
-make_syntax_group(Iter begin, End end)
+make_group(value name, Iter begin, End end)
 {
   syntax *result =
       reinterpret_cast<syntax *>(allocate(sizeof(syntax)));
   result->kind = syntax::kind::group;
-  new (&result->group) detail::syntax_group {begin, end};
+  result->group.name = name;
+  new (&result->group.sequence) detail::syntax_group {begin, end};
   return result;
 }
 
@@ -101,34 +104,9 @@ namespace detail {
 enum parse_param_flags : unsigned { type = 1, name = 2, all = 3 };
 
 // <type> ':' <name>
-static inline std::pair<value /*type*/, value /*name*/>
-parse_pattern_parameter(generic_lexer &lex, unsigned flags = all)
-{ // TODO: pass locations to the exceptions
-  lexer::token dolar, type, colon, name;
-  int toktype;
+static std::pair<value /*type*/, value /*name*/>
+parse_pattern_parameter(generic_lexer &lex, unsigned flags = all);
 
-  // Leading dollar
-  if ((toktype = lex.read(dolar)) != '$')
-    throw bad_code {
-        std::format("invalid macro parameter (expected '$', got '{}'/{})",
-                      dolar.value, toktype)};
-
-  // parameter type
-  if ((flags & parse_param_flags::type) and (toktype = lex.read(type)) != IDENT)
-    throw bad_code {std::format(
-        "invalid macro parameter (expected type identifier, got '{}'/{})",
-        type.value, toktype)};
-
-  // colon
-  if ((flags == parse_param_flags::all) and lex.read(colon) != ':')
-    throw bad_code {"invalid macro parameter (expected ':')"};
-
-  // parameter name
-  if ((flags & parse_param_flags::name) and lex.read(name) != IDENT)
-    throw bad_code {"invalid macro parameter (expected name identifier)"};
-
-  return {type.value, name.value};
-}
 } // namespace detail
 
 
@@ -136,6 +114,16 @@ template <typename C, typename K, typename V>
 concept associative_container = requires(C c, K k, V v) {
   { c[k] } -> std::convertible_to<V>;
   { c[k] = v };
+};
+
+
+struct group_type {
+  value reptag;
+  stl::unordered_map<value, value> types;
+};
+
+struct group_value {
+  stl::vector<stl::unordered_map<value, value>> values;
 };
 
 
@@ -176,26 +164,37 @@ macro_pattern_parser<ParamDict>::parse_syntax(generic_lexer &lex)
     case '$':
     {
       lexer::token nexttoken;
-      switch (lex.peek(nexttoken))
+      if (lex.peek(nexttoken) == '[')
       {
-        case '(': // syntax group
-        {
-          lex.read(nexttoken);
-          stl::vector<const syntax *> syntaxes;
-          parse_list(lex, ')', std::back_inserter(syntaxes));
-          return make_syntax_group(syntaxes.begin(), syntaxes.end());
-        }
+        lex.read(nexttoken);
 
-        case IDENT: // parameter
+        group_type *gpat = make<group_type>();
+        macro_pattern_parser subparser (gpat->types);
+        stl::vector<const syntax*> seq;
+        subparser.parse_list(lex, ']', std::back_inserter(seq));
+        lexer::token reptag;
+        switch (lex.read(reptag))
         {
-          lex.put(token);
-          const auto [type, name] = parse_pattern_parameter(lex, detail::all);
-          m_parameter_types[name] = type;
-          return make_parameter(name);
+          case '*':
+          case '+':
+            gpat->reptag = reptag.value;
+            break;
+          default:
+            throw bad_code {std::format(
+                "invalid macro parameter (expected '*' or '+', got '{}'/{})",
+                reptag.value, reptag.type)};
         }
-
-        default:
-          throw bad_code {"Invalid marco syntax", token.value};
+        lex.put(token);
+        const auto [_, name] = detail::parse_pattern_parameter(lex, detail::name);
+        m_parameter_types[name] = ptr(gpat);
+        return make_group(name, seq.begin(), seq.end());
+      }
+      else
+      {
+        lex.put(token);
+        const auto [type, name] = parse_pattern_parameter(lex, detail::all);
+        m_parameter_types[name] = type;
+        return make_parameter(name);
       }
     }
 
@@ -246,32 +245,25 @@ class macro_rule_parser {
 inline syntax *
 macro_rule_parser::parse_syntax(generic_lexer &lex)
 {
-  lexer::token token;
+  lexer::token token, nexttoken;
   switch (lex.read(token))
   {
     case '$':
     {
-      lexer::token nexttoken;
-      switch (lex.peek(nexttoken))
+      if (lex.peek(nexttoken) == '[')
       {
-        case '(': // syntax group
-        {
-          lex.read(nexttoken);
-          stl::vector<const syntax *> syntaxes;
-          parse_list(lex, ')', std::back_inserter(syntaxes));
-          return make_syntax_group(syntaxes.begin(), syntaxes.end());
-        }
-
-        case IDENT: // parameter
-        {
-          lex.put(token);
-          const auto [_, name] =
-              parse_pattern_parameter(lex, detail::name);
-          return make_parameter(name);
-        }
-
-        default:
-          throw bad_code {"Invalid marco syntax", token.value};
+        lex.read(nexttoken);
+        stl::vector<const syntax*> seq;
+        parse_list(lex, ']', std::back_inserter(seq));
+        lex.put(token);
+        const auto [_, name] = parse_pattern_parameter(lex, detail::name);
+        return make_group(name, seq.begin(), seq.end());
+      }
+      else
+      {
+        lex.put(token);
+        const auto [_, name] = parse_pattern_parameter(lex, detail::name);
+        return make_parameter(name);
       }
     }
 
@@ -336,14 +328,56 @@ macro_pattern_matcher<ParamTypeDict, ParamValDict>::match_syntax(
     {
       const value name = pattern->parameter;
       const value type = m_parameter_types.at(name);
+      assert(issym(type));
+      lexer::token nexttoken;
       m_parameter_vals[name] =
           prs.parse(entry_token_for(sym_name(type)), lex, true);
-      debug("matched parameter {}: {}", name, m_parameter_vals[name]);
+      break;
+    }
+
+    case syntax::kind::group:
+    {
+      const value name = pattern->group.name;
+      const value type = m_parameter_types.at(name);
+      assert(isptr(type));
+      const group_type *gpat = static_cast<const group_type*>(type->ptr);
+
+      group_value *gval = make<group_value>();
+      while (true)
+      {
+        stl::unordered_map<value, value> values;
+        macro_pattern_matcher gmch {gpat->types, values};
+
+        stateful_lexer stlex {lex};
+        const stateful_lexer::state state = stlex.current_state();
+        const syntax *seq = make_syntax_sequence(pattern->sequence.begin(),
+                                                 pattern->sequence.end());
+        try
+        {
+          gmch.match_syntax(stlex, prs, seq);
+        }
+        catch (const opi::bad_code &exn)
+        {
+          stlex.recover_state(state);
+          break;
+        }
+
+        gval->values.emplace_back(std::move(values));
+      }
+
+      if (gpat->reptag == "*")
+      { /* nothing to check */ }
+      else if (gpat->reptag == "+")
+      {
+        if (gval->values.size() == 0)
+          throw parse_error {"+-pattern did not match"};
+      }
+
+      m_parameter_vals[name] = ptr(gval);
       break;
     }
 
     case syntax::kind::sequence:
-    case syntax::kind::group:
     {
       for (const syntax *s : pattern->sequence)
         match_syntax(lex, prs, s);
@@ -397,6 +431,7 @@ macro_expander<ParamTypeDict, ParamValDict>::_expand(
     {
       const value name = rule->parameter;
       const value type = m_parameter_types.at(name);
+      assert(issym(type));
       const value val = m_parameter_vals.at(name);
       source_location location;
       if (get_location(val, location)) { };
@@ -404,14 +439,63 @@ macro_expander<ParamTypeDict, ParamValDict>::_expand(
       break;
     }
 
-    case syntax::kind::sequence:
     case syntax::kind::group:
+    {
+      const value name = rule->group.name;
+      const syntax *grule = make_syntax_sequence(rule->group.sequence.begin(),
+                                                 rule->group.sequence.end());
+      const group_type *type = static_cast<const group_type*>(m_parameter_types.at(name)->ptr);
+      const group_value *value = static_cast<const group_value*>(m_parameter_vals.at(name)->ptr);
+      for (const auto &subvals : value->values)
+      {
+        macro_expander subexp {type->types, subvals};
+        subexp._expand(grule, result);
+      }
+      break;
+    }
+
+    case syntax::kind::sequence:
     {
       for (const syntax *s : rule->sequence)
         _expand(s, result);
       break;
     }
   }
+}
+
+// <type> ':' <name>
+static std::pair<value /*type*/, value /*name*/>
+detail::parse_pattern_parameter(generic_lexer &lex, unsigned flags)
+{ // TODO: pass locations to the exceptions
+  lexer::token dolar, type, colon, name;
+  int toktype;
+
+  // Leading dollar
+  if ((toktype = lex.read(dolar)) != '$')
+    throw bad_code {
+        std::format("invalid macro parameter (expected '$', got '{}'/{})",
+                      dolar.value, toktype)};
+
+  // parameter type
+  if ((flags & parse_param_flags::type))
+  {
+    if (lex.read(type) != IDENT)
+    {
+      throw bad_code {std::format(
+          "invalid macro parameter (expected macrotype, got '{}'/{})",
+          type.value, type.type)};
+    }
+  }
+
+  // colon
+  if ((flags == parse_param_flags::all) and lex.read(colon) != ':')
+    throw bad_code {"invalid macro parameter (expected ':')"};
+
+  // parameter name
+  if ((flags & parse_param_flags::name) and lex.read(name) != IDENT)
+    throw bad_code {"invalid macro parameter (expected name identifier)"};
+
+  return {type.value, name.value};
 }
 
 } // namespace opi::osl

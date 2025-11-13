@@ -44,6 +44,15 @@ macro foreach {
 foreach x in [1, 2, 3, 4] do
   println("foreach: - ", x)
 
+macro guard {
+  [guard $ident:ident = $expr:ctorexpr with $expr:dtor in $expr:body] = [
+    let $ident = $ctorexpr in
+    let __Guard_Result = $body in
+    { ($dtor)($ident) __Guard_Result }
+  ]
+}
+
+
 
 // macro with [with $expr:ctor as $ident:bind do $expr:body] = [
 //   let o = $ctor in
@@ -66,3 +75,9 @@ foreach x in [1, 2, 3, 4] do
 //   let exn_handler = ... in
 //   in identifier!(with-exception-handler)(exn_handler, () => $try)
 // ]
+
+macro print {
+  [print $expr:ex $[, $expr:ex]*exs] = [println($ex $[, " ", $ex]exs)]
+}
+
+print 1, 2, 3

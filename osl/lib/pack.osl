@@ -1,0 +1,25 @@
+////////////////////////////////////////////////////////////////////////////////
+//
+// Fixed size tuple-like types
+//
+#pragma prolog {
+  (predicate (result-of (pack . InTs) (pack . OutTs))
+    (coerce-list InTs OutTs))
+
+  (predicate (result-of (osl#unpack-pack (pack . Ts)) . Results)
+    (coerce-list Ts Results))
+}
+
+#pragma scheme-translator {
+  (inline
+    (define (pack . args) args)
+    (define (osl#unpack-pack pack) (apply values pack))
+    (define-compiler-syntax pack
+      (syntax-rules ()
+        ((_ x ...) (list x ...))))
+    (define-compiler-syntax osl#unpack-pack
+      (syntax-rules ()
+        ((_ x) (apply values x)))))
+}
+
+unpack(p) = identifier!(osl#unpack-pack)(p)

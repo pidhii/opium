@@ -1,4 +1,5 @@
 require "base"
+require "coroutines"
 
 #pragma scheme-translator { (inline (import srfi-69)) }
 
@@ -49,6 +50,7 @@ extern identifier!(hash-table-keys) as keys(dict(K, V)) -> list(K)
 extern identifier!(hash-table-values) as vals(dict(_, V)) -> list(V)
 extern identifier!(hash-table-for-each) as foreach(dict(K, V), fn(K, V) -> _) -> void
 extern identifier!(hash-table-map) as map(dict(K, V), fn(K, V) -> U) -> list(U)
+iter(d dict(K, V)) = generator { d.foreach((k, v) => yield pack(k, v)) }
 
 ////
 //
@@ -60,7 +62,6 @@ extern identifier!(hash-table-merge) as (+) (dict(K, V), dict(K, V)) -> dict(K, 
 //
 // Hash functions
 //
-// extern identifier!(number-hash) as hash(num) -> num
-hash(x num) = x
+extern identifier!(number-hash) as hash(num) -> num
 extern identifier!(string-hash) as hash(str) -> num
 extern identifier!(symbol-hash) as hash(sym) -> num

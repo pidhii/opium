@@ -24,7 +24,7 @@ opi::osl::dump_syntax(std::ostream &os, const syntax *syn)
 
     case syntax::kind::group:
       os << "[grp ";
-      for (const syntax *s : syn->group)
+      for (const syntax *s : syn->group.sequence)
         dump_syntax(os, s);
       os << "]";
       break;

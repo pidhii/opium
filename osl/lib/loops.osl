@@ -1,6 +1,27 @@
 
 macro for {
-  [for $expat:x in $expr:seq do $expr:body else $expr:fin] = [
+  [for $ident:head $[, $ident:ident]+tail in $expr:seq do $expr:body] = [
+    let __Loop_It = iter($seq) in
+    letrec __Loop() = {
+      match next(__Loop_It) in
+      | Some(__Loop_Val) ->
+          let $head $[, $ident]tail = unpack(__Loop_Val) in
+          { $body __Loop() }
+    }
+    in __Loop()
+  ]
+  [for $ident:head $[, $ident:ident]+tail in $expr:seq do $expr:body else $expr:fin] = [
+    let __Loop_It = iter($seq) in
+    letrec __Loop() = {
+      match next(__Loop_It) in
+      | Some(__Loop_Val) ->
+          let $head $[, $ident]tail = unpack(__Loop_Val) in
+          { $body __Loop() }
+      | otherwize -> $fin
+    }
+    in __Loop()
+  ]
+  [for $ident:x in $expr:seq do $expr:body else $expr:fin] = [
     let __Loop_It = iter($seq) in
     letrec __Loop() = {
       match next(__Loop_It) in
@@ -9,7 +30,7 @@ macro for {
     }
     in __Loop()
   ]
-  [for $expat:x in $expr:seq do $expr:body] = [
+  [for $ident:x in $expr:seq do $expr:body] = [
     let __Loop_It = iter($seq) in
     letrec __Loop() = {
       match next(__Loop_It) in
