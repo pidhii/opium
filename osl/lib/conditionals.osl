@@ -9,6 +9,18 @@ macro if {
     match $expr in
     | $pat -> $thenexpr
   ]
+  [if $ident:ident = $expr:expr then $expr:thenexpr else $expr:elseexpr] = [
+    let $ident = $expr in
+    if $ident then
+      $thenexpr
+    else
+      $elseexpr
+  ]
+  [if $ident:ident = $expr:expr then $expr:thenexpr] = [
+    let $ident = $expr in
+    if $ident then
+      $thenexpr
+  ]
 }
 
 macro case {[case $expr:x in] = [let __Case_X = $x in __Case]}

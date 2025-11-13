@@ -989,8 +989,8 @@ Lambda
 ;
 
 If
-  : IF Expr THEN Expr ELSE Expr { $$ = list("if", $2, $4, $6); }
-  | IF Expr THEN Expr { $$ = list("if", $2, $4); }
+  : IF Expr THEN Expr ELSE Expr { $$ = list("if", list("bool", $2), $4, $6); }
+  | IF Expr THEN Expr { $$ = list("if", list("bool", $2), $4); }
 ;
 
 Match

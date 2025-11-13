@@ -1,6 +1,8 @@
 (pragma prolog
   (ensure-loaded "prolog-std.scm"))
 
+(define-overload (bool (x bool)) x)
+
 (pragma scheme-translator
   (inline
     (import record-variants)
@@ -28,8 +30,7 @@
   (predicate (result-of (osl#list . Ts) (list T)) (all T Ts)))
 (pragma scheme-translator
   (inline
-    (define osl#list list)
-    (define osl#nil '())))
+    (define osl#list list)))
 ;; o pattern matching
 (pragma prolog
   (predicate (result-of (list.Cons T (list T)) (list T)))
