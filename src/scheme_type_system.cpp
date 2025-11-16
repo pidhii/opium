@@ -24,6 +24,7 @@
 #include "opium/scheme/scheme_emitter.hpp"
 #include "opium/source_location.hpp"
 #include "opium/utilities/execution_timer.hpp"
+#include <optional>
 
 
 opi::value
@@ -123,7 +124,8 @@ opi::instantiate_function_template(scheme_emitter_context &ctx, value type)
 
 
 std::pair<opi::value, opi::scheme_type_location_map>
-opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
+opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode,
+                 const std::optional<prolog_guide_function> &guide)
 {
   predicate_runtime prt;
 
@@ -166,7 +168,10 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode)
   { // disable implicit location propagation for better performance
     opi::utl::state_saver _ {g_propagate_locations_on_cons};
     g_propagate_locations_on_cons = false;
-    ctx.pl().make_true(prt, cellularized, save_results, trace_nonterminals);
+    if (guide.has_value())
+      ctx.pl().make_true(cellularized, save_results, trace_nonterminals, *guide);
+    else
+      ctx.pl().make_true(cellularized, save_results, trace_nonterminals);
   }
   query_timer.stop();
   query_timer.report();

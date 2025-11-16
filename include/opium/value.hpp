@@ -915,7 +915,7 @@ list_ref(value l, size_t k)
   * \ingroup core
   */
 void
-write(std::ostream &os, const opi::value &val);
+write(std::ostream &os, const opi::value &val, int maxdepth = -1);
 
 /**
  * Write value in a human appealing format
@@ -923,7 +923,7 @@ write(std::ostream &os, const opi::value &val);
  * \ingroup core
  */
 void
-display(std::ostream &os, const opi::value &val);
+display(std::ostream &os, const opi::value &val, int maxdepth = -1);
 
 /**
  * Mixture of write- and display- formats
@@ -931,7 +931,7 @@ display(std::ostream &os, const opi::value &val);
  * \ingroup core
  */
 void
-print(std::ostream &os, const opi::value &val);
+print(std::ostream &os, const opi::value &val, int maxdepth = -1);
 
 /** \} */
 

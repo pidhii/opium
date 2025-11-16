@@ -116,10 +116,13 @@ struct formatter<opi::value, char> {
       if (*it == '#')
       {
         it++;
-        std::string buf;
-        while (std::isdigit(*it))
-          buf.push_back(*it++);
-        n = std::stoul(buf);
+        n = 0;
+        while (*it >= '0' and *it <= '9')
+        {
+          n *= 10;
+          n += *it - '0';
+          it += 1;
+        }
       }
 
       break;
@@ -137,9 +140,9 @@ struct formatter<opi::value, char> {
     std::ostringstream buffer;
     switch (style)
     {
-      case style::write: opi::write(buffer, x); break;
-      case style::display: opi::display(buffer, x); break;
-      case style::print: opi::print(buffer, x); break;
+      case style::write: opi::write(buffer, x, n); break;
+      case style::display: opi::display(buffer, x, n); break;
+      case style::print: opi::print(buffer, x, n); break;
     }
     return std::ranges::copy(std::move(buffer).str(), ctx.out()).out;
   }

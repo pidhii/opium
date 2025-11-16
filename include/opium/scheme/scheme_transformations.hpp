@@ -125,8 +125,8 @@ class scheme_to_prolog: public code_transformer {
 
   scheme_to_prolog(size_t &counter, type_format_string format = "T:{}");
 
-  void
-  set_up_prolog(prolog &pl) const noexcept;
+  static void
+  setup_prolog(prolog &pl);
 
   void
   add_global(value ident, value type);

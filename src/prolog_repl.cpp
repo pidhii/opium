@@ -109,7 +109,7 @@ opi::prolog_repl::_query(opi::value expr)
   predicate_runtime prt;
   unified_determined_summary summary {prt};
   stl::unordered_set<cell*> nonterminals;
-  make_true(prt, insert_cells(prt, expr), std::ref(summary),
+  make_true(insert_cells(prt, expr), std::ref(summary),
             [&nonterminals](const auto &, cell *x) {
               nonterminals.insert(x);
               return cons(cell_tag, ptr(x));

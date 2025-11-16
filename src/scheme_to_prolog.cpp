@@ -21,6 +21,7 @@
 #include "opium/code_transformer.hpp"
 #include "opium/source_location.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
+#include "opium/stl/vector.hpp"
 #include "opium/utilities/state_saver.hpp"
 #include "opium/logging.hpp"
 #include "opium/value.hpp"
@@ -33,13 +34,14 @@ using namespace std::placeholders;
 
 
 void
-opi::scheme_to_prolog::set_up_prolog(prolog &pl) const noexcept
+opi::scheme_to_prolog::setup_prolog(prolog &pl)
 {
   // Helpers for type coercions
   pl.add_predicate("(coerce-list In Out)"_lisp,
                    "(if (= In Out) #t (fast-coerce-list In Out))"_lisp);
 
-  pl.add_predicate("(fast-coerce-list (In) (Out))"_lisp, "(fast-coerce In Out)"_lisp);
+  // pl.add_predicate("(fast-coerce-list (In) (Out))"_lisp, "(fast-coerce In Out)"_lisp);
+  pl.add_predicate("(fast-coerce-list () ())"_lisp, True);
   pl.add_predicate(
       "(fast-coerce-list (InHead . InTail) (OutHead . OutTail))"_lisp,
       "(and (fast-coerce InHead OutHead) (fast-coerce-list InTail OutTail))"_lisp);
@@ -115,13 +117,15 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value origtargets = m_targets;
 
     utl::state_saver _ {m_targets};
+    stl::vector<value> tape;
 
     // Translate all expressions
     opi::stl::vector<value> identtypes;
     // value plexprs = nil;
     for (const value ident : range(idents))
     {
-      const value type = _generate_type_and_copy_location(ident);
+      assert(issym(ident));
+      const value type = _require_symbol(ident, std::back_inserter(tape));
       identtypes.push_back(type);
     }
 
@@ -140,6 +144,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
         if (ispair(pattern))
         { // Generate patter matching via match-on predicate
           const value constructor = car(pattern);
+          assert(issym(constructor));
           const value arguments = cdr(pattern);
           value plarguments = nil;
           for (const value ident : range(arguments))
@@ -166,14 +171,17 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       plcases = append(plcases, list(plbranch));
     }
 
+    // warning("cases in: {}", fm);
+    // warning("cases out: {}", plcases);
+
     // Combine all expressions and cases
-    return cons("and", plcases);
+    return cons("and", append(list(tape), plcases));
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 if
   const match ifmatch {list("if"), list("if", "cond", "then", "else")};
-  append_rule(ifmatch, [this, &counter](const auto &ms) {
+  append_rule(ifmatch, [this](const auto &ms) {
     const value cond = ms.at("cond");
     const value thenbr = ms.at("then");
     const value elsebr = ms.at("else");
@@ -181,11 +189,11 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     // <cond> must evaluate into boolean
     const value newcond = ({
       utl::state_saver _ {m_targets};
-      // m_targets = list("bool", dot, "_");
-      // (*this)(cond);
-      const value condtgt = sym(std::format("Cond{}", counter++));
-      m_targets = list(condtgt, dot, "_");
-      list("and", (*this)(cond), list("fast-coerce", condtgt, "bool"));
+      m_targets = list("bool", dot, "_");
+      (*this)(cond);
+      // const value condtgt = sym(std::format("Cond{}", counter++));
+      // m_targets = list(condtgt, dot, "_");
+      // list("and", (*this)(cond), list("fast-coerce", condtgt, "bool"));
     });
 
     const value newthen = (*this)(thenbr);

@@ -38,9 +38,9 @@ const std::vector<std::string> PAREN_COLORS = {
 
 const std::string RESET_COLOR = "\033[0m";
 
-void
+static void
 _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
-       int depth = 0)
+       int maxdepth, int depth)
 {
   using namespace opi;
 
@@ -82,7 +82,7 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
           case '\t':
           case '\v':
           case '\e':
-            os << std::format("\\x{:2x}", int(c));
+            os << std::format("\\x{:02x}", int(c));
             break;
 
           default:
@@ -102,6 +102,16 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
       break;
 
     case tag::pair: {
+      // Get color for current nesting level
+      const std::string color = PAREN_COLORS[depth % PAREN_COLORS.size()];
+      
+      if (maxdepth >= 0 and depth >= maxdepth)
+      {
+        os << color << "(" << RESET_COLOR << "..." << color << ")"
+           << RESET_COLOR;
+        return;
+      }
+
       // Momorize the pair so we dont print it multiple times in case of
       // self-referencing structures
       if (memq(val, mem))
@@ -111,13 +121,10 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
       }
       mem = cons(val, mem);
 
-      // Get color for current nesting level
-      std::string color = PAREN_COLORS[depth % PAREN_COLORS.size()];
-      
       // Print opening parenthesis with color
       os << color << '(' << RESET_COLOR;
       
-      _print(mode, os, car(val), mem, depth + 1);
+      _print(mode, os, car(val), mem, maxdepth, depth + 1);
       value elt = nil;
       for (elt = cdr(val); ispair(elt); elt = cdr(elt))
       {
@@ -131,7 +138,7 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
 
         // Normal printing
         os << ' ';
-        _print(mode, os, car(elt), mem, depth + 1);
+        _print(mode, os, car(elt), mem, maxdepth, depth + 1);
       }
       if (is(elt, nil))
         os << color << ')' << RESET_COLOR;
@@ -144,22 +151,22 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
 
 
 void
-opi::write(std::ostream &os, const opi::value &val)
+opi::write(std::ostream &os, const opi::value &val, int maxdepth)
 {
   execution_timer _ {"write()"};
-  _print(mode::write, os, val, opi::nil, 0);
+  _print(mode::write, os, val, opi::nil, maxdepth, 0);
 }
 
 void
-opi::display(std::ostream &os, const opi::value &val)
+opi::display(std::ostream &os, const opi::value &val, int maxdepth)
 {
   execution_timer _ {"display()"};
-  _print(mode::display, os, val, opi::nil, 0);
+  _print(mode::display, os, val, opi::nil, maxdepth, 0);
 }
 
 void
-opi::print(std::ostream &os, const opi::value &val)
+opi::print(std::ostream &os, const opi::value &val, int maxdepth)
 {
   execution_timer _ {"print()"};
-  _print(mode::print, os, val, opi::nil, 0);
+  _print(mode::print, os, val, opi::nil, maxdepth, 0);
 }

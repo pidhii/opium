@@ -49,7 +49,7 @@ class PrologTest: public ::testing::Test {
   {
     bool success = false;
     opi::predicate_runtime prt;
-    pl.make_true(prt, opi::insert_cells(prt, query),
+    pl.make_true(opi::insert_cells(prt, query),
                  [&success]() { success = true; });
     return success;
   }
@@ -62,7 +62,7 @@ class PrologTest: public ::testing::Test {
     opi::stl::unordered_set<opi::value> results;
 
     opi::predicate_runtime prt;
-    pl.make_true(prt, opi::insert_cells(prt, query), [&]() {
+    pl.make_true(opi::insert_cells(prt, query), [&]() {
       success = true;
       opi::value query_result = opi::nil;
       if (opi::get_value(prt[var], query_result))

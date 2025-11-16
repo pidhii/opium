@@ -31,6 +31,7 @@
 #include <string>
 #include <cassert>
 #include <ranges>
+#include <functional>
 
 /**
  * \file prolog.hpp
@@ -142,18 +143,20 @@ scan_traces(trace_node *root, Collect &&collect)
   tc.follow_the_trace(root, trace);
 }
 
-
-
 template <typename Guide>
 concept prolog_guide = requires(Guide g, value v, const trace_node *t) {
   { g(v, t) } -> std::convertible_to<bool>;
 };
 
 struct bruteforce_query {
-  bool operator () (value, const trace_node *) { return true; }
+  bool
+  operator () (value, const trace_node *)
+  { return true; }
 };
 static_assert(prolog_guide<bruteforce_query>);
 
+using prolog_guide_function = std::function<bool(value, const trace_node *)>;
+static_assert(prolog_guide<prolog_guide_function>);
 
 
 
@@ -197,18 +200,17 @@ class prolog {
   {
     predicate_runtime prt;
     bool success = false;
-    make_true(prt, insert_cells(prt, plexpr),
+    make_true(insert_cells(prt, plexpr),
               [&success]() { success = true; });
     return success;
   }
 
   template <
-    prolog_continuation Cont,
-    nonterminal_variable_handler NTVHandler = ignore_nonterminal_variables,
-    prolog_guide Guide = bruteforce_query>
+      prolog_continuation Cont,
+      nonterminal_variable_handler NTVHandler = ignore_nonterminal_variables,
+      prolog_guide Guide = bruteforce_query>
   void
-  make_true(predicate_runtime &ert, value e, Cont cont,
-            NTVHandler ntvhandler = NTVHandler {},
+  make_true(value e, Cont cont, NTVHandler ntvhandler = NTVHandler {},
             Guide guide = Guide {}) const;
 
   trace_node *
@@ -222,28 +224,70 @@ class prolog {
   void
   _trace_expr(value expr) const;
 
+
+  struct call_frame {
+    const void *id;
+    value signature;
+    const call_frame *prev;
+    std::optional<value> failed_heuristic_input;
+  };
+
+  void
+  _add_call_frame(const void *id, value signature, const call_frame &prev,
+                  call_frame &frame) const noexcept
+  {
+    frame.id = id;
+    frame.signature = signature;
+    frame.prev = &prev;
+  }
+
+  void
+  _add_anti_heuristic_call_frame(const void *id, value signature,
+                                 const call_frame &prev,
+                                 call_frame &frame,
+                                 value heuristic_input) const noexcept
+  {
+    frame.id = id;
+    frame.signature = signature;
+    frame.prev = &prev;
+    frame.failed_heuristic_input = heuristic_input;
+  }
+
+  template <nonterminal_variable_handler NTVHandler,
+            prolog_continuation Continuation>
+  bool
+  _try_recursion_heuristic(const call_frame &frame, const void *preduid,
+                           value signature, Continuation &&cont,
+                           NTVHandler ntvhandler) const;
+
   template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler,
             prolog_guide Guide>
   void
-  _make_if_true(predicate_runtime &ert, value cond, value thenbr, value elsebr,
+  _make_true(const call_frame &frame, value e, Cont cont, NTVHandler ntvhandler,
+             Guide guide) const;
+
+  template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler,
+            prolog_guide Guide>
+  void
+  _make_if_true(const call_frame &frame, value cond, value thenbr, value elsebr,
                 Cont cont, NTVHandler ntvhandler, Guide guide) const;
 
   template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler,
             prolog_guide Guide>
   void
-  _make_and_true(predicate_runtime &ert, value clauses, Cont cont,
+  _make_and_true(const call_frame &frame, value clauses, Cont cont,
                  NTVHandler ntvhandler, Guide guide) const;
 
   template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler,
             prolog_guide Guide>
   void
-  _make_or_true(predicate_runtime &ert, value clauses, Cont cont,
+  _make_or_true(const call_frame &frame, value clauses, Cont cont,
                 NTVHandler ntvhandler, Guide guide) const;
 
   template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler,
             prolog_guide Guide>
   void
-  _make_predicate_true(predicate_runtime &ert, const predicate &pred,
+  _make_predicate_true(const call_frame &frame, const predicate &pred,
                        value eargs, Cont cont, NTVHandler ntvhandler,
                        Guide guide) const;
 

@@ -2,6 +2,7 @@
 #include "opium/logging.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
 #include "opium/scheme/scheme_type_system.hpp"
+#include <optional>
 
 
 using pragmas =
@@ -44,19 +45,30 @@ _write_scheme_script(std::ostream &os, opi::value script)
 }
 
 
+// FIXME: it has to be somehow a part of preprocessor
+void
+opi::apply_prolog_pragmas(opi::value opiprogram, opi::prolog_repl &pl)
+{
+  // Collect and erase pragmas
+  pragmas pragmas;
+  _filter_pragmas(opiprogram, pragmas);
+
+  // Run extra prolog expressions
+  for (const value plexpr : pragmas["prolog"])
+    pl << plexpr;
+}
+
+
 void
 opi::generate_scheme(opi::value in, opi::scheme_preprocessor &pp,
-                     opi::prolog_repl &pl, const std::filesystem::path &opath)
+                     const opi::prolog &pl, const std::filesystem::path &opath,
+                     const std::optional<prolog_guide_function> &guide)
 {
   using namespace opi;
 
   // Collect and erase pragmas
   pragmas pragmas;
   in = _filter_pragmas(in, pragmas);
-
-  // Run extra prolog expressions
-  for (const value plexpr : pragmas["prolog"])
-    pl << plexpr;
 
   opi::execution_timer preprocessor_timer {"Preprocessor"};
   const value ppcode = pp.transform_block(in);
@@ -66,7 +78,7 @@ opi::generate_scheme(opi::value in, opi::scheme_preprocessor &pp,
   opi::execution_timer analyzer_timer {"Type analyzer"};
   size_t cnt = 0;
   const auto [out, type_map] =
-      translate_to_scheme(cnt, pl, ppcode, pragmas["scheme-translator"]);
+      translate_to_scheme(cnt, pl, ppcode, pragmas["scheme-translator"], guide);
   analyzer_timer.stop();
 
   // Write generated Scheme script

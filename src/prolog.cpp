@@ -46,11 +46,11 @@ void
 opi::prolog::_trace_expr(value expr) const
 {
   source_location location;
+  trace_node *newtracenode = make<trace_node>();
   if (get_location(expr, location))
-  {
-    trace_node *newtracenode = make<trace_node>();
     newtracenode->location = std::move(location);
-    m_trace->children.push_back(newtracenode);
-    m_trace = newtracenode;
-  }
+  else
+    newtracenode->location = source_location {"<string>", 0, 0};
+  m_trace->children.push_back(newtracenode);
+  m_trace = newtracenode;
 }

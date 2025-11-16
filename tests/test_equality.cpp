@@ -304,7 +304,7 @@ TEST_F(EquivalenceTest, BoundVariables)
   opi::value cell2 = opi::insert_cells(prt, var2);
 
   // Bind var1 to a value
-  opi::unify(prt[var1], prt.make_term(opi::sym("value")));
+  prt.unify(prt[var1], make_term(opi::sym("value")));
 
   // cell1 should now be equivalent to the value
   opi::value val = opi::nil;
@@ -315,7 +315,7 @@ TEST_F(EquivalenceTest, BoundVariables)
   EXPECT_FALSE(opi::equivalent(cell1, cell2));
 
   // Bind var2 to the same value
-  opi::unify(prt[var2], prt.make_term(opi::sym("value")));
+  prt.unify(prt[var2], make_term(opi::sym("value")));
 
   // Now cell1 and cell2 should be equivalent
   EXPECT_TRUE(opi::equivalent(cell1, cell2));
@@ -340,11 +340,11 @@ TEST_F(EquivalenceTest, ComplexStructures)
   EXPECT_TRUE(opi::equivalent(cell_struct1, cell_struct2));
 
   // Binding one variable to a value should make them non-equivalent
-  opi::unify(prt[var1], prt.make_term(opi::sym("value")));
+  prt.unify(prt[var1], make_term(opi::sym("value")));
   EXPECT_FALSE(opi::equivalent(cell_struct1, cell_struct2));
 
   // Binding the other variable to the same value should make them equivalent again
-  opi::unify(prt[var2], prt.make_term(opi::sym("value")));
+  prt.unify(prt[var2], make_term(opi::sym("value")));
   EXPECT_TRUE(opi::equivalent(cell_struct1, cell_struct2));
 }
 
@@ -364,8 +364,8 @@ TEST_F(EquivalenceTest, CyclicStructures)
   opi::value cell_struct2 = opi::insert_cells(prt, struct2);
 
   // Make them cyclic by binding variables to the structures themselves
-  opi::unify(prt[var1], prt.make_term(cell_struct1));
-  opi::unify(prt[var2], prt.make_term(cell_struct2));
+  prt.unify(prt[var1], make_term(cell_struct1));
+  prt.unify(prt[var2], make_term(cell_struct2));
 
   // The cyclic structures should be equivalent
   EXPECT_TRUE(opi::equivalent(cell_struct1, cell_struct2));

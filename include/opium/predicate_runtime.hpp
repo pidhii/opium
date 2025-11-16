@@ -23,7 +23,7 @@
 #include "opium/value.hpp"
 #include "opium/hash.hpp" // IWYU pragma: export
 #include "opium/stl/unordered_map.hpp"
-#include "opium/stl/vector.hpp"
+#include "opium/stl/deque.hpp"
 #include "opium/format.hpp" // IWYU pragma: export
 #include "opium/exceptions.hpp"
 
@@ -59,14 +59,21 @@ struct cell {
     value      /**< Represents a variable with a concrete value */
   };
 
-  cell(): next {this}, val {nil}, kind {kind::variable}, isdead {false} { }
-  explicit cell(value v): next {this}, val {v}, kind {kind::value}, isdead {false} { }
+  cell(): next {this}, val {nil}, kind {kind::variable} { }
+  explicit cell(value v): next {this}, val {v}, kind {kind::value} { }
 
   cell *next;
   value val;   // Only used when kind == kind::value
   kind kind;
-  bool isdead; // Flag to undo logics via unlinking 'old' cells
 };
+
+inline cell*
+make_term(value val)
+{ return make<cell>(val); }
+
+inline opi::cell*
+make_variable()
+{ return make<cell>(); }
 
 
 /**
@@ -79,27 +86,6 @@ struct cell {
  */
 cell *
 find(cell *x);
-
-
-/**
- * Unify two variables or a variable with a value
- * 
- * \note Asymmetry in arguments: LHS (`x`) will never be made a representative of
- * a chain. This guarantees preservation of hierarchy between LHS and RHS
- * variables and grants possibility to undo unifications by erasing RHS
- * variables from all link-chains.
- * 
- * (This is required to make `mark_dead()` work)
- * 
- * \param x Left-hand side cell
- * \param y Right-hand side cell
- * \return True if unification succeeded, false otherwise
- * \throws bad_code On attempt to unify two bound cells
- * 
- * \ingroup prolog
- */
-bool
-unify(cell *x, cell *y);
 
 
 /**
@@ -276,22 +262,7 @@ class predicate_runtime {
     using bad_code::bad_code;
   };
 
-  predicate_runtime()
-  : m_parent {nullptr},
-    m_preduid {nullptr},
-    m_signature {nil},
-    m_prev_frame {nullptr}
-  { }
-
-  /**
-   * Constructor with parent
-   * 
-   * \param parent Parent predicate runtime
-   */
-  explicit predicate_runtime(predicate_runtime *parent)
-  : m_parent {parent}, m_preduid {nullptr}, m_signature {nil},
-    m_prev_frame {parent}
-  { }
+  predicate_runtime() = default;
 
   /**
    * Disable copying
@@ -305,19 +276,28 @@ class predicate_runtime {
    * \param other Predicate runtime to move from
    */
   predicate_runtime(predicate_runtime &&other) noexcept
-  : m_varmap(std::move(other.m_varmap)),
-    m_terms(std::move(other.m_terms)),
-    m_parent(other.m_parent),
-    m_preduid(other.m_preduid),
-    m_signature(other.m_signature),
-    m_prev_frame(other.m_prev_frame)
   {
+    std::swap(m_varmap, other.m_varmap);
+    std::swap(m_history, other.m_history);
     // NOTE: it is an undefined behaviour if there will be any further operations
     // made to the `other`
   }
 
   ~predicate_runtime()
-  { mark_dead(); }
+  { unwind(); }
+
+  /**
+  * Unify two variables or a variable with a value
+  * 
+  * \param x Left-hand side cell
+  * \param y Right-hand side cell
+  * \return True if unification succeeded, false otherwise
+  * \throws bad_code On attempt to unify two bound cells
+  * 
+  * \ingroup prolog
+  */
+  bool
+  unify(cell *x, cell *y);
 
   /**
    * Move assignment operator
@@ -330,15 +310,11 @@ class predicate_runtime {
   {
     if (this != &other) {
       // First mark this object as dead to clean up any resources
-      mark_dead();
+      unwind();
       
       // Move resources from other
       m_varmap = std::move(other.m_varmap);
-      m_terms = std::move(other.m_terms);
-      m_parent = other.m_parent;
-      m_preduid = other.m_preduid;
-      m_signature = other.m_signature;
-      m_prev_frame = other.m_prev_frame;
+      m_history = std::move(other.m_history);
       
       // NOTE: it is an undefined behaviour if there will be any further
       // operations made to the `other`
@@ -357,10 +333,12 @@ class predicate_runtime {
    * \param ntvhandler Handler for nonterminal variables
    * \return True if frame was marked as unique, false otherwise
    */
-  template <nonterminal_variable_handler NTVHandler = ignore_nonterminal_variables>
+  template <nonterminal_variable_handler NTVHandler,
+            std::regular_invocable Contiuation>
   bool
-  try_sign(const void *preduid, value signature, const predicate_runtime &prev,
-           NTVHandler ntvhandler = NTVHandler {}) noexcept;
+  try_recursion_heuristic(const void *preduid, value signature,
+                          const predicate_runtime &prev, Contiuation &&c,
+                          NTVHandler ntvhandler = NTVHandler {}) noexcept;
 
   /**
    * List visible variables
@@ -371,11 +349,8 @@ class predicate_runtime {
   variables() const noexcept
   {
     opi::stl::unordered_set<value> result;
-    for (const predicate_runtime *prt = this; prt; prt = prt->m_parent)
-    {
-      for (const auto &[key, _] : prt->m_varmap)
-        result.insert(key);
-    }
+    for (const auto &[key, _] : m_varmap)
+      result.insert(key);
     return result;
   }
 
@@ -387,45 +362,19 @@ class predicate_runtime {
    */
   cell*
   operator [] (value var);
-  cell*
-  operator [] (value var) const;
 
-  /**
-   * Make cell with value `val`
-   * 
-   * \note Cell will be owned by this runtime and will thus
-   * be marked by `mark_dead()`.
-   * 
-   * \param val Value to create cell with
-   * \return Pointer to the created cell
-   */
   cell*
-  make_term(value val);
-
-  /**
-   * Make unbound cell
-   * 
-   * \note Cell will be owned by this runtime and will thus
-   * be marked by `mark_dead()`.
-   * 
-   * \return Pointer to the created cell
-   */
-  cell*
-  make_var();
+  variable(value var) const;
 
   /**
    * Will effectively erase unifications with variables in this frame
    */
   void
-  mark_dead();
+  unwind();
 
   private:
   opi::stl::unordered_map<value, cell *> m_varmap; /**< Associations table between variables and cells */
-  opi::stl::vector<cell *> m_terms; /**< Values-cells created within this frame */
-  predicate_runtime *m_parent; /**< Parent runtime for variable lookup */
-  const void *m_preduid;       /**< Active predicate */
-  value m_signature; /**< Resolved signature of active predicate arguments to identify recursion */
-  const predicate_runtime *m_prev_frame; /**< Previous frame in the chain */
+  opi::stl::deque<cell *> m_history;
 }; // class opi::predicate_runtime
 
 

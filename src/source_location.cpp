@@ -60,10 +60,10 @@ opi::copy_location(opi::value from, opi::value to)
 std::string
 opi::display_location(const opi::source_location &location,
                       size_t context_lines, std::string_view hlstyle,
-                      std::string_view ctxstyle)
+                      std::string_view ctxstyle, std::string_view endstyle)
 {
   // If the source is not a file, handle it differently
-  if (location.source == "<string>" or location.source == "<stream>")
+  if (location.source[0] == '<')
     return std::format("in {}: offset {} to {}", location.source,
                        location.start, location.end);
 
@@ -141,9 +141,9 @@ opi::display_location(const opi::source_location &location,
 
         // Output the line with highlighting
         output << line.substr(0, start_col);
-        output << "\e[0m" << hlstyle;
+        output << endstyle << hlstyle;
         output << line.substr(start_col, end_col - start_col);
-        output << "\e[0m" << ctxstyle; // Reset formatting
+        output << endstyle << ctxstyle; // Reset formatting
         output << line.substr(end_col);
       }
       else if (i == start_line)
@@ -151,24 +151,24 @@ opi::display_location(const opi::source_location &location,
         size_t start_col = location.start - line_starts[start_line];
 
         output << line.substr(0, start_col);
-        output << "\e[0m" << hlstyle;
+        output << endstyle << hlstyle;
         output << line.substr(start_col);
-        output << "\e[0m" << ctxstyle; // Reset formatting
+        output << endstyle << ctxstyle; // Reset formatting
       }
       else if (i == end_line)
       { // Last line of multi-line highlight
         size_t end_col = location.end - line_starts[end_line];
 
-        output << "\e[0m" << hlstyle;
+        output << endstyle << hlstyle;
         output << line.substr(0, end_col);
-        output << "\e[0m" << ctxstyle; // Reset formatting
+        output << endstyle << ctxstyle; // Reset formatting
         output << line.substr(end_col);
       }
       else
       { // Middle line of multi-line highlight
-        output << "\e[0m" << hlstyle;
+        output << endstyle << hlstyle;
         output << line;
-        output << "\e[0m" << ctxstyle; // Reset formatting
+        output << endstyle << ctxstyle; // Reset formatting
       }
     }
     else
@@ -176,7 +176,7 @@ opi::display_location(const opi::source_location &location,
       output << line;
     }
 
-    output << "\e[0m\n";
+    output << endstyle << "\n";
   }
 
   return output.str();

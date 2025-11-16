@@ -55,12 +55,20 @@ struct source_location {
     assert(strlen(source.c_str()) == source.size());
   }
 
+  bool
+  is_file_location() const noexcept
+  { return source[0] != '<'; }
+
   source_location&
   operator = (const source_location &other) = default;
 
   bool
   operator == (const source_location &other)
   { return source == other.source and start == other.start and end == other.end; }
+
+  bool
+  contains(const source_location &other) const noexcept
+  { return source == other.source and start >= other.start and end <= other.end; }
 
   stl::string source; ///< Source name (filepath or "<string>")
   size_t start; ///< Start offset in the input stream
@@ -117,6 +125,7 @@ copy_location(opi::value from, opi::value to);
 [[nodiscard]] std::string
 display_location(const source_location &location, size_t context_lines = 2,
                  std::string_view hlstyle = "\e[38;5;1;1m",
-                 std::string_view ctxstyle = "");
+                 std::string_view ctxstyle = "",
+                 std::string_view endstyle = "\e[0m");
 
 } // namespace opi

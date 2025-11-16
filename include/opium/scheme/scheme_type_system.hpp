@@ -20,6 +20,7 @@
 #pragma once
 
 #include "opium/logging.hpp"
+#include "opium/predicate_runtime.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
 #include "opium/scheme/scheme_type_location_map.hpp"
 #include "opium/prolog.hpp"
@@ -50,9 +51,9 @@ struct typecheck_failure: std::exception {
   scheme_type_location_map tlm;
 };
 
-
 std::pair<value, scheme_type_location_map>
-emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode);
+emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode,
+            const std::optional<prolog_guide_function> &guide);
 
 
 /**
@@ -102,8 +103,9 @@ _gather_literals(value x, Output output) noexcept
 
 template <std::ranges::range Pragmas = std::initializer_list<value>>
 inline std::pair<value, scheme_type_location_map>
-translate_to_scheme(size_t &counter, prolog &pl, value ppcode,
-                    Pragmas &&pragmas = {})
+translate_to_scheme(
+    size_t &counter, const prolog &pl, value ppcode, Pragmas &&pragmas = {},
+    const std::optional<prolog_guide_function> &guide = std::nullopt)
 {
   // Utility variable
   opi::stl::unordered_map<value, value> ms;
@@ -111,9 +113,6 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode,
   // Compose translator from Scheme to Prolog
   scheme_to_prolog to_prolog {counter};
   prolog_cleaner pl_cleaner;
-
-  // Configure Prolog interpreter
-  to_prolog.set_up_prolog(pl);
 
   // TODO: find a better way
   int warned = false;
@@ -198,7 +197,7 @@ translate_to_scheme(size_t &counter, prolog &pl, value ppcode,
   }
 
   execution_timer emit_timer {"Scheme emitter"};
-  auto [main, type_map] = emit_scheme(ctx, plcode, ppcode);
+  auto [main, type_map] = emit_scheme(ctx, plcode, ppcode, guide);
   emit_timer.stop();
 
   const value globals = list(main_tape);
