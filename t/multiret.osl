@@ -1,4 +1,4 @@
-#!./install/bin/opium-osl --run 
+#!./install/bin/opium-osl -r
 
 foo() = { return 1, 2, "three" }
 a, b, c = foo()

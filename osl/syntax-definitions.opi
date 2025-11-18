@@ -1,7 +1,10 @@
 (pragma prolog
   (ensure-loaded "prolog-std.scm"))
 
+;; Bool operations
 (define-overload (bool (x bool)) x)
+(pragma prolog
+  (predicate (result-of (not bool) bool)))
 
 (pragma scheme-translator
   (inline

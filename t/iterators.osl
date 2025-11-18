@@ -1,4 +1,4 @@
-#!/usr/bin/env -S ./install/bin/opium-osl --trace-length=200 --run
+#!/usr/bin/env -S ./install/bin/opium-osl -t 200 -r
 
 
 prompt = ""

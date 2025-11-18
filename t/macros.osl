@@ -1,4 +1,4 @@
-#!/usr/bin/env -S ./install/bin/opium-osl --verbose --run
+#!/usr/bin/env -S ./install/bin/opium-osl -v -r
 
 
 macro xif {

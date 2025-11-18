@@ -7,7 +7,7 @@ require "number"
 //
 #pragma scheme-translator {
   (inline
-    (import (chicken string))
+    (import (chicken string) srfi-13)
 
     (define concat string-append))
 }
@@ -19,6 +19,8 @@ require "number"
 }
 
 extern identifier!(list->string) as str(list(char)) -> str
+extern identifier!(string-copy) as copy(str) -> str
+extern identifier!(string-copy) as copy(str, num, num) -> str
 
 // STRING + STRING -> str
 //
@@ -59,7 +61,7 @@ extern identifier!(string-length) as length(str) -> num
 
 str(s str) = s
 extern identifier!(string->list) as list(str) -> list(char)
-num (s str) = {
+num(s str) = {
   extern identifier!(string->number) as str2num(str) -> num?
   return if let n = str2num(s) then *n else 0
 }

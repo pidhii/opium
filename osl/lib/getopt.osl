@@ -1,4 +1,4 @@
-#!/usr/bin/env -S ./install/bin/opium-osl --verbose --run-compiled
+#!/usr/bin/env -S ./install/bin/opium-osl -v -R
 
 require "memory"
 require "coroutines"
@@ -11,6 +11,10 @@ static void
 setoptind(int ind)
 { optind = ind; }
 
+static int
+getoptind()
+{ return optind; }
+
 static char*
 getoptarg()
 { return optarg; }
@@ -21,16 +25,18 @@ getopt(argv, optstring str) = generator {
   // int getopt(int argc, char *argv[], const char *optstring);
   extern foreign getopt as c_getopt(int, char**, cstr) -> int
   extern foreign setoptind(int) -> void
+  extern foreign getoptind() -> int
   extern foreign getoptarg() -> cstr
 
   // Allocate strings on the heap to pass them into C
   argc = length(argv)
-  argvp = allocate(argc * 8) :: ptr(ptr(i8))
+  argvp = allocate((argc + 1) * 8) :: ptr(ptr(i8))
   for i in 0 : argc do
     set argvp[i] = strdup(argv[i])
+  set argvp[argc] = ptr(0)
 
   // Force getopt to start from scratch
-  setoptind(1)
+  setoptind(0)
 
   // Run getopt()
   while true do {
@@ -40,20 +46,17 @@ getopt(argv, optstring str) = generator {
     yield pack(opt, getoptarg())
   }
 
-  // Release memory
-  for i in 0 : argc do
-    free(argvp[i])
-  free(argvp)
+  for i in getoptind() : argc do
+    yield pack(0, if true then argv[i]) // FIXME
+
+  // NOTE: Releasing memory results in subsequent calls to (c_)getopt to produce
+  // garbage. Resetting `optind` does not help. As the observed behaviour is 
+  // undefined / undocumented we will not try to do any backflip deferred
+  // dealocations and let the memory leak. Noramlly, `getopt` is only called a
+  // finite number of times per program (usually once), thus the introduced
+  // memory leak should not matter.
+  //
+  // for i in 0 : argc do
+  //   free(argvp[i])
+  // free(argvp)
 }
-
-
-for opt, arg in getopt(["program", "-h", "-x", "42"], "hx:") do {
-  println("- opt = ", char(opt))
-  if arg then
-    println("  arg = ", arg)
-}
-
-s1 = "1234567"
-s2 = "0000000"
-copy(s1, s2)
-println("s1 = ", s1, ", s2 = ", s2)

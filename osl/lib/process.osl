@@ -1,0 +1,14 @@
+
+#pragma scheme-translator { (inline (import (chicken process-context))) }
+
+argv = {
+  extern argv() -> list(str)
+  argv()
+}
+
+extern identifier!(get-environment-variable) as getenv(str) -> str?
+extern identifier!(set-environment-variable!) as setenv(str, str) -> void
+extern identifier!(unset-environment-variable!) as unsetenv(str) -> void
+
+extern identifier!(change-directory) as chdir(str) -> void
+extern identifier!(current-directory) as getcwd() -> str

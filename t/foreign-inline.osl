@@ -1,4 +1,4 @@
-#!/usr/bin/env -S ./install/bin/opium-osl --run-compiled --cpp
+#!/usr/bin/env -S ./install/bin/opium-osl -R --c++
 
 ```c++
 #include <iostream>

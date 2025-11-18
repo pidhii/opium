@@ -1,4 +1,4 @@
-#!./install/bin/opium-osl --run 
+#!./install/bin/opium-osl -r
 
 type foo = FooOnly(str) | Ambiguous(str) | NotSoAmbiguous
 type bar = BarOnly(str) | Ambiguous(str) | NotSoAmbiguous(str)

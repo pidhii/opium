@@ -1,0 +1,19 @@
+require "error"
+
+type maybe(T) = Some(T) | Nothing()
+
+unpack(x maybe(T)) = match x in
+| Some(value) -> value
+| Nothing()   -> error("Unpack Nothing()")
+
+expect(x maybe(T), message str) = match x in
+| Some(value) -> value
+| Nothing()   -> error(message)
+
+unpack_or(x maybe(T), default T) = match x in
+| Some(value) -> value
+| Nothing()   -> default
+
+bool(x maybe(T)) = match x in
+| Some(value) -> true
+| Nothing()   -> false
