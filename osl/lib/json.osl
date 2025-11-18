@@ -1,10 +1,10 @@
 require "io"
 
-type json = JsonStructure(dict(str, json))
-          | JsonArray(list(json))
-          | JsonNumber(num)
-          | JsonString(str)
-          | JsonNull
+type json = Structure(dict(str, json))
+          | Array(list(json))
+          | Number(num)
+          | String(str)
+          | Null
           
 
 #pragma scheme-translator {
@@ -16,24 +16,24 @@ type json = JsonStructure(dict(str, json))
               (let* ((objl (vector->list obj))
                      (kv->json (lambda (kv) (cons (car kv) (scm->json (cdr kv)))))
                      (newlist (map kv->json objl)))
-                (json.JsonStructure (alist->hash-table newlist))))
-            ((pair? obj) (json.JsonArray (map scm->json obj)))
-            ((null? obj) (json.JsonArray obj))
-            ((number? obj) (json.JsonNumber obj))
-            ((string? obj) (json.JsonString obj))
+                (json.Structure (alist->hash-table newlist))))
+            ((pair? obj) (json.Array (map scm->json obj)))
+            ((null? obj) (json.Array obj))
+            ((number? obj) (json.Number obj))
+            ((string? obj) (json.String obj))
             (else (error "Unsupported JSON object" obj))))
 
     (define (json->scm obj)
-      (cond ((json.JsonStructure? obj)
-              (let* ((hashtable (json.JsonStructure-:0 obj))
+      (cond ((json.Structure? obj)
+              (let* ((hashtable (json.Structure-:0 obj))
                      (alist (hash-table-map hashtable
                               (lambda (key val) (cons key (json->scm val)))))
                      (avec (list->vector alist)))
                 avec))
-            ((json.JsonArray? obj) (map json->scm (json.JsonArray-:0 obj)))
-            ((json.JsonNull? obj) (void))
-            ((json.JsonNumber? obj) (json.JsonNumber-:0 obj))
-            ((json.JsonString? obj) (json.JsonString-:0 obj))
+            ((json.Array? obj) (map json->scm (json.Array-:0 obj)))
+            ((json.Null? obj) (void))
+            ((json.Number? obj) (json.Number-:0 obj))
+            ((json.String? obj) (json.String-:0 obj))
             (else obj)))
 
 
@@ -51,37 +51,43 @@ type json = JsonStructure(dict(str, json))
 }
 
 // read_json(port)
-parse_json(s str) = call_with_input_string(s, read_json) :: json
+// write_json(port, json)
+parse_json(s str) = {
+  p = openstring(s)
+  result = p.read_json()
+  close(p)
+  return result
+}
 
-json() = JsonStructure(dict())
+json() = Structure(dict())
 json(x json) = x
-json(x num) = JsonNumber(x)
-json(x str) = JsonString(x)
-json(x list(T)) = JsonArray(x.iter().map(json).list())
+json(x num) = Number(x)
+json(x str) = String(x)
+json(x list(T)) = Array(x.iter().map(json).list())
 json(x dict(str, T)) = {
   newdict = dict() :: dict(str, json)
   x.keys().foreach(key => set newdict[key] = json(x[key]))
-  return JsonStructure(newdict)
+  return Structure(newdict)
 }
 
 // num
 num(j json) = match j in
-| JsonNumber(x) -> x
+| Number(x) -> x
 | otherwize -> error("Not a number", j)
 
 // str
 str(j json) = match j in
-| JsonString(x) -> x
+| String(x) -> x
 | otherwize -> error("Not a string", j)
 
 // list(T)
 list(j json) = match j in
-| JsonArray(x) -> x
+| Array(x) -> x
 | otherwize -> error("Not a list", j)
 
 // dict(str, json)
 dict(j json) = match j in
-| JsonStructure(x) -> x
+| Structure(x) -> x
 | otherwize -> error("Not a structure", j)
 
 // Element getters

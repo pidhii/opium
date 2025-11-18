@@ -1,0 +1,59 @@
+#!/usr/bin/env -S ./install/bin/opium-osl --verbose --run-compiled
+
+require "memory"
+require "coroutines"
+
+
+```C
+#include <unistd.h>
+
+static void
+setoptind(int ind)
+{ optind = ind; }
+
+static char*
+getoptarg()
+{ return optarg; }
+```
+
+
+getopt(argv, optstring str) = generator {
+  // int getopt(int argc, char *argv[], const char *optstring);
+  extern foreign getopt as c_getopt(int, char**, cstr) -> int
+  extern foreign setoptind(int) -> void
+  extern foreign getoptarg() -> cstr
+
+  // Allocate strings on the heap to pass them into C
+  argc = length(argv)
+  argvp = allocate(argc * 8) :: ptr(ptr(i8))
+  for i in 0 : argc do
+    set argvp[i] = strdup(argv[i])
+
+  // Force getopt to start from scratch
+  setoptind(1)
+
+  // Run getopt()
+  while true do {
+    opt = c_getopt(argc, argvp, optstring)
+    if opt < 0 then
+      break
+    yield pack(opt, getoptarg())
+  }
+
+  // Release memory
+  for i in 0 : argc do
+    free(argvp[i])
+  free(argvp)
+}
+
+
+for opt, arg in getopt(["program", "-h", "-x", "42"], "hx:") do {
+  println("- opt = ", char(opt))
+  if arg then
+    println("  arg = ", arg)
+}
+
+s1 = "1234567"
+s2 = "0000000"
+copy(s1, s2)
+println("s1 = ", s1, ", s2 = ", s2)

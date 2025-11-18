@@ -23,8 +23,7 @@ empty(dict dict(K, V)) = length(dict) == 0
 //
 // Element access
 //
-extern identifier!(hash-table-ref)(dict(K, V), K) -> V
-dict::dict(K, V)[key::K] = identifier!(hash-table-ref)(dict, key)
+extern identifier!(hash-table-ref) as identifier!(osl#ref)(dict(K, V), K) -> V
 extern identifier!(hash-table-ref/default) as get(dict(K, V), K, V) -> V
 extern identifier!(hash-table-exists?) as contains(dict(K, _), K) -> bool
 
@@ -32,8 +31,7 @@ extern identifier!(hash-table-exists?) as contains(dict(K, _), K) -> bool
 //
 // Element addition
 //
-extern identifier!(hash-table-set!)(dict(K, V), K, V) -> void
-set dict::dict(K,V)[key::K] = val::V = identifier!(hash-table-set!)(dict, key, val)
+extern identifier!(hash-table-set!) as identifier!(osl#set)(dict(K, V), K, V) -> void
 
 ////
 //

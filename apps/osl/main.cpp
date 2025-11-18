@@ -357,7 +357,7 @@ main(int argc, char **argv)
   po::options_description desc {"Allowed options"};
   desc.add_options()
     ("help", "produce help message")
-    ("input-file", po::value<std::fs::path>(), "input file to process")
+    ("input-file", po::value<std::fs::path>()->required(), "input file to process")
     ("verbosity,v", po::value(&verbosity)->implicit_value("debug"), "verbosity")
     ("flag,f", po::value(&flags), "flags")
     ("output,o", po::value(&opath), "write Scheme script to the specified file")
@@ -442,22 +442,9 @@ main(int argc, char **argv)
   load_plugin("parameterize.plugin");
 
 
-  FILE *input;
   std::string inputpath;
   if (varmap.contains("input-file"))
-  {
     inputpath = varmap["input-file"].as<std::fs::path>();
-    if (not(input = fopen(inputpath.c_str(), "r")))
-    {
-      error("failed to open file {} for reading", inputpath);
-      return EXIT_FAILURE;
-    }
-  }
-  else
-  {
-    inputpath = "<stream>";
-    input = stdin;
-  }
 
   // Parse program from OSL into OPI
   opi::value opiprogram;
@@ -516,15 +503,13 @@ main(int argc, char **argv)
   catch (const opi::typecheck_failure &exn)
   {
     opi::error("{}", exn.what());
-    if (varmap.contains("input-file"))
-    {
-      inputpath = varmap["input-file"].as<std::fs::path>();
-      std::ifstream inputfile {inputpath};
-      exn.tlm.display_source_with_types(inputpath, inputfile, std::cerr);
-    }
+    inputpath = varmap["input-file"].as<std::fs::path>();
+    std::ifstream inputfile {inputpath};
+    exn.tlm.display_source_with_types(inputpath, inputfile, std::cerr);
 
     tracedump(pl, tracelen);
-    interactive_debugger(opiprogram, pp, pl);
+    if (isatty(STDIN_FILENO))
+      interactive_debugger(opiprogram, pp, pl);
 
     return EXIT_FAILURE;
   }

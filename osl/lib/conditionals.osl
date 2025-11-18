@@ -1,5 +1,19 @@
 
 macro if {
+  // If statements with variable binding inside condition
+  [if let $ident:ident = $expr:expr then $expr:thenexpr else $expr:elseexpr] = [
+    let $ident = $expr in
+    if $ident then
+      $thenexpr
+    else
+      $elseexpr
+  ]
+  [if let $ident:ident = $expr:expr then $expr:thenexpr] = [
+    let $ident = $expr in
+    if $ident then
+      $thenexpr
+  ]
+  // Short-hand match expressions
   [if let $expat:pat = $expr:expr then $expr:thenexpr else $expr:elseexpr] = [
     match $expr in
     | $pat -> $thenexpr
@@ -9,20 +23,10 @@ macro if {
     match $expr in
     | $pat -> $thenexpr
   ]
-  [if $ident:ident = $expr:expr then $expr:thenexpr else $expr:elseexpr] = [
-    let $ident = $expr in
-    if $ident then
-      $thenexpr
-    else
-      $elseexpr
-  ]
-  [if $ident:ident = $expr:expr then $expr:thenexpr] = [
-    let $ident = $expr in
-    if $ident then
-      $thenexpr
-  ]
 }
 
+// Short-hand for a sequence of if-else-if-else-... comparing against the same
+// variable
 macro case {[case $expr:x in] = [let __Case_X = $x in __Case]}
 macro __Case {
   [__Case | $expr:case -> $expr:body] = [if __Case_X == $case then $body else __Case]

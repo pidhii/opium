@@ -15,7 +15,7 @@ type vector(T) = {
 // vector() -> vector
 //
 // Construct empty vector
-vector() = vector(makeUninitializedArray(0), 0)
+vector() = vector(uninitialized_array(0), 0)
 
 // -----------------------------------------------------------------------------
 // vector(ARRAY) -> vector
@@ -50,9 +50,9 @@ push(vec vector(T), x T) = {
   if vec#size == capacity then
   {
     if capacity == 0 then
-      set vec#data = makeUninitializedArray(1)
+      set vec#data = uninitialized_array(1)
     else
-      set vec#data = copyArray(vec#data, 0, capacity * 2)
+      set vec#data = copy(vec#data, 0, capacity * 2)
   }
   
   // Append new element and increment vector size
@@ -103,7 +103,7 @@ length(vec vector(T)) = vec#size
 // iter(VECTOR) -> iterator
 //
 // Construct iterator over vector values contained in the vector
-// NOTE: Use array iterator to iterate over the vector data.
+// NOTE: Uses array iterator to iterate over the vector data.
 iter(vec vector(T), from num, to num) = {
   if from < 0 or from >= vec#size then
     error("Vector index out of range", from, vec)

@@ -90,8 +90,9 @@ input = args[0]
 info(message) =
 {
   if verbose then
-    println("opium-osl ", message)
+    eprintln("opium-osl ", message)
 }
+
 
 // Translate OSL into Scheme
 translate_opium_script(osl_filename, scm_filename) =
@@ -110,15 +111,20 @@ translate_opium_script(osl_filename, scm_filename) =
   }
 
   p = run(command)
-  pid, exited, status = p.wait()
+
+  stdoutbuf = openstring()
+  while let Some(line) = p#stderr.readline() do
+    stdoutbuf.writeln(line)
+
+  _, _, status = p.wait()
   if status != 0 then
   {
-    p#stderr.lines().foreach(println)
-    eprintln("OSL translation failed")
+    println("OSL translation failed")
+    print(str(stdoutbuf))
     exit(1)
   }
   else if verbose then
-    p#stderr.lines().foreach(println)
+    print(str(stdoutbuf))
 }
 
 // Run Scheme with Chicken Scheme interpreter

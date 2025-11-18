@@ -1,51 +1,33 @@
 require "base"
-require "itertools"
 
 
-#pragma prolog {
-  (predicate (result-of (reverseList (list T)) (list T)))
-  (predicate (result-of (appendLists (list T) (list T)) (list T)))
-  (predicate (result-of (appendListsMut (list T) (list T)) (list T)))
-  (predicate (result-of (listLength (list T)) num))
-  (predicate (result-of (listRef (list T) num) T))
-}
-#pragma scheme-translator {
-  (inline
-    (import srfi-1)
-    (define appendLists append)
-    (define appendListsMut append!)
-    (define reverseList reverse)
-    (define listLength length)
-    (define listRef list-ref)
-    )
-}
+#pragma scheme-translator { (inline (import srfi-1)) }
 
 list(l list(_)) = l
 
 list(iter) = {
   assert { next(iter) :: maybe(_) }
-  return reverseList(iter.foldl([], (acc, x) => x : acc))
+  return reverse(iter.foldl([], (acc, x) => x : acc))
 }
 
-l[k] = listRef(l, k)
+extern identifier!(list-ref) as identifier!(osl#ref)(list(T), num) -> T
+extern identifier!(list-set!) as identifier!(osl#set)(list(T), num, T) -> void
 
-extern identifier!(list-set!)(list(T), num, T) -> void
-set l[k] = x = identifier!(list-set!)(l, k, x)
+extern length(list(_)) -> num
 
-length(l list(_)) = listLength(l)
+extern append as (+) (list(T), list(T)) -> list(T)
 
-reverse(l list(_)) = reverseList(l)
+extern reverse(list(T)) -> list(T)
 
-append(l1 list(T), l2 list(T)) = appendLists(l1, l2)
-append(l list(T), x T) = appendLists(l, [x])
+map(l list(T), f fn(T) -> U) = {
+  extern map as builtin_map(fn(T) -> U, list(T)) -> list(U)
+  return builtin_map(f)
+}
 
-#pragma scheme-translator { (inline (define osl-list-map map)) }
-extern identifier!(osl-list-map)(fn(T) -> U, list(T)) -> list(U)
-map(l list(_), f) = identifier!(osl-list-map)(f, l)
-
-#pragma scheme-translator { (inline (define osl-list-foreach for-each)) }
-extern identifier!(osl-list-foreach)(fn(T) -> _, list(T)) -> void
-foreach(l list(_), f) = identifier!(osl-list-foreach)(f, l)
+foreach(l list(T), f fn(T) -> _) = {
+  extern identifier!(for-each) as builtin_foreach(fn(T) -> _, list(T)) -> void
+  builtin_foreach(f, l)
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 //                           list - iterator

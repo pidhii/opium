@@ -1,5 +1,6 @@
 require "typeutils"
 
+
 // Foreign types primitives:
 // - i8
 // - u8
@@ -31,13 +32,11 @@ sizeof(_ the(ptr(_))) = 8 // FIXME (platform dependent)
 //                             Locatives
 //
 #pragma scheme-translator { (inline (import (chicken locative))) }
-// TODO
-// - I think for a locative of a k-th element of a list we have to first iterate
-//   through the list (manualy) to reach the correct pair
-// - locatives for records
+// NOTE: Purposefuly omiting locatives for pairs (lists) as implementation will
+// be rather sketchy and their potential use cases appear to me being very
+// questionable
 
-extern identifier!(make-locative) as locationof(array(T), num) -> locative(T, array)
-// extern identifier!(make-locative) as locationof(list(T), num) -> locative(T, array)
+extern identifier!(make-locative) as locationof(array(T), num) -> locative(T, array(T))
 extern identifier!(make-locative) as locationof(str, num) -> locative(char, ptr(i8))
 extern identifier!(make-locative) as locationof(blob, num) -> locative(num, ptr(u8))
 extern identifier!(make-locative) as locationof(i8array, num) -> locative(num, ptr(i8))
@@ -51,8 +50,7 @@ extern identifier!(make-locative) as locationof(u64array, num) -> locative(num, 
 extern identifier!(make-locative) as locationof(f32array, num) -> locative(num, ptr(f32))
 extern identifier!(make-locative) as locationof(f64array, num) -> locative(num, ptr(f64))
 
-extern identifier!(make-locative) as (&) (array(T)) -> locative(T, array)
-extern identifier!(make-locative) as (&) (list(T)) -> locative(T, array)
+extern identifier!(make-locative) as (&) (array(T)) -> locative(T, array(T))
 extern identifier!(make-locative) as (&) (str) -> locative(char, ptr(i8))
 extern identifier!(make-locative) as (&) (blob) -> locative(num, ptr(u8))
 extern identifier!(make-locative) as (&) (i8array) -> locative(num, ptr(i8))
@@ -69,20 +67,21 @@ extern identifier!(make-locative) as (&) (f64array) -> locative(num, ptr(f64))
 extern identifier!(locative-ref) as (*) (locative(T, _)) -> T
 extern identifier!(locative-set!) as identifier!(osl#store)(locative(T, _), T) -> void
 
-ptr(l locative(_, ptr(D))) = reinterpret_cast(l) :: ptr(D)
 
 ////////////////////////////////////////////////////////////////////////////////
 //                             Pointers
 //
 #pragma scheme-translator { (inline (import (chicken memory))) }
 
-extern identifier!(pointer->address) as num(ptr(_)) -> num
-extern identifier!(pointer->address) as num(locative(_, _)) -> num
-extern identifier!(address->pointer) as ptr(num) -> ptr(_)
+// TODO:
+// In some occasions it is possible to pass an apropriate locative in place of a
+// pointer (e.g. as argument to a foreign function). However this is not a
+// universal thing, and so arbitrary `reinterpret_cast` of a locative into
+// pointer is wrong. Cases where both locative and pointer are acceptable has to
+// be handled via coercion.
+// ptr(l locative(_, ptr(D))) = reinterpret_cast(l) :: ptr(D)
 
-extern identifier!(pointer+)(ptr(T), num) -> ptr(T)
-p::ptr(T) + n::num = identifier!(pointer+)(p, n * sizeof(the() :: the(T)))
-p::ptr(T) - n::num = identifier!(pointer+)(p, -n * sizeof(the() :: the(T)))
+extern identifier!(address->pointer) as ptr(num) -> ptr(_)
 
 extern identifier!(pointer-s8-set!)  as identifier!(osl#store)(ptr(i8), num) -> void
 extern identifier!(pointer-u8-set!)  as identifier!(osl#store)(ptr(u8), num) -> void
@@ -113,44 +112,54 @@ extern identifier!(pointer-f64-ref) as (*) (ptr(f64)) -> num
 (*)(p ptr(ptr(T))) = ptr(*(reinterpret_cast(p) :: ptr(u64))) :: ptr(T)
 p::ptr(T)[k::num] = *(p + k)
 
-#pragma scheme-translator {
-  (inline (define (osl#ptrbool x) (not (eq? x #f))))
-}
-extern identifier!(osl#ptrbool) as bool(ptr(_)) -> bool // FIXME
+extern identifier!(pointer?) as bool(ptr(_)) -> bool
+nullptr() = reinterpret_cast(false) :: ptr(_)
 
+
+////////////////////////////////////////////////////////////////////////////////
+//                  Common interface mixing pointers and locatives
+#pragma prolog {
+  (predicate (coerce (ptr T) (pointerlike (ptr T))))
+  (predicate (coerce (locative _ Layout) (pointerlike Layout)))
+}
+extern identifier!(pointer=?) as (==) (pointerlike(L), pointerlike(L)) -> bool
+extern identifier!(pointer->address) as num(pointerlike(_)) -> num
+
+extern identifier!(pointer+)(ptr(T), num) -> ptr(T)
+p::ptr(T) + n::num = identifier!(pointer+)(p, n * sizeof(the() :: the(T)))
+p::ptr(T) - n::num = identifier!(pointer+)(p, -n * sizeof(the() :: the(T)))
+p::locative(_, array(_)) + n::num = identifier!(pointer+)(p, n * 8) // FIXME (platform dependent)
+p::locative(_, array(_)) - n::num = identifier!(pointer+)(p, -n * 8) // FIXME (platform dependent)
+p::locative(_, ptr(T)) + n::num = identifier!(pointer+)(p, n * sizeof(the() :: the(T)))
+p::locative(_, ptr(T)) - n::num = identifier!(pointer+)(p, -n * sizeof(the() :: the(T)))
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                            Memory operations
+//
 extern allocate(num) -> ptr(_)
 extern free(ptr(_)) -> void
 
 // Data layout compatability rules
-extern bloblike(blob) -> t
-extern bloblike(str) -> t
-extern bloblike(i8array) -> t
-extern bloblike(u8array) -> t
-extern bloblike(i16array) -> t
-extern bloblike(u16array) -> t
-extern bloblike(i32array) -> t
-extern bloblike(u32array) -> t
-extern bloblike(i64array) -> t
-extern bloblike(u64array) -> t
-extern bloblike(f32array) -> t
-extern bloblike(f64array) -> t
-extern bloblike(ptr(_)) -> t
-extern bloblike(locative(_, ptr(_))) -> t
+bloblike(_ blob | str | i8array | u8array | i16array | u16array | i32array |
+           u32array | i64array | u64array | f32array | f64array | ptr(_) |
+           locative(_, ptr(_))) = { }
 
-compatible_storage(a locative(_, DataRepr), b locative(_, DataRepr)) = void()
-compatible_storage(a, b) = { assert { bloblike(a) bloblike(b) } }
-
-extern identifier!(move-memory!)(Src, Dst) -> void
-extern identifier!(move-memory!)(Src, Dst, num) -> void
-extern identifier!(move-memory!)(Src, Dst, num, num) -> void
-extern identifier!(move-memory!)(Src, Dst, num, num, num) -> void
+compatible_storage(a locative(_, Layout), b locative(_, Layout)) = { }
+compatible_storage(a A, b B) = { assert { bloblike(a) bloblike(b) } }
 
 copy(src, dst, bytes num, srcoffs num, dstoffs num) = {
+  extern identifier!(move-memory!)(Src, Dst, num, num, num) -> void
   assert { compatible_storage(src, dst) }
   identifier!(move-memory!)(src, dst, bytes, srcoffs, dstoffs)
 }
 copy(src, dst, bytes num, srcoffs num) = copy(src, dst, bytes, srcoffs, 0)
 copy(src, dst, bytes num) = copy(src, dst, bytes, 0, 0)
+copy(src, dst) = {
+  extern identifier!(move-memory!)(Src, Dst) -> void
+  assert { compatible_storage(src, dst) length(src) length(dst) }
+  identifier!(move-memory!)(src, dst)
+}
 
 strdup(s str) = {
   n = length(s)

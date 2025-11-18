@@ -1,85 +1,74 @@
 require "base"
 require "string"
 require "itertools"
+require "error"
 
-#pragma prolog { (predicate (result-of (open str str) port)) }
+
 #pragma scheme-translator {
   (inline
-    (cond-expand
+    (import (chicken base) (chicken file posix) (chicken bitwise) (chicken io))
 
-      (guile
-        (define (open filename mode)
-          (open-file filename mode)))
+    ;; Map mode-characters to bit-flags
+    (define (char->open-flag char)
+      (cond
+        ((string=? char "r") open/read)
+        ((string=? char "w") (+ open/write open/creat))
+        ((string=? char "a") (+ open/append open/creat))
+        ((string=? char "+") open/rdwr)
+        ((string=? char "b") open/binary)
+        ((string=? char "e") open/excl)
+        (else (error "Invalid open-flag"))))
 
-      (chicken
-        (import (chicken file posix) (chicken bitwise))
-        (import (chicken io))
+    ;; Open a file descriptor with flags decoded from the mode-string; and
+    ;; then use this file descriptor to create a PORT object
+    (define (osl#open filename mode)
+      (let* ((modechars (map string (string->list mode)))
+             (modeflags (map char->open-flag modechars))
+             (resflag (foldl + 0 modeflags))
+             (fd (file-open filename resflag)))
+        (if (= (bitwise-and open/write resflag) open/write)
+            (if (= (bitwise-and open/append resflag) open/append)
+                (open-output-file* fd #:append)
+                (open-output-file* fd))
+            (open-input-file* fd))))
 
-        ;; Map mode-characters to bit-flags
-        (define (char->open-flag char)
-          (cond
-            ((string=? char "r") open/read)
-            ((string=? char "w") (+ open/write open/creat))
-            ((string=? char "a") (+ open/append open/creat))
-            ((string=? char "+") open/rdwr)
-            ((string=? char "b") open/binary)
-            ((string=? char "e") open/excl)
-            (else (error "Invalid open-flag"))))
-
-        ;; Open a file descriptor with flags decoded from the mode-string; and
-        ;; then use this file descriptor to create a PORT object
-        (define (open filename mode)
-          (let* ((modechars (map string (string->list mode)))
-                 (modeflags (map char->open-flag modechars))
-                 (resflag (foldl + 0 modeflags))
-                 (fd (file-open filename resflag)))
-              (if (= (bitwise-and open/write resflag) open/write)
-                  (if (= (bitwise-and open/append resflag) open/append)
-                      (open-output-file* fd #:append)
-                      (open-output-file* fd))
-                  (open-input-file* fd))))
-
-        (define (osl_write_string PORT STRING)
-          (write-string STRING #f PORT))
-
-        (define (osl_write_line PORT STRING)
-          (write-line STRING PORT))
-
-        (define osl_flush flush-output)
-      )
-    )
+    (define osl_flush flush-output)
   )
 }
 
 
-#pragma prolog {
-  (predicate (result-of (osl_readline port) str))
-  (predicate (result-of (osl_write_string port str) void))
-  (predicate (result-of (osl_write_line port str) void))
-  (predicate (result-of (osl_flush port) void))
-}
+extern identifier!(osl#open) as open(str, str) -> port
 
-#pragma scheme-translator {
-  (inline
-    (cond-expand
-      (guile
-        (use-modules (ice-9 rdelim)))
-      (chicken
-        (import (chicken io))))
-        
-    (define osl_readline read-line)
-  )
+close(p port) = {
+  extern identifier!(input-port?)(port) -> bool
+  extern identifier!(output-port?)(port) -> bool
+  extern identifier!(close-input-port)(port) -> void
+  extern identifier!(close-output-port)(port) -> void
+
+  if identifier!(input-port?)(p) then
+    identifier!(close-input-port)(p)
+  else if identifier!(output-port?)(p) then
+    identifier!(close-output-port)(p)
+  else
+    error("Invalid port", p)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 //                             writing
 //
 // Write string into a port
-write(p port, s str) = osl_write_string(p, s)
-writeln(p port, s str) = osl_write_line(p, s)
+write(p port, s str) = {
+  extern identifier!(write-string)(str, _, port) -> void
+  identifier!(write-string)(s, false, p)
+}
 
-// Flish output port
-flush(p port) = osl_flush(p)
+writeln(p port, s str) = {
+  extern identifier!(write-line)(str, port) -> void
+  identifier!(write-line)(s, p)
+}
+
+// Flush output port
+extern identifier!(flush-output) as flush(port) -> void
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -88,8 +77,9 @@ flush(p port) = osl_flush(p)
 extern identifier!(eof-object?)(_) -> bool
 
 // Read from port until EOF
-extern identifier!(read-string)(bool, port) -> str
 read(port port) = {
+  extern identifier!(read-string)(bool, port) -> str
+
   result = identifier!(read-string)(false, port)
   if identifier!(eof-object?)(result) then
     return Nothing
@@ -98,8 +88,9 @@ read(port port) = {
 }
 
 // Read n bytes from port into a string
-extern identifier!(read-string)(num, port) -> str
 read(port port, n num) = {
+  extern identifier!(read-string)(num, port) -> str
+
   result = identifier!(read-string)(n, port)
   if identifier!(eof-object?)(result) then
     return Nothing
@@ -112,7 +103,9 @@ read(port port, n num) = {
 //                            readline
 //
 readline(port) = {
-  line = osl_readline(port)
+  extern identifier!(read-line)(port) -> str
+
+  line = identifier!(read-line)(port)
   if identifier!(eof-object?)(line) then
     return Nothing
   else
@@ -123,36 +116,17 @@ readline(port) = {
 ////////////////////////////////////////////////////////////////////////////////
 //                       readline - iterator
 //
-type readlineIterator() = {
-  file port
-}
-
-next(it readlineIterator()) = {
-  line = osl_readline(it#file)
-  if identifier!(eof-object?)(line) then
-    return Nothing()
-  else 
-    return Some(line)
-}
-
-lines(file port) = readlineIterator(file)
+type lines = { file port }
+next(it lines) = readline(it#file)
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //                          string ports
-#pragma scheme-translator {
-  (inline
-    (import (chicken port))
-    (define call_with_input_string call-with-input-string)
-    (define call_with_output_string call-with-output-string)
-  )
-}
-#pragma prolog {
-  (predicate (result-of (call_with_input_string str PROC) Result)
-    (result-of (PROC port) Result))
-  (predicate (result-of (call_with_output_string PROC) str)
-    (result-of (PROC port) _))
-}
+//
+// Input from a string
+extern identifier!(open-input-string) as openstring(str) -> port
 
-// call_with_input_string(s str, proc fn(port) -> Result) -> Result
-// call_with_output_string(proc fn(port) -> _) -> str
+// Output into a string
+extern identifier!(open-output-string) as openstring() -> ostringport
+extern identifier!(get-output-string) as str(ostringport) -> str
+#pragma prolog { (predicate (coerce ostringport port)) }

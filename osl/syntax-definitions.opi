@@ -66,10 +66,19 @@
         ((_ x) (if (osl#?->bool x) x (error osl#?* "dereferencing a nonvalue"))))))
 (pragma prolog
   (predicate (coerce T (? T)))
-  (predicate (coerce bool (? T)))
   (predicate (result-of (osl#?* (? T)) T))
   (predicate (result-of (osl#?->bool (? T)) bool)))
-(define-overload (* x) (osl#?* x)) ;; FIXME: investigate why cant set type to `x`
-                                   ;;        (breaks pointer dereferencing)
+(define-overload (* x) (osl#?* x)) ;; TODO: investigate; pointeres become ambiguous
+                                   ;;       when type for `x` is specified
 (define-overload (bool x) (osl#?->bool x))
+
+
+;; Unions/variants
+(pragma prolog
+  (predicate (coerce T (or . Ts)) (member T Ts))
+  (predicate (coerce (or . Ts) (or . Us)) (subset Ts Us))
+  (predicate (subset () _))
+  (predicate (subset (X . Xs) Ys)
+    (member X Ys)
+    (subset Xs Ys)))
 

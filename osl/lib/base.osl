@@ -1,10 +1,4 @@
-
-#pragma scheme-translator {
-  (inline
-    (cond-expand
-      (guile (import (srfi :9) (srfi :11)))
-      (chicken)))
-}
+require "error"
 
 ////
 //
@@ -30,7 +24,7 @@
   (predicate (result-of (car (list T)) T))
   (predicate (result-of (cdr (list T)) (list T)))
 }
-extern cons as identifier!(:) (T, list(T)) -> list(T)
+extern cons as (:) (T, list(T)) -> list(T)
 //
 #pragma scheme-translator {
   ;; Rules for translation of cases expressions with list
@@ -45,9 +39,18 @@ extern cons as identifier!(:) (T, list(T)) -> list(T)
   )
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+//                              call/cc
+//
+extern identifier!(call-with-current-continuation) as callcc(fn(fn(T) -> U) -> U) -> U
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                                maybe(T)
+//
 type maybe(T) = Some(T) | Nothing()
 
-require "error"
 unpack(x maybe(T)) = match x in
 | Some(value) -> value
 | Nothing()   -> error("Unpack Nothing()")
@@ -65,14 +68,33 @@ bool(x maybe(T)) = match x in
 | Nothing()   -> false
 
 
-// class unaryFn(A, R) = assert {
-//   Self(A) :: R
-// }
+////////////////////////////////////////////////////////////////////////////////
+//                              optionals
+//
+// null
+#pragma prolog { (predicate (result-of (osl#null) (? _))) }
+#pragma scheme-translator { (inline (define-inline (osl#null) #f)) }
+macro null {[null] = [identifier!(osl#null)()]}
+
+// maybe-like matching on optionals
+#pragma prolog {
+  (predicate (match-on (osl#ctor#Some T) (? T)))
+  (predicate (match-on (osl#ctor#Nothing) (? T)))
+}
+#pragma scheme-translator {
+  (cases-rule (osl#ctor#Some T) (? T) osl#?->bool identity)
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                                 null
+//
 
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //                            Function classes
+//
 #pragma prolog {
   (predicate (result-of ((fn Args Result) . Args) Result))
   (predicate (coerce Fn (fn Args . Results))
@@ -82,6 +104,7 @@ bool(x maybe(T)) = match x in
 
 extern identifier!(string->symbol) as sym(str) -> sym
 extern identifier!(symbol->string) as str(sym) -> str
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //                               meta
@@ -100,6 +123,8 @@ iter(it) = {
         ((_ x) x))))
 }
 extern reinterpret_cast(_) -> _
+
+// #pragma prolog { (predicate (coerce _ any)) }
 
 // Type-case into `anything`
 anything(x) = reinterpret_cast(x) :: anything
@@ -126,3 +151,4 @@ type range(T) = {start T, end T}
 // Cut Prolog query
 #pragma prolog { (predicate (result-of (cuttypecheck T) T) !) }
 #pragma scheme-translator { (inline (define (cuttypecheck x) x)) }
+

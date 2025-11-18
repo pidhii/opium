@@ -39,10 +39,9 @@ println(dict(j))
 
 println("testing regex")
 re = regexp("([a-z]+)([0-9]+)")
-ms = "___adfasd12312".find(re)
-for m in *ms do {
-  if bool(m) then
-    println("- ", m)
+if let Some(m) = "___adfasd12312".find(re) then {
+  for i in 0 : 2 do
+    println("  match #", i, " = ", m.indices(i))
 }
 
 require "argv"
@@ -94,7 +93,7 @@ match foo in
 | Bar -> println("This is bar")
 
 
-println("c,compile".split(r"\w+"))
+println("c,compile".split(","))
 
 
 if let hd : tl = [1, 2, 3] then
@@ -120,8 +119,7 @@ println("test division: ", 4 / 2 / 2)
 let x = 1 in
 println("test unary: ", -x < 0)
 
-extern identifier!(list->string) as listtostr(list(char)) -> str
-println("list->string: ", listtostr(["a"[0], "b"[0]]))
+println("list->string: ", str(["a"[0], "b"[0]]))
 // println("list->string: ", identifier!(list->string)(["a"[0], "b"[0]]))
 
 type one = One
@@ -131,3 +129,9 @@ type one = One
   let t1, t2, t3 = unpack(tup) in
   println(t1, " ", t2, " ", t3)
 }
+
+
+test_null(x str?) =
+  println("test_null: bool(", x, ") = ", bool(x))
+test_null("not-null")
+test_null(null)

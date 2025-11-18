@@ -3,24 +3,34 @@
 // Console output functions
 //
 #pragma prolog {
-  (predicate (result-of (display _) void))
-  (predicate (result-of (newline) void))
-  (predicate (result-of (println . _) void))
-  (predicate (result-of (eprintln . _) void))
+  (predicate (result-of (osl#print . _) void))
+  (predicate (result-of (osl#eprint . _) void))
+  (predicate (result-of (osl#println . _) void))
+  (predicate (result-of (osl#eprintln . _) void))
 }
 #pragma scheme-translator {
   (inline
-    (import (chicken port))
+    (import (chicken base) (chicken port))
 
-    (define (println . args)
-      (apply print args)
-      (flush-output))
+    (define (osl#print . args)
+      (apply print* args))
 
-    (define (eprintln . args)
+    (define (osl#println . args)
+      (apply print args))
+
+    (define (osl#eprint . args)
       (with-output-to-port
         (current-error-port)
-        (lambda ()
-          (apply print args)
-          (flush-output))))
+        (lambda () (apply print* args))))
+
+    (define (osl#eprintln . args)
+      (with-output-to-port
+        (current-error-port)
+        (lambda () (apply print args))))
   )
 }
+
+macro print {[print] = [identifier!(osl#print)]}
+macro println {[println] = [identifier!(osl#println)]}
+macro eprint {[eprint] = [identifier!(osl#eprint)]}
+macro eprintln {[eprintln] = [identifier!(osl#eprintln)]}

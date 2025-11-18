@@ -1,45 +1,35 @@
+require "typeutils"
 
-#pragma scheme-translator {
-  (inline
-    (import regex)
+#pragma scheme-translator { (inline (import (chicken irregex))) }
 
-    (define osl_regexp regexp)
+extern identifier!(string->irregex) as regexp(str) -> regexp
 
-    (define (osl_string_match REGEXP STRING)
-      (let ((match (string-match REGEXP STRING)))
-        (if (not match)
-            (maybe.Nothing)
-            (maybe.Some (map (lambda (submatch) (or submatch "")) match)))))
-
-    (define (osl_string_search REGEXP STRING)
-      (let ((match (string-search REGEXP STRING)))
-        (if (not match)
-            (maybe.Nothing)
-            (maybe.Some (map (lambda (submatch) (or submatch "")) match)))))
-
-      (define (osl_string_split_fields REGEXP STRING)
-        (string-split-fields REGEXP STRING #t))
-    )
-
-}
-
-#pragma prolog {
-  (predicate (result-of (osl_glob_to_regexp str) regexp))
-  (predicate (result-of (osl_regexp str) regexp))
-
-  (predicate (coerce str regexlike))
-  (predicate (coerce regexp regexlike))
-}
-
-extern regexp(str) -> regexp
-
-extern identifier!(string-match)(regexlike, str) -> list(str?)?
+// extern identifier!(string-match)(str or regexp, str) -> list(str?)?
 // TODO: expose via `=~`-operator
 
-extern identifier!(string-search)(regexlike, str) -> list(str?)?
-find(string str, pattern regexlike) =
-  identifier!(string-search)(pattern, string)
+find(string str, pattern str or regexp) = {
+  extern identifier!(irregex-search)(_, str) -> regexp_match?
+  return identifier!(irregex-search)(pattern, string)
+}
 
-extern identifier!(string-split-fields)(regexlike, str) -> list(str)
-split(string str, pattern) =
-  identifier!(string-split-fields)(pattern, string)
+extern identifier!(irregex-match-substring) as identifier!(osl#ref)(regexp_match, num) -> str?
+extern identifier!(irregex-match-substring) as identifier!(osl#ref)(regexp_match, str) -> str?
+indices(matchobj regexp_match, groupid) = {
+  assert { typein(groupid, 0, "") }
+  extern identifier!(irregex-match-start-index) as getstart(regexp_match, _) -> num?
+  extern identifier!(irregex-match-end-index) as getend(regexp_match, _) -> num?
+  let start = matchobj.getstart(groupid), end = matchobj.getend(groupid) in
+  return if start and end then start : end
+}
+
+// TODO: replace
+
+split(string str, pattern str or regexp) = {
+  extern identifier!(irregex-split)(_, str) -> list(str)
+  return identifier!(irregex-split)(pattern, string)
+}
+
+extract(string str, pattern str or regexp) = {
+  extern identifier!(irregex-extract)(_, str) -> list(str)
+  return identifier!(irregex-extract)(pattern, string)
+}

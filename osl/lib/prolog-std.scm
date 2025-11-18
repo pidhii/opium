@@ -32,9 +32,11 @@
 ;;
 ;; Succeeds if Elt is present in list List
 ;;;;
-(predicate (member X (X . _)))
-(predicate (member X (_ . List))
-  (member X List))
+;(predicate (member X (X . _)))
+;(predicate (member X (_ . List))
+  ;(member X List))
+(predicate (member X (Y . Ys))
+  (if (= X Y) #t (member X Ys)))
 
 ;;;;
 ;; member@ Elt List

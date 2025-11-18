@@ -1,3 +1,6 @@
+// TODO:
+// I want C-style format strings
+
 require "string"
 
 #pragma prolog {

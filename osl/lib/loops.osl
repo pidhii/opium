@@ -1,5 +1,6 @@
 
 macro for {
+  // For-loops over iterables with implicit `unpack()` and optional else-clause
   [for $ident:head $[, $ident:ident]+tail in $expr:seq do $expr:body] = [
     let __Loop_It = iter($seq) in
     letrec __Loop() = {
@@ -21,6 +22,7 @@ macro for {
     }
     in __Loop()
   ]
+  // For loops over iterables with optional else-clause
   [for $ident:x in $expr:seq do $expr:body else $expr:fin] = [
     let __Loop_It = iter($seq) in
     letrec __Loop() = {
@@ -41,6 +43,23 @@ macro for {
 }
 
 macro while {
+  // Loops conditioned on pattern matching with optional else-clause
+  [while let $expat:condpat = $expr:condexpr do $expr:body else $expr:fin] = [
+    letrec __Loop() = {
+      match $condexpr in
+      | $condpat -> { $body __Loop() }
+      | otherwize -> $fin
+    }
+    in __Loop()
+  ]
+  [while let $expat:condpat = $expr:condexpr do $expr:body] = [
+    letrec __Loop() = {
+      match $condexpr in
+      | $condpat -> { $body __Loop() }
+    }
+    in __Loop()
+  ]
+  // While loops with optional else-clause
   [while $expr:cond do $expr:body else $expr:fin] = [
     letrec __Loop() = {
       if $cond then

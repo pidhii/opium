@@ -3,24 +3,39 @@ require "error"
 require "number"
 
 
+// disable cuttypecheck()
+// macro cuttypecheck {
+//   [cuttypecheck($expr:e)] = [$e]
+// }
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //                             iteration
 //
-foreach(it, f) = match next(it) in
+foreach(it, f fn(T) -> _) = match next(it) in
 | Some(x) -> { f(x) foreach(it, f) }
 | Nothing -> void()
 
 
-foldl(it, z, f) = match next(it) in
+foldl(it, z T, f fn(T, U) -> T) = match next(it) in
 | Some(x) -> foldl(it, f(z, x), f)
-| otherwize -> z
+| Nothing -> z
+
+join(it, sep) =
+  match next(it) in
+  | Some(x) -> it.foldl(x, (acc, xx) => acc + sep + xx)
+  | Nothing -> error("Can't join empty sequence")
+
+join(it, sep, default) =
+  match next(it) in
+  | Some(x) -> it.foldl(x, (acc, xx) => acc + sep + xx)
+  | Nothing -> default
 
 
 /////////////////////////////////////////////////////////////////////////////////
 //                                search
 //
-find(it, p) = match next(it) in
+find(it, p fn(_) -> bool) = match next(it) in
 | Some(x) -> if p(x) then Some(x) else find(it, p)
 | Nothing -> Nothing
 
@@ -30,18 +45,15 @@ find(it, p) = match next(it) in
 //
 type mapIterator(Iter, T, U) = {
   inner Iter,
-  func  fn(T) -> U,
+  func fn(T) -> U,
 }
 
-next(it mapIterator(Iter, T, U)) =
-  cuttypecheck(
-    match next(it#inner) in
-    | Some(x) -> Some(it#func(x))
-    | Nothing -> Nothing
-  )
+map(it, f fn(T) -> U) = mapIterator(it, f)
 
-map(it, f) = mapIterator(it, f)
-// map(it, f) = generator { for x in it do yield f(x) }
+next(it mapIterator(_, _, _)) =
+  match next(it#inner) in
+  | Some(x) -> Some(it#func(x))
+  | Nothing -> Nothing
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -54,12 +66,10 @@ type whileIterator(Iter, T) = {
 }
 
 next(it whileIterator(Iter, T)) =
-  cuttypecheck(
-    if it#isdone then Nothing
-    else match next(it#inner) in
-    | Some(x) -> if it#pred(x) then Some(x) else { set it#isdone = true Nothing }
-    | otherwize -> Nothing
-  )
+  if it#isdone then Nothing
+  else match next(it#inner) in
+  | Some(x) -> if it#pred(x) then Some(x) else { set it#isdone = true Nothing }
+  | Nothing -> Nothing
 
 while(it, p) = whileIterator(it, p, false)
 
@@ -69,17 +79,14 @@ while(it, p) = whileIterator(it, p, false)
 //
 type take(Iter) = {
   inner Iter,
-  n num
+  n num,
 }
 
-next(it take(Iter)) =
-  cuttypecheck(
-    let n = it#n in
-    if n <= 0 then Nothing
-    else match next(it#inner) in
-    | Some(x) -> { set it#n = n - 1 Some(x) }
-    | otherwize -> { set it#n = 0 Nothing }
-  )
+next(it take(_)) =
+  let n = it#n in
+  if n <= 0 then Nothing
+  else if let Some(x) = next(it#inner) then { set it#n = n - 1 Some(x) }
+  else { set it#n = 0 Nothing }
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -87,7 +94,7 @@ next(it take(Iter)) =
 //
 drop(it, n num) =
   if n <= 0 then { next(it) drop(it, n - 1) }
-  else Nothing
+  else it
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -98,30 +105,51 @@ type filterIterator(Iter, T) = {
   pred  fn(T) -> bool,
 }
 
-next(it filterIterator(Iter, T)) =
-  cuttypecheck(
-    match next(it#inner) in
-    | Some(x) -> if it#pred(x) then Some(x) else next(it)
-    | otherwize -> Nothing
-  )
+filter(it, f fn(T) -> bool) = {
+  assert { next(it) }
+  return filterIterator(it, f)
+}
 
-filter(it, pred) = filterIterator(it, pred)
+next(it filterIterator(_, _)) =
+  match next(it#inner) in
+  | Some(x) -> if it#pred(x) :: bool then Some(x) else next(it)
+  | Nothing -> Nothing
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //                         range - iterator
 //
-type rangeIterator() = { from num, to num }
-
-next(it rangeIterator()) = {
-  result = it#from
-  if result < it#to then
-  {
-    set it#from = result + 1
-    return cuttypecheck(Some(result))
-  }
-  else
-    return cuttypecheck(Nothing)
-}
+type rangeIterator(T) = { start T, end T }
 
 iter(r range(T)) = rangeIterator(r#start, r#end)
+
+next(it rangeIterator(T)) =
+  let result = it#start in
+  if result < it#end then
+  {
+    set it#start = result + 1
+    Some(result)
+  }
+  else
+    Nothing
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                        enumerate - iterator
+//
+type enumerate(Iter) = {
+  inner Iter,
+  counter num,
+}
+
+enumerate(it) = enumerate(it, 0)
+
+next(it enumerate(_)) =
+  if let Some(x) = next(it#inner) then
+  {
+    result = Some(pack(it#counter, x))
+    set it#counter = it#counter + 1
+    result
+  }
+  else
+    Nothing

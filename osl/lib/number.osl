@@ -1,71 +1,25 @@
 require "base"
 
-////
-//
-// Builtin operations with numbers
-//
-#pragma prolog {
-  (ensure-loaded "prolog-std.scm")
-
-  ;; Builtin arithmetic operations on numbers
-  (predicate (result-of (sum num . Nums) num) (all num Nums))
-  (predicate (result-of (difference num num . Nums) num) (all num Nums))
-  (predicate (result-of (product num . Nums) num) (all num Nums))
-  (predicate (result-of (divide num num . Nums) num) (all num Nums))
-  (predicate (result-of (modulo num num) num))
-
-  ;; Builtin comparison predicates for numbers
-  (predicate (result-of (numeq . Nums) bool) (all num Nums))
-  (predicate (result-of (numlt . Nums) bool) (all num Nums))
-  (predicate (result-of (numgt . Nums) bool) (all num Nums))
-  (predicate (result-of (numle . Nums) bool) (all num Nums))
-  (predicate (result-of (numge . Nums) bool) (all num Nums))
-
-  ;; Conversions
-  (predicate (result-of (num2str num) str))
-  (predicate (result-of (exact2inexact num) num))
-}
-//
-#pragma scheme-translator {
-  (inline
-    ;; Builtin arithmetic operations on numbers
-    (define sum +)
-    (define difference -)
-    (define product *)
-    (define divide /)
-
-    ;; Builtin comparison predicates for numbers
-    (define numeq =)
-    (define numlt <)
-    (define numgt >)
-    (define numle <=)
-    (define numge >=)
-
-    ;; Conversions
-    (define num2str number->string)
-
-    (define exact2inexact exact->inexact)
-  )
-}
 
 // Unary plus and minus
 (+)(x num) = x
 (-)(x num) = 0 - x
 
 // Arithmetic operations
-x + y = sum(x, y)
-x - y = difference(x, y)
-x * y = product(x, y)
-x / y = divide(x, y)
-x % y = modulo(x, y)
+extern (+) (num, num) -> num
+extern (-) (num, num) -> num
+extern (*) (num, num) -> num
+extern (/) (num, num) -> num
+extern modulo as (%) (num, num) -> num
 
 // Number comparison
-x == y = numeq(x, y)
-x != y = not numeq(x, y)
-x < y = numlt(x, y)
-x <= y = numle(x, y)
-x > y = numgt(x, y)
-x >= y = numge(x, y)
+extern (=) as (==) (num, num) -> bool
+x::num != y::num = not (x == y)
+extern (<) (num, num) -> bool
+extern (>) (num, num) -> bool
+extern (<=) (num, num) -> bool
+extern (>=) (num, num) -> bool
 
 // Conversions
-inexact = exact2inexact
+extern identifier!(exact->inexact) as inexact(num) -> num // FIXME
+extern identifier!(number->string) as str(num) -> str

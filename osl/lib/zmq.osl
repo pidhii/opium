@@ -4,18 +4,11 @@ require "base"
   (inline
     (import zmq)
     (import (chicken blob))
-    (import (chicken memory))
 
-    (define zmq_version zmq-version)
     (define (zmq_send_message SOCKET MESSAGE OPTIONS)
       (let ((sndmore (memq (quote sndmore) OPTIONS))
             (dontwait (memq (quote dontwait) OPTIONS)))
         (send-message SOCKET MESSAGE send-more: sndmore non-blocking: dontwait)))
-
-    (define (zmq_default_receive_callback ptr size)
-      (let ((result (make-blob size)))
-        (move-memory! ptr result size)
-        result))
 
     (define (zmq_receive_message SOCKET OPTIONS)
       (let* ((dontwait (memq (quote dontwait) OPTIONS))
@@ -28,7 +21,6 @@ require "base"
 }
 
 #pragma prolog {
-  (predicate (result-of (zmq_version) (list num)))
   (predicate (result-of (zmq_send_message zmq_socket MESSAGE (list zmq_send_option)) num)
     (or (= MESSAGE str)
         (= MESSAGE blob)))
@@ -37,15 +29,15 @@ require "base"
 
 ////////////////////////////////////////////////////////////////////////////////
 //                              Socket types
-pull::zmq_socket_type = reinterpret_cast(sym("pull"))
-push::zmq_socket_type = reinterpret_cast(sym("push"))
-pair::zmq_socket_type = reinterpret_cast(sym("pair"))
-pub::zmq_socket_type = reinterpret_cast(sym("pub"))
-sub::zmq_socket_type = reinterpret_cast(sym("sub"))
-req::zmq_socket_type = reinterpret_cast(sym("req"))
-rep::zmq_socket_type = reinterpret_cast(sym("rep"))
-dealer::zmq_socket_type = reinterpret_cast(sym("xreq"))
-router::zmq_socket_type = reinterpret_cast(sym("xrep"))
+pull = reinterpret_cast(sym("pull")) :: zmq_socket_type
+push = reinterpret_cast(sym("push")) :: zmq_socket_type
+pair = reinterpret_cast(sym("pair")) :: zmq_socket_type
+pub = reinterpret_cast(sym("pub")) :: zmq_socket_type
+sub = reinterpret_cast(sym("sub")) :: zmq_socket_type
+req = reinterpret_cast(sym("req")) :: zmq_socket_type
+rep = reinterpret_cast(sym("rep")) :: zmq_socket_type
+dealer = reinterpret_cast(sym("xreq")) :: zmq_socket_type
+router = reinterpret_cast(sym("xrep")) :: zmq_socket_type
 
 ////////////////////////////////////////////////////////////////////////////////
 //                             Socket options
@@ -73,8 +65,8 @@ rcvbuf = reinterpret_cast(sym("rcvbuf")) :: zmq_socket_option(num)
 
 // SNDMORE
 // DONTWAIT
-sndmore::zm_send_option = reinterpret_cast(sym("sndmore"))
-dontwait::zm_send_option = reinterpret_cast(sym("dontwait"))
+sndmore = reinterpret_cast(sym("sndmore")) :: zm_send_option
+dontwait = reinterpret_cast(sym("dontwait")) :: zm_send_option
 
 
 ////////////////////////////////////////////////////////////////////////////////

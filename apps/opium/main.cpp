@@ -145,8 +145,7 @@ main(int argc, char **argv)
     ("verbosity,v", po::value<std::string>(&verbosity)->implicit_value("debug"), "verbosity")
     ("flag,f", po::value<std::vector<std::string>>(&flags), "flags")
     ("load,l", po::value<std::vector<std::fs::path>>(&load), "load prolog file")
-    ("output,o", po::value<std::string>(&opath), "write Scheme script to the specified file")
-    ("annotate", "print source code with type-annotations");
+    ("output,o", po::value<std::string>(&opath), "write Scheme script to the specified file");
 
   po::positional_options_description posdesc;
   posdesc.add("input-file", 1);

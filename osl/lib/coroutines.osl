@@ -8,31 +8,20 @@ require "base"
 //
 // So change the backend or implement it yourself (be a man).
 
-#pragma scheme-translator {
-  (inline
-    (import iterators)
-    (define co_value co-value)
-    (define co_move co-move)
-    (define co_finished co-finished?))
-}
-#pragma prolog {
-  (predicate (result-of (coroutine Fn) (coroutine T))
-    (result-of (Fn (fn (T) void)) void))
-  (predicate (result-of (co_value (coroutine T)) T))
-  (predicate (result-of (co_move (coroutine T)) (coroutine T)))
-  (predicate (result-of (co_finished (coroutine _)) bool))
-}
+#pragma scheme-translator { (inline (import iterators)) }
 
-type generator(T) = {
-  co coroutine(T)
-}
+extern coroutine as generator_co(fn(fn(T) -> void) -> _) -> generator_co(T)
+extern identifier!(co-value) as co_value(generator_co(T)) -> T
+extern identifier!(co-move) as co_move(generator_co(T)) -> generator_co(T)
+extern identifier!(co-finished?) as co_finished(generator_co(T)) -> bool
 
-generator(f) = generator(coroutine(f))
+type generator(T) = { co generator_co(T) }
+generator(f) = generator(generator_co(f))
 
 next(gen generator(T)) = {
   co = gen#co
   if co_finished(co) then
-    return Nothing()
+    return Nothing
   else {
     set gen#co = co_move(co)
     return Some(co_value(co))
@@ -49,4 +38,3 @@ macro __Generator {
 macro yield {
   [yield $expr:expr] = [__Generator_yield($expr)]
 }
-

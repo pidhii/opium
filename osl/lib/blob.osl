@@ -1,34 +1,22 @@
 require "base"
 
-#pragma scheme-translator {
-  (inline (import (chicken blob) srfi-4))
-}
+#pragma scheme-translator { (inline (import (chicken blob) srfi-4)) }
 
 // Constructors
 extern identifier!(make-blob) as blob(num) -> blob
 extern identifier!(string->blob) as blob(str) -> blob
 
 // Interface casts
-extern identifier!(blob->u8vector/shared)(blob) -> u8array
-extern identifier!(blob->s8vector/shared)(blob) -> i8array
-extern identifier!(blob->u16vector/shared)(blob) -> u16array
-extern identifier!(blob->s16vector/shared)(blob) -> i16array
-extern identifier!(blob->u32vector/shared)(blob) -> u32array
-extern identifier!(blob->s32vector/shared)(blob) -> i32array
-extern identifier!(blob->u64vector/shared)(blob) -> u64array
-extern identifier!(blob->s64vector/shared)(blob) -> i64array
-extern identifier!(blob->f32vector/shared)(blob) -> f32array
-extern identifier!(blob->f64vector/shared)(blob) -> f64array
-blb::blob#i8  = identifier!(blob->s8vector/shared)(blb)
-blb::blob#u8  = identifier!(blob->u8vector/shared)(blb)
-blb::blob#i16 = identifier!(blob->s16vector/shared)(blb)
-blb::blob#u16 = identifier!(blob->u16vector/shared)(blb)
-blb::blob#i32 = identifier!(blob->s32vector/shared)(blb)
-blb::blob#u32 = identifier!(blob->u32vector/shared)(blb)
-blb::blob#i64 = identifier!(blob->s64vector/shared)(blb)
-blb::blob#u64 = identifier!(blob->u64vector/shared)(blb)
-blb::blob#f32 = identifier!(blob->f32vector/shared)(blb)
-blb::blob#f64 = identifier!(blob->f64vector/shared)(blb)
+extern identifier!(blob->u8vector/shared)  as identifier!(osl#i8-ref)(blob) -> u8array
+extern identifier!(blob->s8vector/shared)  as identifier!(osl#u8-ref)(blob) -> i8array
+extern identifier!(blob->u16vector/shared) as identifier!(osl#i16-ref)(blob) -> u16array
+extern identifier!(blob->s16vector/shared) as identifier!(osl#u16-ref)(blob) -> i16array
+extern identifier!(blob->u32vector/shared) as identifier!(osl#i32-ref)(blob) -> u32array
+extern identifier!(blob->s32vector/shared) as identifier!(osl#u32-ref)(blob) -> i32array
+extern identifier!(blob->u64vector/shared) as identifier!(osl#i64-ref)(blob) -> u64array
+extern identifier!(blob->s64vector/shared) as identifier!(osl#u64-ref)(blob) -> i64array
+extern identifier!(blob->f32vector/shared) as identifier!(osl#f32-ref)(blob) -> f32array
+extern identifier!(blob->f64vector/shared) as identifier!(osl#f64-ref)(blob) -> f64array
 
 // Length
 extern identifier!(blob-size) as length(blob) -> num
@@ -46,63 +34,39 @@ extern identifier!(f64vector-length) as length(f64vector) -> num
 
 // Data accessors
 // - getters
-extern identifier!(u8vector-ref)(u8array, num) -> num
-extern identifier!(s8vector-ref)(i8array, num) -> num
-extern identifier!(u16vector-ref)(u16array, num) -> num
-extern identifier!(s16vector-ref)(i16array, num) -> num
-extern identifier!(u32vector-ref)(u32array, num) -> num
-extern identifier!(s32vector-ref)(i32array, num) -> num
-extern identifier!(u64vector-ref)(u64array, num) -> num
-extern identifier!(s64vector-ref)(i64array, num) -> num
-extern identifier!(f32vector-ref)(f32array, num) -> num
-extern identifier!(f64vector-ref)(f64array, num) -> num
-blb::u8array[k::num] = identifier!(u8vector-ref)(blb, k)
-blb::i8array[k::num] = identifier!(s8vector-ref)(blb, k)
-blb::u16array[k::num] = identifier!(u16vector-ref)(blb, k)
-blb::i16array[k::num] = identifier!(s16vector-ref)(blb, k)
-blb::u32array[k::num] = identifier!(u32vector-ref)(blb, k)
-blb::i32array[k::num] = identifier!(s32vector-ref)(blb, k)
-blb::u64array[k::num] = identifier!(u64vector-ref)(blb, k)
-blb::i64array[k::num] = identifier!(s64vector-ref)(blb, k)
-blb::f32array[k::num] = identifier!(f32vector-ref)(blb, k)
-blb::f64array[k::num] = identifier!(f64vector-ref)(blb, k)
+extern identifier!(u8vector-ref)  as identifier!(osl#ref)(u8array, num) -> num
+extern identifier!(s8vector-ref)  as identifier!(osl#ref)(i8array, num) -> num
+extern identifier!(u16vector-ref) as identifier!(osl#ref)(u16array, num) -> num
+extern identifier!(s16vector-ref) as identifier!(osl#ref)(i16array, num) -> num
+extern identifier!(u32vector-ref) as identifier!(osl#ref)(u32array, num) -> num
+extern identifier!(s32vector-ref) as identifier!(osl#ref)(i32array, num) -> num
+extern identifier!(u64vector-ref) as identifier!(osl#ref)(u64array, num) -> num
+extern identifier!(s64vector-ref) as identifier!(osl#ref)(i64array, num) -> num
+extern identifier!(f32vector-ref) as identifier!(osl#ref)(f32array, num) -> num
+extern identifier!(f64vector-ref) as identifier!(osl#ref)(f64array, num) -> num
 // - setters
-extern identifier!(u8vector-set!)(u8array, num, num) -> void
-extern identifier!(s8vector-set!)(i8array, num, num) -> void
-extern identifier!(u16vector-set!)(u16array, num, num) -> void
-extern identifier!(s16vector-set!)(i16array, num, num) -> void
-extern identifier!(u32vector-set!)(u32array, num, num) -> void
-extern identifier!(s32vector-set!)(i32array, num, num) -> void
-extern identifier!(u64vector-set!)(u64array, num, num) -> void
-extern identifier!(s64vector-set!)(i64array, num, num) -> void
-extern identifier!(f32vector-set!)(f32array, num, num) -> void
-extern identifier!(f64vector-set!)(f64array, num, num) -> void
-set blb::u8array[k::num] = v = identifier!(u8vector-set!)(blb, k, v)
-set blb::i8array[k::num] = v = identifier!(s8vector-set!)(blb, k, v)
-set blb::u16array[k::num] = v = identifier!(u16vector-set!)(blb, k, v)
-set blb::i16array[k::num] = v = identifier!(s16vector-set!)(blb, k, v)
-set blb::u32array[k::num] = v = identifier!(u32vector-set!)(blb, k, v)
-set blb::i32array[k::num] = v = identifier!(s32vector-set!)(blb, k, v)
-set blb::u64array[k::num] = v = identifier!(u64vector-set!)(blb, k, v)
-set blb::i64array[k::num] = v = identifier!(s64vector-set!)(blb, k, v)
-set blb::f32array[k::num] = v = identifier!(f32vector-set!)(blb, k, v)
-set blb::f64array[k::num] = v = identifier!(f64vector-set!)(blb, k, v)
+extern identifier!(u8vector-set!)  as identifier!(osl#set)(u8array, num, num) -> void
+extern identifier!(s8vector-set!)  as identifier!(osl#set)(i8array, num, num) -> void
+extern identifier!(u16vector-set!) as identifier!(osl#set)(u16array, num, num) -> void
+extern identifier!(s16vector-set!) as identifier!(osl#set)(i16array, num, num) -> void
+extern identifier!(u32vector-set!) as identifier!(osl#set)(u32array, num, num) -> void
+extern identifier!(s32vector-set!) as identifier!(osl#set)(i32array, num, num) -> void
+extern identifier!(u64vector-set!) as identifier!(osl#set)(u64array, num, num) -> void
+extern identifier!(s64vector-set!) as identifier!(osl#set)(i64array, num, num) -> void
+extern identifier!(f32vector-set!) as identifier!(osl#set)(f32array, num, num) -> void
+extern identifier!(f64vector-set!) as identifier!(osl#set)(f64array, num, num) -> void
 
 // Type convertions
-extern identifier!(blob->string)(blob) -> str
-str(blb blob) = identifier!(blob->string)(blb)
+extern identifier!(blob->string) as str(blob) -> str
 
 // Comparison
-extern identifier!(blob=?)(blob, blob) -> bool
-blb1 == blb2 = identifier!(blob=?)(blb1, blb2)
+extern identifier!(blob=?) as (==) (blob, blob) -> bool
 
 // I/O
-extern identifier!(u8vector->blob/shared)(u8array) -> blob
-extern identifier!(read-u8vector)(_, port) -> u8array
-extern identifier!(read-u8vector)(_) -> u8array
-extern identifier!(read-u8vector)() -> u8array
-
 read_blob(p port, nbytes num) = {
+  extern identifier!(read-u8vector)(num, port) -> u8array
+  extern identifier!(u8vector->blob/shared)(u8array) -> blob
+
   result = identifier!(read-u8vector)(nbytes, p).identifier!(u8vector->blob/shared)()
   if identifier!(eof-object?)(result) then
     return Nothing
@@ -111,6 +75,9 @@ read_blob(p port, nbytes num) = {
 }
 
 read_blob(p port) = {
+  extern identifier!(read-u8vector)(bool, port) -> u8array
+  extern identifier!(u8vector->blob/shared)(u8array) -> blob
+
   result = identifier!(read-u8vector)(false, p).identifier!(u8vector->blob/shared)()
   if identifier!(eof-object?)(result) then
     return Nothing
@@ -119,6 +86,9 @@ read_blob(p port) = {
 }
 
 read_blob(nbytes num) = {
+  extern identifier!(read-u8vector)(bool) -> u8array
+  extern identifier!(u8vector->blob/shared)(u8array) -> blob
+
   result = identifier!(read-u8vector)(false).identifier!(u8vector->blob/shared)()
   if identifier!(eof-object?)(result) then
     return Nothing
@@ -127,6 +97,9 @@ read_blob(nbytes num) = {
 }
 
 read_blob() = {
+  extern identifier!(read-u8vector)() -> u8array
+  extern identifier!(u8vector->blob/shared)(u8array) -> blob
+
   result = identifier!(read-u8vector)().identifier!(u8vector->blob/shared)()
   if identifier!(eof-object?)(result) then
     return Nothing

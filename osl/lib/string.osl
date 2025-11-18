@@ -1,5 +1,5 @@
 require "itertools"
-require "error"
+require "number"
 
 ////
 //
@@ -9,100 +9,60 @@ require "error"
   (inline
     (import (chicken string))
 
-    (define strcat string-append)
-
-    (define strlen string-length)
-
-    (define streq string=?)
-    (define strlt string<?)
-    (define strle string<=?)
-    (define strgt string>?)
-    (define strge string>=?)
-
-    (define strcieq string=?)
-    (define strcilt string<?)
-    (define strcile string<=?)
-    (define strcigt string>?)
-    (define strcige string>=?)
-
-    (define str2list string->list)
-    (define (str2num STRING)
-      (let ((result (string->number STRING)))
-        (if result
-          (maybe.Some result)
-          (maybe.Nothing)))))
+    (define concat string-append))
 }
 //
 #pragma prolog {
   (ensure-loaded "prolog-std.scm")
-
-  ;; Type signatures for the renamed functions
-  (predicate (result-of (strcat . Strs) str) (all str Strs))
-
-  (predicate (result-of (strlen str) num))
-
-  (predicate (result-of (streq str str) bool))
-  (predicate (result-of (strlt str str) bool))
-  (predicate (result-of (strle str str) bool))
-  (predicate (result-of (strgt str str) bool))
-  (predicate (result-of (strge str str) bool))
-
-  (predicate (result-of (strcieq str str) bool))
-  (predicate (result-of (strcilt str str) bool))
-  (predicate (result-of (strcile str str) bool))
-  (predicate (result-of (strcigt str str) bool))
-  (predicate (result-of (strcige str str) bool))
-
-  (predicate (result-of (str2list str) (list char)))
+  (predicate (result-of (concat . Strs) str) (all str Strs))
   (predicate (result-of (str2num str) (maybe num)))
 }
 
+extern identifier!(list->string) as str(list(char)) -> str
+
 // STRING + STRING -> str
 //
-// Concatenate two strings
-s1 + s2 = strcat(s1, s2)
+// Concatenate strings
+s1 + s2 = concat(s1, s2)
 
 // STRING[INDEX] -> char
 //
 // String element access
-extern identifier!(string-ref)(str, num) -> char
-s::str[k::num] = identifier!(string-ref)(s, k)
+extern identifier!(string-ref) as identifier!(osl#ref)(str, num) -> char
+extern identifier!(string-set!) as identifier!(osl#set)(str, num, char) -> void
 
-extern identifier!(substring) as __substring(str, num, num) -> str
 substr(s str, start num, end num) = {
+  extern substring(str, num, num) -> str
+
   if start < 0 then
     set start = length(s) + start
   if end < 0 then
     set end = length(s) + end
-  return __substring(s, start, end)
+  return substring(s, start, end)
 }
-
 s::str[r::range(num)] = substr(s, r#start, r#end)
-
-extern identifier!(string-set!)(str, num, char) -> void
-set s::str[k::num] = c = identifier!(string-set!)(s, k, c)
-
 
 // STRING <cmp-op> STRING -> bool
 //
 // String comparison operators
-s1 == s2 = streq(s1, s2)
-s1 != s2 = not streq(s1, s2)
-s1 < s2 = strlt(s1, s2)
-s1 > s2 = strgt(s1, s2)
-s1 <= s2 = strle(s1, s2)
-s1 >= s2 = strge(s1, s2)
+extern identifier!(string=?) as (==) (str, str) -> bool
+s1::str != s2::str = not (s1 == s2)
+extern identifier!(string<?) as (<) (str, str) -> bool
+extern identifier!(string>?) as (>) (str, str) -> bool
+extern identifier!(string<=?) as (<=) (str, str) -> bool
+extern identifier!(string>=?) as (>=) (str, str) -> bool
 
 // lenght(STRING) -> num
 //
 // String length
-length(s str) = strlen(s)
+extern identifier!(string-length) as length(str) -> num
 
 str(s str) = s
-parse(s str) = Some(s)
-list(s str) = str2list(s)
-parse(s str) = str2num(s)
-num(s str) = str2num(s).expect("Not a number")
+extern identifier!(string->list) as list(str) -> list(char)
+num (s str) = {
+  extern identifier!(string->number) as str2num(str) -> num?
+  return if let n = str2num(s) then *n else 0
+}
 extern identifier!(integer->char) as char(num) -> char
 extern identifier!(char->integer) as num(char) -> num
 
@@ -114,9 +74,3 @@ extern identifier!(char->integer) as num(char) -> num
 // SUFFIX defaults to "\n".
 extern identifier!(string-chomp) as chomp(str) -> str
 extern identifier!(string-chomp) as chomp(str, str) -> str
-
-join(it, sep str) =
-  match next(it) in
-  | Some(x) -> it.foldl(x, (acc, x) => acc + sep + x)
-  | otherwize -> ""
-
