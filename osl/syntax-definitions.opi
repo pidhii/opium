@@ -56,7 +56,7 @@
       (syntax-rules ()
         ((_ x) x)))))
 
-;; Optional values
+;; Optional
 (pragma scheme-translator
   (inline
     (define osl#unspecified)

@@ -37,7 +37,7 @@ extern cons as (:) (T, list(T)) -> list(T)
 ////////////////////////////////////////////////////////////////////////////////
 //                              call/cc
 //
-extern identifier!(call-with-current-continuation) as callcc(fn(fn(T) -> U) -> U) -> U
+extern identifier!(call-with-current-continuation) as callcc(fn(fn(T) -> U) -> T) -> T
 
 
 ////////////////////////////////////////////////////////////////////////////////

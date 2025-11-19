@@ -84,24 +84,22 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   //                             annotate-type
   const match asstypematch {list("annotate-type"),
                             list("annotate-type", "expr", dot, "types")};
-  append_rule(asstypematch, [this](const auto &ms) {
+  append_rule(asstypematch, [this, &counter](const auto &ms) {
     const value expr = ms.at("expr");
     const value types = ms.at("types");
 
     // Evaluate `expr` with target set to `type`
-    const value plexpr = ({
+    const value exprtgts = sym(std::format("AnnotateTargets{}", counter++));
+    const value newexpr = ({
       utl::state_saver _ {m_targets};
-      m_targets = types;
+      m_targets = exprtgts;
+      // m_targets = types;
       (*this)(expr);
     });
 
-    // Don't emit extra code for dummy target
-    if (m_targets == "_")
-      return plexpr;
-
-    // Otherwise, also bind current target with the `type`
+    const value coercion = list("coerce-list", exprtgts, types);
     const value bindtarget = list("=", m_targets, types);
-    return list("and", plexpr, bindtarget);
+    return list("and", newexpr, coercion, bindtarget);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
@@ -181,7 +179,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 if
   const match ifmatch {list("if"), list("if", "cond", "then", "else")};
-  append_rule(ifmatch, [this](const auto &ms) {
+  append_rule(ifmatch, [this, &counter](const auto &ms) {
     const value cond = ms.at("cond");
     const value thenbr = ms.at("then");
     const value elsebr = ms.at("else");
@@ -191,21 +189,46 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       utl::state_saver _ {m_targets};
       m_targets = list("bool", dot, "_");
       (*this)(cond);
-      // const value condtgt = sym(std::format("Cond{}", counter++));
-      // m_targets = list(condtgt, dot, "_");
-      // list("and", (*this)(cond), list("fast-coerce", condtgt, "bool"));
     });
 
-    const value newthen = (*this)(thenbr);
-    const value newelse = (*this)(elsebr);
+    const value thentgts = sym(std::format("ThenTargets{}", counter++));
+    const value elsetgts = sym(std::format("ElseTargets{}", counter++));
 
-    return list("and", newcond, newthen, newelse);
+    if (m_targets == "_")
+    {
+      const value newthen = (*this)(thenbr);
+      const value newelse = (*this)(elsebr);
+      return list("and", newcond, newthen, newelse);
+    }
+    else
+    {
+      const value newthen = ({
+        utl::state_saver _ {m_targets};
+        m_targets = thentgts;
+        (*this)(thenbr);
+      });
+
+      const value newelse = ({
+        utl::state_saver _ {m_targets};
+        m_targets = elsetgts;
+        (*this)(elsebr);
+      });
+
+      const value coercebranches =
+          list("if", list("and", list("coerce-list", thentgts, elsetgts),
+                                 list("=", m_targets, elsetgts)),
+                     True,
+                     list("and", list("coerce-list", elsetgts, thentgts),
+                                 list("=", m_targets, thentgts)));
+
+      return list("and", newcond, newthen, newelse, coercebranches);
+    }
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 if (no else-branch)
   const match ifnoelsematch {list("if"), list("if", "cond", "then")};
-  append_rule(ifnoelsematch, [this, &counter](const auto &ms) {
+  append_rule(ifnoelsematch, [this](const auto &ms, value fm) {
     // TODO: remove this '?'-related stuff from here (revert the changes), and
     //       it to a separate plugin
     const value cond = ms.at("cond");
@@ -213,14 +236,14 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
 
     // Since there is no <else> branch this expression is only valid with a
     // wildcard target (NOT ANYMORE)
-    // if (m_targets != "_")
-    // {
-    //   throw bad_code {
-    //       std::format(
-    //           "Can't evaluate else-less if-expression with exact target ({})",
-    //           m_targets),
-    //       fm};
-    // }
+    if (m_targets != "_")
+    {
+      throw bad_code {
+          std::format(
+              "Can't evaluate else-less if-expression with exact target ({})",
+              m_targets),
+          fm};
+    }
 
     // <cond> must evaluate into boolean
     const value newcond = ({
@@ -229,29 +252,8 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       (*this)(cond);
     });
 
-    value newthen;
-    if (m_targets != "_")
-    { // TODO: make this optional
-      // FIXME: this should be implemented elsewhere
-      const value thentgt = sym(std::format("ThenTarget{}", counter++));
-
-      newthen = ({
-        utl::state_saver _ {m_targets};
-        m_targets = list(thentgt, dot, "_");
-        (*this)(thenbr);
-      });
-
-      return list("and",
-        newcond,
-        newthen,
-        list("=", m_targets, list(list("?", thentgt)))
-      );
-    }
-    else
-    {
-      const value newthen = (*this)(thenbr);
-      return list("and", newcond, newthen);
-    }
+    const value newthen = (*this)(thenbr);
+    return list("and", newcond, newthen);
   });
 
 

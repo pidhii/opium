@@ -328,58 +328,22 @@ generate_record_type(opi::value typesign, opi::value fields, Output output,
 
 
 
-struct loop_unroller: public opi::osl::flow_unroller {
-  std::string loopname, varname;
-  opi::value breakform;
-
-  loop_unroller(const std::string &loopname, const std::string &varname,
-                opi::value breakform)
-  : loopname {loopname}, varname {varname}, breakform {breakform}
-  { }
-
-  std::pair<opi::osl::flow, opi::value>
-  make_return([[maybe_unused]] opi::value args) const override
-  {
-    throw opi::bad_code {"Unimplemented return from a loop"};
-  }
-
-  std::pair<opi::osl::flow, opi::value>
-  make_break([[maybe_unused]] opi::value args) const override
-  {
-    using namespace opi;
-    return {opi::osl::flow::branch, cons(breakform, args)};
-  }
-
-  std::pair<opi::osl::flow, opi::value>
-  make_continue([[maybe_unused]] opi::value args) const override
-  {
-    using namespace opi;
-    if (length(args) > 0)
-      throw opi::bad_code {"Invalid continue with arguments"};
-    return {opi::osl::flow::branch, list(sym(loopname), sym(varname))};
-  }
-};
-
-
 struct function_unroller: public opi::osl::flow_unroller {
+  using flow_unroller::flow_unroller;
+
   std::pair<opi::osl::flow, opi::value>
   make_return([[maybe_unused]] opi::value args) const override
   {
     using namespace opi;
-    const value expr = args == opi::nil ? list("void") : cons("values", args);
+
+    value expr;
+    if (args == opi::nil)
+      expr = list("void");
+    else if (length(args) == 1)
+      expr = car(args);
+    else
+      expr = cons("values", args);
     return {opi::osl::flow::branch, expr};
-  }
-
-  std::pair<opi::osl::flow, opi::value>
-  make_break([[maybe_unused]] opi::value args) const override
-  {
-    throw opi::bad_code {"Unimplemented break from a function"};
-  }
-
-  std::pair<opi::osl::flow, opi::value>
-  make_continue([[maybe_unused]] opi::value args) const override
-  {
-    throw opi::bad_code {"Unimplemented continue function"};
   }
 };
 
@@ -867,7 +831,7 @@ Stmt
       bindloc(define, @$);
       if (opi::ispair($3) and car($3) == "begin")
       {
-        function_unroller unroller;
+        function_unroller unroller {"return"};
         const value body = append(cdr($3), list(list("void")));
         const value unrolledbody = unroller.unroll_block(body, nil, nil).second;
         $$ = list(define, fixed_signature, dot, unrolledbody);
@@ -990,7 +954,7 @@ Lambda
 
 If
   : IF Expr THEN Expr ELSE Expr { $$ = list("if", list("bool", $2), $4, $6); }
-  | IF Expr THEN Expr { $$ = list("if", list("bool", $2), $4); }
+  | IF Expr THEN Expr { $$ = list("if", list("bool", $2), $4, list("osl#null")); }
 ;
 
 Match
@@ -1263,7 +1227,7 @@ Bind
     value lambdaexpr;
     if (ispair($6) and car($6) == "begin")
     {
-      function_unroller unroller;
+      function_unroller unroller {"return"};
       const value body = append(cdr($6), list(list("void")));
       const value unrolledbody = unroller.unroll_block(body, nil, nil).second;
       lambdaexpr = list(lambda, $3, dot, unrolledbody);

@@ -12,11 +12,7 @@ enum class flow {
 
 
 struct flow_unroller {
-  virtual std::pair<flow, value>
-  make_break(value args) const = 0;
-
-  virtual std::pair<flow, value>
-  make_continue(value args) const = 0;
+  flow_unroller(std::string_view return_name): m_return_name {return_name} { }
 
   virtual std::pair<flow, value>
   make_return(value args) const = 0;
@@ -27,6 +23,8 @@ struct flow_unroller {
   std::pair<flow, value>
   unroll_block(value exprs, value next, value acc) const;
 
+  private:
+  const std::string m_return_name;
 }; // struct opi::osl::flow_unroller
 
 } // namespace opi::osl

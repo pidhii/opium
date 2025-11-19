@@ -119,15 +119,7 @@ opi::osl::flow_unroller::unroll(value expr, value next) const
       }
       return {resflow, list("cases", exprs, dot, newclauses)};
     }
-    else if (form == "break")
-    {
-      return make_break(args);
-    }
-    else if (form == "continue")
-    {
-      return make_continue(args);
-    }
-    else if (form == "return")
+    else if (issym(form, m_return_name))
     {
       return make_return(args);
     }

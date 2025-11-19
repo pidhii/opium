@@ -19,10 +19,15 @@ macro if {
     | $pat -> $thenexpr
     | otherwize -> $elseexpr
   ]
+  // Short-hand option-valued match-expression
   [if let $expat:pat = $expr:expr then $expr:thenexpr] = [
     match $expr in
     | $pat -> $thenexpr
+    // | otherwize -> null
   ]
+  // Else-less option-valued if-expression
+  // NOTE: requires negative matching to avoid infinite re-match
+  // [if $expr:cond then $expr:thenexpr ^else] = [if $cond then $thenexpr else null]
 }
 
 // Short-hand for a sequence of if-else-if-else-... comparing against the same

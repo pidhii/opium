@@ -47,7 +47,7 @@ getopt(argv, optstring str) = generator {
   }
 
   for i in getoptind() : argc do
-    yield pack(0, if true then argv[i]) // FIXME
+    yield pack(0, argv[i] :: str?)
 
   // NOTE: Releasing memory results in subsequent calls to (c_)getopt to produce
   // garbage. Resetting `optind` does not help. As the observed behaviour is 

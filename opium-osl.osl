@@ -113,7 +113,7 @@ compile_scheme(scm_filename, output_filename) =
   info("compiling Scheme script with Chicken compiler")
   compile_flags = "-strict-types -o " + output_filename + " " + compile_target
   if optimize then
-    set compile_flags = compile_flags + " -O5 -local -no-bound-checks -no-procedure-checks -no-argc-checks"
+    set compile_flags = compile_flags + " -O5 -local -no-bound-checks -no-procedure-checks -no-argc-checks -d0"
   command = "chicken-csc " + compile_flags + " " + scm_filename
   if verbose then
    info("csc command: " + command)
