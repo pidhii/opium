@@ -116,7 +116,7 @@ template <opi::unbound_variable_handler UVHandle>
 opi::value
 opi::reconstruct(cell *x, UVHandle uvhandler)
 {
-  execution_timer _ {"reconstruct()"};
+  OPI_FUNCTION_BENCHMARK
   return opi::detail::_reconstructor<std::remove_cvref_t<UVHandle>> {uvhandler}
       ._reconstruct(x);
 }
@@ -126,7 +126,7 @@ template <opi::unbound_variable_handler UVHandle>
 opi::value
 opi::reconstruct(value x, UVHandle uvhandler)
 {
-  execution_timer _ {"reconstruct()"};
+  OPI_FUNCTION_BENCHMARK
   return detail::_reconstructor<std::remove_cvref_t<UVHandle>> {uvhandler}
       ._reconstruct(x);
 }

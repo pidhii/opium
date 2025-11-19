@@ -1,3 +1,4 @@
+require "optional"
 
 macro if {
   // If statements with variable binding inside condition
@@ -20,10 +21,13 @@ macro if {
     | otherwize -> $elseexpr
   ]
   // Short-hand option-valued match-expression
+  // FIXME: Hacked to forece result into optional while staying compliant with
+  // flow unroller in case of internal return-statements. Use type annotation
+  // instead after enabeling support in flow unroller.
   [if let $expat:pat = $expr:expr then $expr:thenexpr] = [
     match $expr in
-    | $pat -> $thenexpr
-    // | otherwize -> null
+    | $pat -> if true then $thenexpr else null
+    | otherwize -> null
   ]
   // Else-less option-valued if-expression
   // NOTE: requires negative matching to avoid infinite re-match

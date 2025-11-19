@@ -92,7 +92,7 @@ template <std::output_iterator<value> Output>
 void
 _gather_literals(value x, Output output) noexcept
 {
-  if (issym(x) and x != "_" and std::islower(sym_name(x)[0]))
+  if (issym(x) and x != "_" and not std::isupper(sym_name(x)[0]))
     *output++ = x;
   else if (ispair(x))
   {
