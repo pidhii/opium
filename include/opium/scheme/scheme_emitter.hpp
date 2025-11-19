@@ -22,10 +22,7 @@
 #include "opium/code_transformer.hpp"
 #include "opium/scheme/scheme_code_transformer.hpp"
 #include "opium/scheme/scheme_emitter_context.hpp"
-#include "opium/scheme/scheme_type_system.hpp"
 #include "opium/value.hpp"
-
-#include <iterator>
 
 
 namespace opi {
@@ -35,11 +32,11 @@ struct ambiguous_type_error: code_transformation_error {
   using code_transformation_error::code_transformation_error;
 };
 
-using query_result =
+using type_bindings =
     opi::stl::unordered_map<value, opi::stl::unordered_set<value>>;
 
 struct scheme_emitter {
-  scheme_emitter(scheme_emitter_context &ctx, query_result &query);
+  scheme_emitter(scheme_emitter_context &ctx, type_bindings &query);
 
   template <std::output_iterator<value> ExprOutput>
   void
@@ -71,7 +68,7 @@ struct scheme_emitter {
 
   private:
   const value m_dont_emit_symbol;
-  const query_result &m_query_result;
+  const type_bindings &m_type_bindings;
   ext_scheme_code_transformer m_transformer;
   scheme_emitter_context &m_ctx;
 }; // class opi::scheme_emitter

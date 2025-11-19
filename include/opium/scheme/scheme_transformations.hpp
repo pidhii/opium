@@ -111,6 +111,55 @@ class scheme_preprocessor {
 static_assert(transformation<scheme_preprocessor>);
 
 
+struct code_type_map {
+  void
+  assign_type(value code, value type)
+  {
+    if (not m_data.emplace(&*code, type).second)
+    {
+      // Ignore clash if replacing with identical type anyways
+      const value oldtype = m_data.at(&*code);
+      if (type == oldtype)
+        return;
+
+      throw bad_code {
+          std::format("Can't link code to type (duplicate code object); would "
+                      "replace '{}' with '{}'",
+                      oldtype, type),
+          code};
+    }
+  }
+
+  bool
+  code_type(value code, value &type) const noexcept
+  {
+    const auto it = m_data.find(&*code);
+
+    // Check if code object is present in the map
+    if (it == m_data.end())
+      return false;
+
+    // Return associated type
+    type = it->second;
+    return true;
+  }
+
+  value
+  code_type(value code) const
+  {
+    value result = nil;
+    if (code_type(code, result))
+      return result;
+    throw bad_code {
+        std::format("No type associated to code object"), code};
+  }
+
+  private:
+  stl::unordered_map<void *, value> m_data; /**< Associations between input
+                                                symbols and generated
+                                                typenames */
+};
+
 class scheme_to_prolog: public code_transformer {
   public:
   struct unknown_identifier: public code_transformation_error {
@@ -121,9 +170,7 @@ class scheme_to_prolog: public code_transformer {
     using code_transformation_error::code_transformation_error;
   }; // struct opi::scheme_to_prolog::duplicate_code_objects
 
-  using type_format_string = std::format_string<std::string>;
-
-  scheme_to_prolog(size_t &counter, type_format_string format = "T:{}");
+  scheme_to_prolog(size_t &counter, code_type_map &code_types);
 
   static void
   setup_prolog(prolog &pl);
@@ -138,19 +185,7 @@ class scheme_to_prolog: public code_transformer {
   value
   to_type(value atom, bool resolve_symbols, CodeOutput code_output);
 
-  bool
-  find_code_type(value code, value &type) const noexcept;
-
-  value
-  find_code_type(value code) const;
-
   protected:
-  /**
-   * Link a code-object (usually identifier) with generated type identifier
-   */
-  void
-  _link_code_to_type(value code, value type);
-
   value
   _create_template(value param_symbols, value resul_symbolt, value body);
 
@@ -165,15 +200,12 @@ class scheme_to_prolog: public code_transformer {
   _require_symbol(value ident, CodeOutput code_output, bool lvalue = false);
 
   private:
-  type_format_string m_type_format;
-  bool m_is_template;
   value m_targets;
   value m_alist;
   value m_global_alist;
-  symbol_generator m_lambda_gensym;
-  stl::unordered_map<void *, value> m_type_map; /**< Associations between input
-                                                     symbols and generated
-                                                     typenames */
+  code_type_map &m_ctm;
+  symbol_generator m_typevargen;
+  symbol_generator m_termgen;
 }; // class opi::scheme_to_prolog
 
 

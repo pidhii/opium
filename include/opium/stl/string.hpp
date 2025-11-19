@@ -27,5 +27,6 @@
 namespace opi::stl {
 
 using string = std::basic_string<char, std::char_traits<char>, gc_allocator<char>>;
+using u8string = std::basic_string<char8_t, std::char_traits<char8_t>, gc_allocator<char8_t>>;
 
 } // namespace opi::stl

@@ -51,7 +51,7 @@ struct _compare_symbols {
     if (not opi::issym(a) or not opi::issym(b))
       throw bad_code {
           std::format("expected symbols, got {} < {}", a, b), a};
-    return std::strcmp(a->sym.data, b->sym.data) < 0;
+    return sym_name(a) < sym_name(b);
   }
 }; // class opi::detail::_compare
 

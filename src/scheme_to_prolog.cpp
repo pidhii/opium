@@ -58,20 +58,19 @@ opi::scheme_to_prolog::setup_prolog(prolog &pl)
             (call Body))"_lisp);
 }
 
-opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
-                                        type_format_string format)
-: m_type_format {format},
-  m_is_template {false},
-  m_targets {"_"},
+opi::scheme_to_prolog::scheme_to_prolog(size_t &counter, code_type_map &code_types)
+: m_targets {"_"},
   m_alist {nil},
   m_global_alist {nil},
-  m_lambda_gensym {counter, "Lambda{}"}
+  m_ctm {code_types},
+  m_typevargen {counter, "Osl_typevar{}"},
+  m_termgen {counter, "osl_term{}"}
 {
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                            inline-prolog
-  const match tchmatch {list("pragma", "inline-prolog"),
-                        list("pragma", "inline-prolog", dot, "statements")};
-  append_rule(tchmatch, [](const auto &ms) {
+  const match inlplmatch {list("pragma", "inline-prolog"),
+                          list("pragma", "inline-prolog", dot, "statements")};
+  append_rule(inlplmatch, [](const auto &ms) {
     return cons("and", ms.at("statements"));
   });
 
@@ -84,12 +83,12 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   //                             annotate-type
   const match asstypematch {list("annotate-type"),
                             list("annotate-type", "expr", dot, "types")};
-  append_rule(asstypematch, [this, &counter](const auto &ms) {
+  append_rule(asstypematch, [this](const auto &ms) {
     const value expr = ms.at("expr");
     const value types = ms.at("types");
 
     // Evaluate `expr` with target set to `type`
-    const value exprtgts = sym(std::format("AnnotateTargets{}", counter++));
+    const value exprtgts = m_typevargen();
     const value newexpr = ({
       utl::state_saver _ {m_targets};
       m_targets = exprtgts;
@@ -179,7 +178,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 if
   const match ifmatch {list("if"), list("if", "cond", "then", "else")};
-  append_rule(ifmatch, [this, &counter](const auto &ms) {
+  append_rule(ifmatch, [this](const auto &ms) {
     const value cond = ms.at("cond");
     const value thenbr = ms.at("then");
     const value elsebr = ms.at("else");
@@ -191,8 +190,8 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
       (*this)(cond);
     });
 
-    const value thentgts = sym(std::format("ThenTargets{}", counter++));
-    const value elsetgts = sym(std::format("ElseTargets{}", counter++));
+    const value thentgts = m_typevargen();
+    const value elsetgts = m_typevargen();
 
     if (m_targets == "_")
     {
@@ -405,11 +404,10 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     assert(sym_name(ident)[0] != '_' and not isupper(sym_name(ident)[0]) &&
            "Tempalte identifiers can't look like Prolog variables");
     const value proxyvar = _generate_type_and_copy_location(ident);
-    _link_code_to_type(fm, proxyvar);
+    m_ctm.assign_type(fm, proxyvar);
 
     // Will revert a-list from any changes after this point.
-    utl::state_saver _ {m_alist, m_targets, m_is_template};
-    m_is_template = true;
+    utl::state_saver _ {m_alist, m_targets};
 
     // Mark beginning of the nesting by inserting a NIL value into the alist
     m_alist = cons(nil, m_alist);
@@ -455,7 +453,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               lambda
   const match lambdamatch {list("lambda"), list("lambda", "params", dot, "body")};
-  append_rule(lambdamatch, [this, &counter](const auto &ms, value fm) {
+  append_rule(lambdamatch, [this](const auto &ms, value fm) {
     const value params = ms.at("params");
     const value body = ms.at("body");
 
@@ -463,8 +461,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value targets = m_targets;
 
     // Will revert a-list from any changes after this point
-    utl::state_saver _ {m_alist, m_targets, m_is_template};
-    m_is_template = true;
+    utl::state_saver _ {m_alist, m_targets};
 
     // Mark beginning of the nesting by inserting a NIL value into the alist
     m_alist = cons(nil, m_alist);
@@ -486,16 +483,16 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value plbody = transform_block(body);
 
     // Generate unique identifier for this lambda
-    const value lambdaname = sym(std::format("anonymous-lambda.{}", counter++));
+    const value lambdaname = m_termgen();
     const value functemplate =
         list("quasiquote", list("#dynamic-function-dispatch", lambdaname,
                                 plparams, plresults, plbody));
 
-    const value proxyvar = m_lambda_gensym();
+    const value proxyvar = m_typevargen();
 
     // TODO: this is ugly
-    _link_code_to_type(fm, proxyvar);
-    _link_code_to_type(car(fm), car(targets)); // FIXME
+    m_ctm.assign_type(fm, proxyvar);
+    m_ctm.assign_type(car(fm), car(targets)); // FIXME
 
     return list("and", list("=", proxyvar, functemplate),
                 list("insert-cells", list(proxyvar), targets));
@@ -577,7 +574,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
   //                                set!
   // TODO: set current target to some dedicated "undefined" type
   const match setmatch {list("set!"), list("set!", "ident", "expr")};
-  append_rule(setmatch, [this, &counter](const auto &ms, value fm) {
+  append_rule(setmatch, [this](const auto &ms, value fm) {
     const value ident = ms.at("ident");
     const value expr = ms.at("expr");
 
@@ -595,7 +592,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter,
     const value identtype = _require_symbol(ident, std::back_inserter(tape));
 
     // Evaluate `expr`
-    const value exprresult = sym(std::format("SetProxy_{}", counter++));
+    const value exprresult = m_typevargen();
     m_targets = list(exprresult, dot, "_");
     const value plexpr = (*this)(expr);
     tape.push_back(plexpr);
@@ -709,31 +706,6 @@ opi::scheme_to_prolog::transform_block(value block)
 }
 
 
-bool
-opi::scheme_to_prolog::find_code_type(value code, value &type) const noexcept
-{
-  const auto it = m_type_map.find(&*code);
-
-  // Check if code object is present in the map
-  if (it == m_type_map.end())
-    return false;
-
-  // Return associated type
-  type = it->second;
-  return true;
-}
-
-
-opi::value
-opi::scheme_to_prolog::find_code_type(opi::value code) const
-{
-  value result = nil;
-  if (find_code_type(code, result))
-    return result;
-  throw bad_code {
-      std::format("No type associated to code object"), code};
-}
-
 void
 opi::scheme_to_prolog::add_global(value ident, value type)
 {
@@ -753,31 +725,13 @@ opi::scheme_to_prolog::add_global(value ident, value type)
   m_global_alist = cons(cons(ident, type), m_global_alist);
 }
 
-void
-opi::scheme_to_prolog::_link_code_to_type(value code, value type)
-{
-  if (not m_type_map.emplace(&*code, type).second)
-  {
-    // Ignore clash if replacing with identical type anyways
-    const value oldtype = m_type_map.at(&*code);
-    if (type == oldtype)
-      return;
-
-    throw duplicate_code_objects {
-        std::format("Can't link code to type (duplicate code object); would "
-                    "replace '{}' with '{}'",
-                    oldtype, type),
-        code};
-  }
-}
-
 
 std::string
 opi::scheme_to_prolog::_type_name_for(value ident) const
 { 
   if (not issym(ident))
     throw bad_code {std::format("Not a symbol: {}", ident), ident};
-  return std::format(m_type_format, std::string(sym_name(ident)));
+  return std::format("T:{}", sym_name(ident));
 }
 
 
@@ -786,7 +740,7 @@ opi::scheme_to_prolog::_generate_type_and_copy_location(value ident)
 {
   const value type = sym(_type_name_for(ident));
   copy_location(ident, type);
-  _link_code_to_type(ident, type);
+  m_ctm.assign_type(ident, type);
   return type;
 }
 
@@ -865,10 +819,9 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out, bool lvalue)
       if (lvalue)
         throw bad_code {std::format("Not an lvalue: {}", ident), ident};
 
-      static size_t counter = 0;
-      const value proxy = sym(std::format("Instance_{}", counter++));
+      const value proxy = m_typevargen();
       const value functemplate = _quote_unquote_times(cdr(type), nlevelsabove);
-      const value tmp = sym(std::format("Tmp_{}", counter++));
+      const value tmp = m_typevargen();
       code = list(
         list("=", tmp, functemplate),
         list("if", list("nonvar", tmp),
@@ -894,18 +847,19 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out, bool lvalue)
   switch (variants.size())
   {
     case 0:
-      throw bad_code {std::format("No such symbol, {}", ident), ident};
+      // throw bad_code {std::format("No such symbol, {}", ident), ident};
+      m_ctm.assign_type(ident, ident);
+      return ident;
 
     case 1:
-      _link_code_to_type(ident, variants[0].type);
+      m_ctm.assign_type(ident, variants[0].type);
       std::ranges::copy(range(variants[0].code), out);
       return variants[0].type;
 
     default: {
       // Crate or-expression running over the variants
-      static size_t counter = 0;
-      const value tmpvar = sym(std::format("OverloadProxy_{}", counter++));
-      _link_code_to_type(ident, tmpvar);
+      const value tmpvar = m_typevargen();
+      m_ctm.assign_type(ident, tmpvar);
       copy_location(ident, tmpvar);
 
       value clauses = nil;
@@ -964,6 +918,6 @@ opi::scheme_to_prolog::to_type(value atom, bool resolve_symbols, CodeOutput out)
   }
 
   copy_location(atom, result);
-  _link_code_to_type(atom, result);
+  m_ctm.assign_type(atom, result);
   return result;
 }

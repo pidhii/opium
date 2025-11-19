@@ -12,7 +12,6 @@ d, e, f = bar()
 assert { a::num b::num c::str }
 println("d=", d, ", e=", e, ", f=", f)
 
-// `return <expr>` does not care how many values expr emits
 baz() = { return values(1, 2, 3) }
-assert not { g, h, i = baz() }
-assert { baz() :: num }
+g, h, i = baz()
+println(g, " ", h, " ", i)

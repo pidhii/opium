@@ -51,21 +51,21 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
       break;
 
     case tag::boolean:
-      os << (val->boolean ? "#t" : "#f");
+      os << (val == True ? "#t" : "#f");
       break;
 
     case tag::sym:
       if (mode == mode::write)
         os << '\'';
-      os.write(val->sym.data, val->sym.len);
+      os << sym_name(val);
       break;
 
     case tag::str:
       if (mode != mode::display)
         os << '"';
-      for (size_t i = 0; i < val->sym.len; ++i)
+      for (size_t i = 0; i < str_view(val).size(); ++i)
       {
-        const char c = val->str.data[i];
+        const char c = str_view(val)[i];
         switch (c)
         {
           case '"':
@@ -94,11 +94,11 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
       break;
 
     case tag::num:
-      os << val->num;
+      os << num_val(val);
       break;
 
     case tag::ptr:
-      os << val->ptr;
+      os << ptr_val(val);
       break;
 
     case tag::pair: {

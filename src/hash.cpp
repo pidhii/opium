@@ -10,15 +10,15 @@ _hash(const opi::value &x, [[maybe_unused]] std::unordered_set<void*> &mem)
   switch (opi::tag(x))
   {
     case opi::tag::nil: return 0;
-    case opi::tag::sym: return std::hash<size_t> {}(size_t(x->sym.data));
-    case opi::tag::str: return cstrhash({x->str.data, x->str.len});
-    case opi::tag::num: return std::hash<long double> {}(x->num);
-    case opi::tag::ptr: return std::hash<void *> {}(x->ptr);
-    case opi::tag::boolean: return std::hash<bool> {}(x->boolean);
+    case opi::tag::sym: return std::hash<size_t> {}(size_t(sym_name(x).data()));
+    case opi::tag::str: return cstrhash(str_view(x));
+    case opi::tag::num: return std::hash<long double> {}(num_val(x));
+    case opi::tag::ptr: return std::hash<void *> {}(ptr_val(x));
+    case opi::tag::boolean: return std::hash<bool> {}(x == opi::True);
     case opi::tag::pair: {
 #ifdef OPIUM_HASH_CACHING
-      size_t hash = car(x)->hash;
-      hash ^= cdr(x)->hash + 0x9e3779b9 + (hash<<6) + (hash>>2);
+      size_t hash = chash(car(x));
+      hash ^= chash(cdr(x)) + 0x9e3779b9 + (hash<<6) + (hash>>2);
 #else
       if (not mem.emplace(&*x).second)
         return 0;

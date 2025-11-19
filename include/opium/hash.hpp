@@ -42,7 +42,7 @@ struct hash<opi::value> {
   operator () (const opi::value &x) const noexcept
   {
 #ifdef OPIUM_HASH_CACHING
-    return x->hash;
+    return chash(x);
 #else
     return opi::hash(x);
 #endif

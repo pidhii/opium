@@ -19,8 +19,9 @@
 
 #pragma once
 
-#include "opium/scheme/scheme_transformations.hpp"
 #include "opium/prolog.hpp"
+#include "opium/scheme/scheme_transformations.hpp"
+#include "opium/stl/deque.hpp"
 #include "opium/value.hpp"
 
 
@@ -51,7 +52,7 @@ struct case_to_scheme {
 
 
 struct scheme_emitter_context {
-  scheme_emitter_context(const prolog &pl, const scheme_to_prolog &pl_emitter,
+  scheme_emitter_context(const prolog &pl, const code_type_map &ctm,
                          code_tape &output);
 
   scheme_emitter_context(scheme_emitter_context &parent, code_tape &output);
@@ -114,9 +115,9 @@ struct scheme_emitter_context {
   /**
    * Get reference to the prolog emitter
    */
-  const scheme_to_prolog &
-  prolog_emitter() const
-  { return m_prolog_emitter; }
+  const code_type_map &
+  ctm() const
+  { return m_code_types; }
 
 private:
   code_tape_output m_output; /**< Output tape for supplementary code */
@@ -128,14 +129,14 @@ private:
   opi::stl::unordered_map<value /* code tag */, function_template> m_templates;
 
   /** Cache for produced template specializations */
-  opi::stl::unordered_map<value /* type */, value /* function identifier */>
+  opi::stl::deque<std::pair<value /* type */, value /* function identifier */>>
       m_specializations;
 
   /** Rules on handling matching in cases expressions */
   opi::stl::deque<case_to_scheme> m_cases_rules;
 
   const prolog &m_pl; /**< Storage for predicates */
-  const scheme_to_prolog &m_prolog_emitter; /**< Storage for type info */
+  const code_type_map &m_code_types;
 
   scheme_emitter_context &m_parent;
 }; // struct opi::scheme_emitter_context

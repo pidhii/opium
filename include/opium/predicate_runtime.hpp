@@ -142,6 +142,27 @@ struct ignore_unbound_variables_t {
 static_assert(unbound_variable_handler<ignore_unbound_variables_t>);
 constexpr ignore_unbound_variables_t ignore_unbound_variables;
 
+struct clone_unbound_variables_t {
+  value
+  operator () (cell *x)
+  {
+    cell *xrepr = find(x);
+    const auto it = m_mem.find(xrepr);
+    if (it == m_mem.end())
+    {
+      cell *xref = make_variable();
+      m_mem[xrepr] = xref;
+      return cons(cell_tag, ptr(xref));
+    }
+    else
+      return cons(cell_tag, ptr(it->second));
+  }
+
+  private:
+  stl::unordered_map<const cell*, cell*> m_mem;
+}; // struct opi::throw_on_unbound_variable
+static_assert(unbound_variable_handler<clone_unbound_variables_t>);
+
 
 /**
  * Reconstruct value produced during prolog query from an explicit cell

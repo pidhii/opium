@@ -60,6 +60,14 @@ if (OPIUM_BLOCK_BENCHMARKS)
   add_compile_definitions (OPI_BLOCK_BENCHMARKS_ENABLED)
 endif (OPIUM_BLOCK_BENCHMARKS)
 
+# Prolog stack configuration
+set (OPIUM_PROLOG_STACK_SIZE_PG 5000 CACHE STRING
+     "Size (in pages) for the dynamic stack of CPS-Prolog interpreter")
+set (OPIUM_STACK_UNTOUCHABLE_PAGES 10 CACHE STRING
+     "Number of pages before the end of the stack when new stack will to be allocated")
+add_compile_definitions (OPI_PROLOG_STACK_SIZE_PG=${OPIUM_PROLOG_STACK_SIZE_PG})
+add_compile_definitions (OPI_N_UNTOUCHABLE_PAGES=${OPIUM_STACK_UNTOUCHABLE_PAGES})
+
 # Create an object library for all source files
 file (GLOB src_files src/*.cpp)
 add_library (opium_objects OBJECT ${src_files})

@@ -100,7 +100,7 @@ struct _reconstructor {
       }
 
       if (ispair(x) and opi::is(car(x), opi::cell_tag))
-        return append_mut(result, _reconstruct(static_cast<opi::cell *>(cdr(x)->ptr)));
+        return append_mut(result, _reconstruct(static_cast<opi::cell *>(ptr_val(cdr(x)))));
       else
         return append_mut(result, x);
     }

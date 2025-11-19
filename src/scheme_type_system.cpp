@@ -24,7 +24,6 @@
 #include "opium/scheme/scheme_emitter.hpp"
 #include "opium/source_location.hpp"
 #include "opium/utilities/execution_timer.hpp"
-#include <optional>
 
 
 opi::value
@@ -32,28 +31,27 @@ opi::generate_function_template_body(scheme_emitter_context &ctx,
                                      value instantiation, value type_template,
                                      value ppbody)
 {
-
   assert(ispair(instantiation));
   assert(issym(car(instantiation), "#dynamic-function-dispatch"));
 
   predicate_runtime prt;
-  execution_timer t1 {"match function instantiation on template"};
-  if (not match_arguments(prt, insert_cells(prt, type_template), instantiation, true))
-  {
-    error("failed to match instantion on template");
-    error("template:       {}",
-          car(cdr(reconstruct(type_template, stringify_unbound_variables))));
-    error("specialization: {}",
-          car(cdr(reconstruct(instantiation, stringify_unbound_variables))));
-    throw bad_code {"Template specialization failure"};
-  }
-  t1.stop();
+  OPI_BLOCK_BENCHMARK("match function instantiation on template", {
+    if (not match_arguments(prt, insert_cells(prt, type_template), instantiation))
+    {
+      error("failed to match instantion on template");
+      error("template:       {}",
+            car(cdr(reconstruct(type_template, stringify_unbound_variables))));
+      error("specialization: {}",
+            car(cdr(reconstruct(instantiation, stringify_unbound_variables))));
+      throw bad_code {"Template specialization failure"};
+    }
+  })
 
-  query_result results;
-  execution_timer t2 {"reconstruct function instantiation types"};
-  for (const value varname : prt.variables())
-    results[varname].emplace(reconstruct(prt[varname]));
-  t2.stop();
+  type_bindings results;
+  OPI_BLOCK_BENCHMARK("reconstruct function instantiation types", {
+    for (const value varname : prt.variables())
+      results[varname].emplace(reconstruct(prt[varname], ignore_unbound_variables));
+  })
 
   stl::deque<value> tape;
   scheme_emitter emitter {ctx, results};
@@ -67,20 +65,6 @@ opi::generate_function_template_body(scheme_emitter_context &ctx,
 opi::value
 opi::instantiate_function_template(scheme_emitter_context &ctx, value type)
 {
-  if (not ispair(type))
-  {
-    // TODO/FIXME: typically happens during negative assetions, so don't print
-    // error unless the type is <any>
-    if (type != "<any>")
-    {
-      error("Can't create template function specialization.\n"
-            "Expected #dynamic-function-dispatch structure, got {}", type);
-      source_location location;
-      if (get_location(type, location))
-        error("{}", display_location(location));
-    }
-    throw bad_code {"Can't create template function specialization.", type};
-  }
   assert(ispair(type));
   assert(issym(car(type), "#dynamic-function-dispatch"));
 
@@ -129,19 +113,8 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode,
 {
   predicate_runtime prt;
 
-  // Tracing of non-terminal variables
-  opi::stl::unordered_set<cell *> maybe_nonterminal;
-  auto trace_nonterminals = [&](predicate_runtime &, cell *c) {
-    maybe_nonterminal.insert(c);
-  };
-
   // Saving query results
-  // Helper functions the check if cell corresponds to non-terminal variable
-  auto isnonterminal = [&maybe_nonterminal](cell *c) {
-    return std::any_of(maybe_nonterminal.begin(), maybe_nonterminal.end(),
-                       [c](cell *x) { return find(c) == find(x); });
-  };
-  query_result results;
+  type_bindings results;
   bool success = false;
   auto save_results = [&]() {
     success = true;
@@ -149,14 +122,7 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode,
     {
       // Reconstruct variable value
       execution_timer timer {"reconstruct query results"};
-      const value cval = reconstruct(prt[varname], [&](cell *c) {
-        // Store different markers for unbound terminal and non-terminal vars
-        // FIXME: breaks matching during template specialization
-        if (isnonterminal(c))
-          return "<nonterminal>";
-        else
-          return "<any>";
-      });
+      const value cval = reconstruct<clone_unbound_variables_t>(prt[varname]);
       timer.stop();
       results[varname].insert(cval);
     }
@@ -169,9 +135,9 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode,
     opi::utl::state_saver _ {g_propagate_locations_on_cons};
     g_propagate_locations_on_cons = false;
     if (guide.has_value())
-      ctx.pl().make_true(cellularized, save_results, trace_nonterminals, *guide);
+      ctx.pl().make_true(cellularized, save_results, *guide);
     else
-      ctx.pl().make_true(cellularized, save_results, trace_nonterminals);
+      ctx.pl().make_true(cellularized, save_results);
   }
   query_timer.stop();
   query_timer.report();
@@ -186,7 +152,7 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode,
       //       before the unwind
       throw typecheck_failure {
           "Prolog query failed (use -fIgnoreFailedQuery to ignore)",
-          build_type_location_map(ctx.prolog_emitter(), ppcode)};
+          build_type_location_map(ctx.ctm(), ppcode)};
     }
   }
   else
@@ -200,7 +166,7 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode,
 
   // Build the type location map
   scheme_type_location_map type_map =
-      build_type_location_map(ctx.prolog_emitter(), ppcode);
+      build_type_location_map(ctx.ctm(), ppcode);
   type_map.substitute_type_aliases(results);
 
   return {list(tape), type_map};
@@ -212,7 +178,7 @@ opi::pretty_template_instance_name(value type, std::ostream &os)
 {
   if (type == nil)
   {
-    os << "<>";
+    os << "nil";
     return;
   }
 

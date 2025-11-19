@@ -55,7 +55,7 @@ namespace opi {
  * \ingroup memory
  */
 template <typename T, typename ...Args>
-T*
+[[nodiscard]] T*
 make(Args&& ...args)
 {
   T* obj = static_cast<T*>(GC_malloc(sizeof(T)));
@@ -77,7 +77,7 @@ make(Args&& ...args)
  * \ingroup memory
  */
 template <typename T, typename ...Args>
-T*
+[[nodiscard]] T*
 make_atomic(Args&& ...args)
 {
   T* obj = static_cast<T*>(GC_malloc_atomic(sizeof(T)));
@@ -93,7 +93,7 @@ make_atomic(Args&& ...args)
  * 
  * \ingroup memory
  */
-inline void*
+[[nodiscard]] inline void*
 allocate(size_t size)
 { return GC_malloc(size); }
 
@@ -108,7 +108,7 @@ allocate(size_t size)
  * 
  * \ingroup memory
  */
-inline void*
+[[nodiscard]] inline void*
 allocate_atomic(size_t size)
 { return GC_malloc_atomic(size); }
 

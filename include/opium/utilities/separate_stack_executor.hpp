@@ -19,12 +19,17 @@ struct guarded_stack {
   { other.m_stack_owner = false; }
 
   void*
-  stack_pointer() const noexcept
+  stack() const noexcept
   { return m_eco_stack.stack; }
 
   size_t
   size() const noexcept
   { return m_eco_stack.stack_size; }
+
+  /** Can be used to test for running out of stack. */
+  void*
+  stack_high_end() const noexcept
+  { return m_eco_stack.stack; }
 
   ~guarded_stack()
   { if (m_stack_owner) eco_destroy_guarded_stack(&m_eco_stack); }
@@ -35,8 +40,8 @@ struct guarded_stack {
 
 
 struct separate_stack_executor {
-  separate_stack_executor(void *stack_pointer, size_t stack_size)
-  : m_stack_pointer {stack_pointer},
+  separate_stack_executor(void *stack, size_t stack_size)
+  : m_stack {stack},
     m_stack_size {stack_size}
   { }
 
@@ -81,7 +86,7 @@ struct separate_stack_executor {
     proxy_type proxy {funccopy};
 
     eco_t thisco, co;
-    eco_init(&co, &proxy_type::entry_point, &thisco, m_stack_pointer,
+    eco_init(&co, &proxy_type::entry_point, &thisco, m_stack,
              m_stack_size);
     eco_switch(&thisco, &co, (void **)&proxy, nullptr, nullptr);
     eco_cleanup(&co);
@@ -94,7 +99,7 @@ struct separate_stack_executor {
   }
 
   private:
-  void *m_stack_pointer;
+  void *m_stack;
   size_t m_stack_size;
 };
 

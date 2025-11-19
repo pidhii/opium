@@ -18,13 +18,15 @@
 
 
 #include "opium/scheme/scheme_emitter_context.hpp"
+#include "opium/predicate_runtime.hpp"
+#include "opium/scheme/scheme_transformations.hpp"
 
 
 opi::scheme_emitter_context::scheme_emitter_context(
-    const prolog &pl, const scheme_to_prolog &pl_emitter, code_tape &output)
+    const prolog &pl, const code_type_map &ctm, code_tape &output)
 : m_output {std::back_inserter(output)},
   m_pl {pl},
-  m_prolog_emitter {pl_emitter},
+  m_code_types {ctm},
   m_parent {*this}
 { }
 
@@ -33,7 +35,7 @@ opi::scheme_emitter_context::scheme_emitter_context(
     scheme_emitter_context &parent, code_tape &output)
 : m_output {std::back_inserter(output)},
   m_pl {parent.pl()},
-  m_prolog_emitter {parent.prolog_emitter()},
+  m_code_types {parent.ctm()},
   m_parent {parent}
 { }
 
@@ -77,7 +79,6 @@ opi::scheme_emitter_context::register_template(
   * \param type Specialization type
   * \param identifier Identifier of the specialized function
   */
-// TODO: move to a cpp file
 void
 opi::scheme_emitter_context::register_function_template_specialization(
     value tag, value type, value identifier)
@@ -87,9 +88,7 @@ opi::scheme_emitter_context::register_function_template_specialization(
         "Register specialization for non-existent template {}", tag)};
   assert(m_templates.contains(tag) and
           "Template and its specialization must belong to the same context");
-  [[maybe_unused]] const bool ok =
-      m_specializations.emplace(type, identifier).second;
-  assert(ok and "Failed to reigster template function specialization");
+  m_specializations.emplace_back(type, identifier);
 }
 
 
@@ -97,7 +96,10 @@ bool
 opi::scheme_emitter_context::find_function_template_speciailization(
     value type, value &identifier) const noexcept
 {
-  const auto it = m_specializations.find(type);
+  const auto it =
+      std::ranges::find_if(m_specializations, [&type](const auto &spec_ident) {
+        return equivalent_up_to_bindings(type, spec_ident.first);
+      });
   if (it == m_specializations.end())
     return false;
   identifier = it->second;

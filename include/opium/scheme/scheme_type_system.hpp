@@ -20,7 +20,6 @@
 #pragma once
 
 #include "opium/logging.hpp"
-#include "opium/predicate_runtime.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
 #include "opium/scheme/scheme_type_location_map.hpp"
 #include "opium/prolog.hpp"
@@ -30,6 +29,7 @@
 #include "opium/scheme/scheme_emitter_context.hpp"
 #include "opium/value.hpp"
 
+#include <exception>
 #include <fstream>
 #include <iterator>
 #include <ranges>
@@ -50,6 +50,18 @@ struct typecheck_failure: std::exception {
   std::string _what;
   scheme_type_location_map tlm;
 };
+
+
+struct interupt_emit: std::exception {
+  interupt_emit(std::string_view reason): reason {reason} { }
+
+  const char *
+  what() const noexcept
+  { return reason.c_str(); }
+
+  std::string reason;
+};
+
 
 std::pair<value, scheme_type_location_map>
 emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode,
@@ -102,7 +114,7 @@ _gather_literals(value x, Output output) noexcept
 }
 
 template <std::ranges::range Pragmas = std::initializer_list<value>>
-inline std::pair<value, scheme_type_location_map>
+static std::pair<value, scheme_type_location_map>
 translate_to_scheme(
     size_t &counter, const prolog &pl, value ppcode, Pragmas &&pragmas = {},
     const std::optional<prolog_guide_function> &guide = std::nullopt)
@@ -111,38 +123,9 @@ translate_to_scheme(
   opi::stl::unordered_map<value, value> ms;
 
   // Compose translator from Scheme to Prolog
-  scheme_to_prolog to_prolog {counter};
+  code_type_map code_types;
+  scheme_to_prolog to_prolog {counter, code_types};
   prolog_cleaner pl_cleaner;
-
-  // TODO: find a better way
-  int warned = false;
-  for (const auto &[predicatename, predicate] : pl.predicates())
-  {
-    if (predicatename == "result-of")
-    {
-      const value signature = car(cdr(predicate.signature()));
-      if (ispair(signature) and issym(car(signature)))
-      {
-        const value identifier = car(signature);
-
-        if (not warned++)
-          warning("extracting types from support predicates");
-        debug("add global: {}", identifier);
-        to_prolog.add_global(identifier, identifier);
-      }
-    }
-  }
-
-  const match matchdeclare {list("declare"), list("declare", "ident", "type")};
-  for (const value expr : pragmas)
-  {
-    if (ms.clear(), matchdeclare(expr, ms))
-    {
-      const value identifier = ms.at("ident");
-      const value type = ms.at("type");
-      to_prolog.add_global(identifier, type);
-    }
-  }
 
   execution_timer prolog_generation_timer {"Prolog generation"};
   const value plcode = list(range(to_prolog.transform_block(ppcode))
@@ -161,7 +144,7 @@ translate_to_scheme(
 
   // Translate the code to proper scheme
   opi::stl::vector<value> main_tape;
-  scheme_emitter_context ctx {pl, to_prolog, main_tape};
+  scheme_emitter_context ctx {pl, code_types, main_tape};
 
   // Process pragmas
   const match matchcasesrule {list("cases-rule"),

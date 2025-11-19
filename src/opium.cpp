@@ -9,10 +9,9 @@ using pragmas =
     opi::stl::unordered_map<std::string, opi::stl::deque<opi::value>>;
 
 
-opi::value
-_filter_pragmas(opi::value script, pragmas &pragmas)
+void
+_find_pragmas(opi::value script, pragmas &pragmas)
 {
-  opi::stl::vector<opi::value> result;
   opi::stl::unordered_map<opi::value, opi::value> matches;
   for (const opi::value expr : range(script))
   {
@@ -25,14 +24,7 @@ _filter_pragmas(opi::value script, pragmas &pragmas)
       const std::string tag {sym_name(car(cdr(expr)))};
       std::ranges::copy(range(cdr(cdr(expr))), std::back_inserter(pragmas[tag]));
     }
-    else
-    {
-      // Pass all other expressions
-      result.push_back(expr);
-    }
   }
-
-  return list(result);
 }
 
 
@@ -51,7 +43,7 @@ opi::apply_prolog_pragmas(opi::value opiprogram, opi::prolog_repl &pl)
 {
   // Collect and erase pragmas
   pragmas pragmas;
-  _filter_pragmas(opiprogram, pragmas);
+  _find_pragmas(opiprogram, pragmas);
 
   // Run extra prolog expressions
   for (const value plexpr : pragmas["prolog"])
@@ -68,7 +60,7 @@ opi::generate_scheme(opi::value in, opi::scheme_preprocessor &pp,
 
   // Collect and erase pragmas
   pragmas pragmas;
-  in = _filter_pragmas(in, pragmas);
+  _find_pragmas(in, pragmas);
 
   opi::execution_timer preprocessor_timer {"Preprocessor"};
   const value ppcode = pp.transform_block(in);
@@ -77,7 +69,7 @@ opi::generate_scheme(opi::value in, opi::scheme_preprocessor &pp,
   info("\e[1mrunning Type Check\e[0m");
   opi::execution_timer analyzer_timer {"Type analyzer"};
   size_t cnt = 0;
-  const auto [out, type_map] =
+  const auto [out, tlm] =
       translate_to_scheme(cnt, pl, ppcode, pragmas["scheme-translator"], guide);
   analyzer_timer.stop();
 

@@ -52,20 +52,19 @@ _equal(opi::value a, opi::value b, _memory_set &mem)
   switch (opi::tag(a))
   {
     case opi::tag::sym:
-      return a->sym.data == b->sym.data;
+      return sym_name(a).data() == sym_name(b).data();
 
     case opi::tag::nil:
       return true;
 
     case opi::tag::num:
-      return a->num == b->num;
+      return num_val(a) == num_val(b);
 
     case opi::tag::ptr:
-      return a->ptr == b->ptr;
+      return ptr_val(a) == ptr_val(b);
 
     case opi::tag::str:
-      return a->str.len == b->str.len and
-             std::strncmp(a->str.data, b->str.data, a->str.len) == 0;
+      return str_view(a) == str_view(b);
 
     case opi::tag::pair: {
       // Don't repeat test on same pairs of pairs (objects)
@@ -77,7 +76,7 @@ _equal(opi::value a, opi::value b, _memory_set &mem)
     }
 
     case opi::tag::boolean:
-      return a->boolean == b->boolean;
+      return &a == &b;
   }
 
   abort();
@@ -86,10 +85,10 @@ _equal(opi::value a, opi::value b, _memory_set &mem)
 bool
 opi::equal(value a, value b)
 {
-   OPI_FUNCTION_BENCHMARK
+  OPI_FUNCTION_BENCHMARK
 
 #ifdef OPIUM_HASH_CACHING
-  if (a->hash != b->hash)
+  if (chash(a) != chash(b))
     return false;
 #endif
   _memory_set mem;

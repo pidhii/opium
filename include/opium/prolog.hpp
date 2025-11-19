@@ -26,7 +26,6 @@
 #include "opium/stl/vector.hpp"
 #include "opium/exceptions.hpp"
 
-#include <asm-generic/errno.h>
 #include <concepts>
 #include <string>
 #include <cassert>
@@ -63,7 +62,7 @@ class predicate {
    * \todo validate types
    */
   predicate(value sig, value body)
-  : m_name {opi::car(sig)->sym.data},
+  : m_name {sym_name(car(sig))},
     m_args {cdr(sig)},
     m_body {body}
   { }
@@ -205,13 +204,9 @@ class prolog {
     return success;
   }
 
-  template <
-      prolog_continuation Cont,
-      nonterminal_variable_handler NTVHandler = ignore_nonterminal_variables,
-      prolog_guide Guide = bruteforce_query>
+  template <prolog_continuation Cont, prolog_guide Guide = bruteforce_query>
   void
-  make_true(value e, Cont cont, NTVHandler ntvhandler = NTVHandler {},
-            Guide guide = Guide {}) const;
+  make_true(value e, Cont cont, Guide guide = Guide {}) const;
 
   trace_node *
   query_trace() const
@@ -227,74 +222,56 @@ class prolog {
 
   struct call_frame {
     const void *id;
-    value signature;
+    value signature_pattern;
+    value signature_value;
     const call_frame *prev;
-    std::optional<value> failed_heuristic_input;
   };
 
   void
-  _add_call_frame(const void *id, value signature, const call_frame &prev,
+  _add_call_frame(const void *id, value signature_pattern,
+                  value signature_value, const call_frame &prev,
                   call_frame &frame) const noexcept
   {
     frame.id = id;
-    frame.signature = signature;
+    frame.signature_pattern = signature_pattern;
+    frame.signature_value = signature_value;
     frame.prev = &prev;
   }
 
-  void
-  _add_anti_heuristic_call_frame(const void *id, value signature,
-                                 const call_frame &prev,
-                                 call_frame &frame,
-                                 value heuristic_input) const noexcept
-  {
-    frame.id = id;
-    frame.signature = signature;
-    frame.prev = &prev;
-    frame.failed_heuristic_input = heuristic_input;
-  }
-
-  template <nonterminal_variable_handler NTVHandler,
-            prolog_continuation Continuation>
+  template <prolog_continuation Continuation>
   bool
   _try_recursion_heuristic(const call_frame &frame, const void *preduid,
-                           value signature, Continuation &&cont,
-                           NTVHandler ntvhandler) const;
+                           value signature, Continuation &&cont) const;
 
-  template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler,
-            prolog_guide Guide>
+  template <prolog_continuation Cont, prolog_guide Guide>
   void
-  _make_true(const call_frame &frame, value e, Cont cont, NTVHandler ntvhandler,
-             Guide guide) const;
+  _make_true(const call_frame &frame, value e, Cont cont, Guide guide) const;
 
-  template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler,
-            prolog_guide Guide>
+  template <prolog_continuation Cont, prolog_guide Guide>
   void
   _make_if_true(const call_frame &frame, value cond, value thenbr, value elsebr,
-                Cont cont, NTVHandler ntvhandler, Guide guide) const;
+                Cont cont, Guide guide) const;
 
-  template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler,
-            prolog_guide Guide>
+  template <prolog_continuation Cont, prolog_guide Guide>
   void
   _make_and_true(const call_frame &frame, value clauses, Cont cont,
-                 NTVHandler ntvhandler, Guide guide) const;
+                 Guide guide) const;
 
-  template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler,
-            prolog_guide Guide>
+  template <prolog_continuation Cont, prolog_guide Guide>
   void
   _make_or_true(const call_frame &frame, value clauses, Cont cont,
-                NTVHandler ntvhandler, Guide guide) const;
+                Guide guide) const;
 
-  template <prolog_continuation Cont, nonterminal_variable_handler NTVHandler,
-            prolog_guide Guide>
+  template <prolog_continuation Cont, prolog_guide Guide>
   void
   _make_predicate_true(const call_frame &frame, const predicate &pred,
-                       value eargs, Cont cont, NTVHandler ntvhandler,
-                       Guide guide) const;
+                       value eargs, Cont cont, Guide guide) const;
 
   private:
   mutable size_t m_depth;
   mutable trace_node *m_trace;
   mutable bool m_cut, m_cutpred;
+  mutable void *m_stack_end;
   opi::stl::unordered_multimap<std::string, predicate> m_db; /**< Database of predicates */
 }; // class opi::prolog
 

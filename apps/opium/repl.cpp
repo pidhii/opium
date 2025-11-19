@@ -136,7 +136,7 @@ extract_symbols(const opi::value expr)
       break;
 
     case opi::tag::sym:
-      used_symbols.emplace(expr->sym.data);
+      used_symbols.emplace(sym_name(expr));
       break;
 
     default:

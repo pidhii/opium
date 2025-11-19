@@ -159,11 +159,11 @@ class scheme_type_location_map {
  * This function scans the preprocessed code and builds a map of source locations to types
  * by combining information from the prolog_emitter and the source locations in the code.
  * 
- * \param prolog_emitter The prolog emitter containing type information
+ * \param code_types Code to type associations
  * \param ppcode The preprocessed code to scan
  * \return A map of source locations to types
  */
 scheme_type_location_map
-build_type_location_map(const scheme_to_prolog &prolog_emitter, value ppcode);
+build_type_location_map(const code_type_map &code_types, value ppcode);
 
 } // namespace opi

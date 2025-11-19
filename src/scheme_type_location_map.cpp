@@ -19,6 +19,7 @@
 
 #include "opium/scheme/scheme_type_location_map.hpp"
 #include "opium/logging.hpp"
+#include "opium/scheme/scheme_transformations.hpp"
 #include "opium/scheme/scheme_type_system.hpp"
 #include "opium/source_location.hpp"
 
@@ -78,7 +79,7 @@ scheme_type_location_map::clear()
  */
 static void
 scan_value_for_types(scheme_type_location_map &map,
-                     const scheme_to_prolog &prolog_emitter, value val)
+                     const code_type_map &code_types, value val)
 {
   // Check if this value has a source location
   source_location loc;
@@ -86,7 +87,7 @@ scan_value_for_types(scheme_type_location_map &map,
   {
     // Try to get the type for this value
     value type = nil;
-    if (prolog_emitter.find_code_type(val, type))
+    if (code_types.code_type(val, type))
     {
       // Add the mapping to the map
       map.add(loc, type);
@@ -96,20 +97,20 @@ scan_value_for_types(scheme_type_location_map &map,
   // Recursively scan children if this is a pair
   if (opi::ispair(val))
   {
-    scan_value_for_types(map, prolog_emitter, car(val));
-    scan_value_for_types(map, prolog_emitter, cdr(val));
+    scan_value_for_types(map, code_types, car(val));
+    scan_value_for_types(map, code_types, cdr(val));
   }
 }
 
 
 scheme_type_location_map
-build_type_location_map(const scheme_to_prolog &prolog_emitter, value ppcode)
+build_type_location_map(const code_type_map &code_types, value ppcode)
 {
   scheme_type_location_map map;
 
   // Scan each top-level expression in the preprocessed code
   for (const value expr : range(ppcode))
-    scan_value_for_types(map, prolog_emitter, expr);
+    scan_value_for_types(map, code_types, expr);
 
   debug("Built type location map with {} entries", map.size());
   return map;

@@ -146,20 +146,29 @@ struct object {
   object(tag tag): _t {tag}, location {nullptr} { }
 
   tag _t; /**< Type tag */
-  size_t hash;
+  size_t _hash;
   source_location *location;
   union {
-    struct { const char *data; size_t len; } sym; /**< Symbol data */
-    struct { char *data; size_t len; } str; /**< String data */
-    struct { object *car, *cdr; }; /**< Pair data */
-    long double num; /**< Numeric data */
-    void *ptr; /**< Pointer data */
-    bool boolean; /**< Boolean data */
+    struct { const char *data; size_t len; } _sym; /**< Symbol data */
+    struct { char *data; size_t len; } _str; /**< String data */
+    struct { object *_car, *_cdr; }; /**< Pair data */
+    long double _num; /**< Numeric data */
+    void *_ptr; /**< Pointer data */
   };
-
 }; // struct opi::object
 
-size_t
+
+#ifdef OPIUM_HASH_CACHING
+[[nodiscard]] inline size_t
+chash(value x)
+{ return x->_hash; }
+
+inline void
+chash(value x, size_t hash)
+{ x->_hash = hash; }
+#endif
+
+[[nodiscard]] size_t
 hash(const opi::value &x);
 
 /**
@@ -183,9 +192,11 @@ sym(std::string_view str)
 {
   value ret {make<object>(tag::sym)};
   std::string_view gstr = global_string(str);
-  ret->sym.data = gstr.data();
-  ret->sym.len = gstr.size();
-  ret->hash = hash(ret);
+  ret->_sym.data = gstr.data();
+  ret->_sym.len = gstr.size();
+  #ifdef OPIUM_HASH_CACHING
+  chash(ret, hash(ret));
+  #endif
   return ret;
 }
 
@@ -202,10 +213,12 @@ sym(std::string_view str)
 str(const std::string &str)
 {
   value ret {make<object>(tag::str)};
-  ret->str.data = static_cast<char*>(allocate_atomic(str.length() + 1));
-  std::memcpy(ret->str.data, str.c_str(), str.length() + 1);
-  ret->str.len = str.length();
-  ret->hash = hash(ret);
+  ret->_str.data = static_cast<char*>(allocate_atomic(str.length() + 1));
+  std::memcpy(ret->_str.data, str.c_str(), str.length() + 1);
+  ret->_str.len = str.length();
+  #ifdef OPIUM_HASH_CACHING
+  chash(ret, hash(ret));
+  #endif
   return ret;
 }
 
@@ -221,8 +234,10 @@ str(const std::string &str)
 num(long double val)
 {
   value ret {make<object>(tag::num)};
-  ret->num = val;
-  ret->hash = hash(ret);
+  ret->_num = val;
+  #ifdef OPIUM_HASH_CACHING
+  chash(ret, hash(ret));
+  #endif
   return ret;
 }
 
@@ -238,8 +253,10 @@ num(long double val)
 ptr(void *ptr)
 {
   value ret {make<object>(tag::ptr)};
-  ret->ptr = ptr;
-  ret->hash = hash(ret);
+  ret->_ptr = ptr;
+  #ifdef OPIUM_HASH_CACHING
+  chash(ret, hash(ret));
+  #endif
   return ret;
 }
 
@@ -258,10 +275,10 @@ pair(value car, value cdr)
   value ret {make<object>(tag::pair)};
   assert(&*car);
   assert(&*cdr);
-  ret->car = &*car;
-  ret->cdr = &*cdr;
+  ret->_car = &*car;
+  ret->_cdr = &*cdr;
 #ifdef OPIUM_HASH_CACHING
-  ret->hash = hash(ret);
+  chash(ret, hash(ret));
 #endif
   return ret;
 }
@@ -283,10 +300,10 @@ inline void
 set_car(value pair, value car)
 {
   assert(pair->_t == tag::pair);
-  pair->car = &*car;
+  pair->_car = &*car;
 #ifdef OPIUM_HASH_CACHING
-  pair->hash = 0;
-  pair->hash = hash(pair);
+  chash(pair, 0);
+  chash(pair, hash(pair));
 #endif
 }
 
@@ -294,10 +311,10 @@ inline void
 set_cdr(value pair, value cdr)
 {
   assert(pair->_t == tag::pair);
-  pair->cdr = &*cdr;
+  pair->_cdr = &*cdr;
 #ifdef OPIUM_HASH_CACHING
-  pair->hash = 0;
-  pair->hash = hash(pair);
+  chash(pair, 0);
+  chash(pair, hash(pair));
 #endif
 }
 
@@ -404,6 +421,51 @@ list(Head head, Tail&& ...tail)
 { return cons(from(head), list(std::forward<Tail>(tail)...)); }
 
 /**
+ * Get the first element of a pair
+ * 
+ * \tparam Test Whether to check if the value is a pair
+ * \param x Pair value
+ * \return First element of the pair
+ * \throws std::runtime_error If the value is not a pair and Test is true
+ *
+ * \ingroup core
+ */
+template <bool Test=true>
+[[nodiscard]] inline value
+car(value x)
+{
+  if constexpr (Test)
+  {
+    if (x->_t != tag::pair)
+      throw std::runtime_error {"car() - not a pair"};
+  }
+  return value {x->_car};
+}
+
+/**
+ * Get the second element of a pair
+ * 
+ * \tparam Test Whether to check if the value is a pair
+ * \param x Pair value
+ * \return Second element of the pair
+ * \throws std::runtime_error If the value is not a pair and Test is true
+ *
+ * \ingroup core
+ */
+template <bool Test=true>
+[[nodiscard]] inline value
+cdr(value x)
+{
+  if constexpr (Test)
+  {
+    if (x->_t != tag::pair)
+      throw std::runtime_error {"cdr() - not a pair"};
+  }
+  return value {x->_cdr};
+}
+
+
+/**
  * Reverse a list
  * 
  * \param l List to reverse
@@ -415,8 +477,8 @@ list(Head head, Tail&& ...tail)
 reverse(value l)
 {
   value acc = nil;
-  for (; l->_t == tag::pair; l = value {&*l->cdr})
-    acc = cons(value {&*l->car}, acc);
+  for (; l->_t == tag::pair; l = cdr(l))
+    acc = cons(car(l), acc);
   return acc;
 }
 
@@ -433,8 +495,8 @@ reverse(value l)
 reverse(value l, value e)
 {
   value acc = e;
-  for (; l->_t == tag::pair; l = value {&*l->cdr})
-    acc = cons(value {&*l->car}, acc);
+  for (; l->_t == tag::pair; l = cdr(l))
+    acc = cons(car(l), acc);
   return acc;
 }
 
@@ -485,30 +547,6 @@ issym(value x)
 { return x->_t == tag::sym; }
 
 /**
- * Check if a value is a specific symbol
- * 
- * \param x Value to check
- * \param str Symbol name to compare with
- * \return True if the value is a symbol with the given name
- *
- * \ingroup core
- */
-[[nodiscard]] inline bool
-issym(value x, std::string_view str)
-{ return issym(x) and (str == std::string_view {x->sym.data, x->sym.len}); }
-
-template <const char *Str>
-bool
-issym(opi::value x)
-{
-  static const std::string_view gstr = opi::global_string(Str);
-  return opi::tag(x) == opi::tag::sym and x->sym.data == gstr.data();
-}
-
-#define ISSYM(_x_, _s_) ({static constexpr char _cs_[] = _s_; issym<_cs_>(_x_); })
-
-
-/**
  * Get the name of a symbol
  * 
  * \param x Value to get the name from (must be a symbol)
@@ -519,11 +557,31 @@ issym(opi::value x)
  */
 [[nodiscard]] inline std::string_view
 sym_name(value x)
+{ return std::string_view {x->_sym.data, x->_sym.len}; }
+
+/**
+ * Check if a value is a specific symbol
+ * 
+ * \param x Value to check
+ * \param str Symbol name to compare with
+ * \return True if the value is a symbol with the given name
+ *
+ * \ingroup core
+ */
+[[nodiscard]] inline bool
+issym(value x, std::string_view str)
+{ return issym(x) and str == sym_name(x); }
+
+template <const char *Str>
+bool
+issym(opi::value x)
 {
-  if (not issym(x))
-    throw std::invalid_argument {"sym_name() - not a symbol"};
-  return std::string_view {x->sym.data, x->sym.len};
+  static const std::string_view gstr = opi::global_string(Str);
+  return opi::tag(x) == opi::tag::sym and sym_name(x).data() == gstr.data();
 }
+
+#define ISSYM(_x_, _s_) ({static constexpr char _cs_[] = _s_; issym<_cs_>(_x_); })
+
 
 /**
  * Check if a value is a string
@@ -536,19 +594,6 @@ sym_name(value x)
 [[nodiscard]] inline bool
 isstr(value x)
 { return x->_t == tag::str; }
-
-/**
- * Check if a value is a specific string
- * 
- * \param x Value to check
- * \param str String content to compare with
- * \return True if the value is a string with the given content
- *
- * \ingroup core
- */
-[[nodiscard]] inline bool
-isstr(value x, const char *str)
-{ return isstr(x) and strncmp(x->sym.data, str, x->sym.len) == 0; }
 
 /**
  * Get the string
@@ -564,8 +609,21 @@ str_view(value x)
 {
   if (not isstr(x))
     throw std::invalid_argument {"str_view() - not a string"};
-  return std::string_view {x->str.data, x->str.len};
+  return std::string_view {x->_str.data, x->_str.len};
 }
+
+/**
+ * Check if a value is a specific string
+ * 
+ * \param x Value to check
+ * \param str String content to compare with
+ * \return True if the value is a string with the given content
+ *
+ * \ingroup core
+ */
+[[nodiscard]] inline bool
+isstr(value x, const char *str)
+{ return isstr(x) and str_view(x) == str; }
 
 /**
  * Check if a value is a number
@@ -578,19 +636,6 @@ str_view(value x)
 [[nodiscard]] inline bool
 isnum(value x)
 { return x->_t == tag::num; }
-
-/**
- * Check if a value is a specific number
- * 
- * \param x Value to check
- * \param num Number to compare with
- * \return True if the value is a number equal to the given number
- *
- * \ingroup core
- */
-[[nodiscard]] inline bool
-isnum(value x, long double num)
-{ return isnum(x) and x->num == num; }
 
 /**
  * Check if a value is a boolean
@@ -615,6 +660,13 @@ isbool(value x)
 [[nodiscard]] inline bool
 isptr(value x)
 { return x->_t == tag::ptr; }
+
+
+template <typename Ptr = void*>
+[[nodiscard]] inline Ptr
+ptr_val(value x)
+{ return static_cast<Ptr>(x->_ptr); }
+
 
 /**
  * Check if a value is a pair
@@ -642,8 +694,21 @@ num_val(value x)
 {
   if (not isnum(x))
     throw std::invalid_argument {"num_val() - not a number"};
-  return x->num;
+  return x->_num;
 }
+
+/**
+ * Check if a value is a specific number
+ * 
+ * \param x Value to check
+ * \param num Number to compare with
+ * \return True if the value is a number equal to the given number
+ *
+ * \ingroup core
+ */
+[[nodiscard]] inline bool
+isnum(value x, long double num)
+{ return isnum(x) and num_val(x) == num; }
 
 /** \} */
 
@@ -683,51 +748,6 @@ equal(value a, value b);
  * \name Basic list functions
  * \{
  */
-
-/**
- * Get the first element of a pair
- * 
- * \tparam Test Whether to check if the value is a pair
- * \param x Pair value
- * \return First element of the pair
- * \throws std::runtime_error If the value is not a pair and Test is true
- *
- * \ingroup core
- */
-template <bool Test=true>
-[[nodiscard]] inline value
-car(value x)
-{
-  if constexpr (Test)
-  {
-    if (x->_t != tag::pair)
-      throw std::runtime_error {"car() - not a pair"};
-  }
-  return value {x->car};
-}
-
-/**
- * Get the second element of a pair
- * 
- * \tparam Test Whether to check if the value is a pair
- * \param x Pair value
- * \return Second element of the pair
- * \throws std::runtime_error If the value is not a pair and Test is true
- *
- * \ingroup core
- */
-template <bool Test=true>
-[[nodiscard]] inline value
-cdr(value x)
-{
-  if constexpr (Test)
-  {
-    if (x->_t != tag::pair)
-      throw std::runtime_error {"cdr() - not a pair"};
-  }
-  return value {x->cdr};
-}
-
 
 [[nodiscard]] inline bool
 islist(value l)

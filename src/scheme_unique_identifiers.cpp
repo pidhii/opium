@@ -101,7 +101,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     if (issym(ident))
     {
       if (ident == "_")
-        return ident;
+        return _into_unique_symbol(ident);
       else if (assoc(ident, m_alist, newident))
         return sym(sym_name(newident)); // Copy it for pointer-based code tracking
     }

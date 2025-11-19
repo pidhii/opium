@@ -340,7 +340,7 @@ macro_pattern_matcher<ParamTypeDict, ParamValDict>::match_syntax(
       const value name = pattern->group.name;
       const value type = m_parameter_types.at(name);
       assert(isptr(type));
-      const group_type *gpat = static_cast<const group_type*>(type->ptr);
+      const group_type *gpat = ptr_val<const group_type*>(type);
 
       group_value *gval = make<group_value>();
       while (true)
@@ -444,8 +444,8 @@ macro_expander<ParamTypeDict, ParamValDict>::_expand(
       const value name = rule->group.name;
       const syntax *grule = make_syntax_sequence(rule->group.sequence.begin(),
                                                  rule->group.sequence.end());
-      const group_type *type = static_cast<const group_type*>(m_parameter_types.at(name)->ptr);
-      const group_value *value = static_cast<const group_value*>(m_parameter_vals.at(name)->ptr);
+      const group_type *type = ptr_val<const group_type*>(m_parameter_types.at(name));
+      const group_value *value = ptr_val<const group_value*>(m_parameter_vals.at(name));
       for (const auto &subvals : value->values)
       {
         macro_expander subexp {type->types, subvals};

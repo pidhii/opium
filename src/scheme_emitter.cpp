@@ -42,8 +42,8 @@ opi::scheme_emitter::_unfold_pattern_type(opi::value pattern) const
 }
 
 
-opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &query)
-: m_dont_emit_symbol {"<dont-emit>"}, m_query_result {query}, m_ctx {ctx}
+opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, type_bindings &query)
+: m_dont_emit_symbol {"<dont-emit>"}, m_type_bindings {query}, m_ctx {ctx}
 {
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                         other pragmas (omit)
@@ -262,13 +262,13 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
 
     // Get type of this atom
     value type = nil;
-    if (not m_ctx.prolog_emitter().find_code_type(x, type))
+    if (not m_ctx.ctm().code_type(x, type))
       throw code_transformation_error {
           std::format("Don't know what type to use for {}", x), x};
 
     // Get deduced type if it is not given explicitly
-    const auto it = m_query_result.find(type);
-    if (it != m_query_result.end())
+    const auto it = m_type_bindings.find(type);
+    if (it != m_type_bindings.end())
     {
       const auto &possibilities = it->second;
       if (possibilities.size() != 1)
@@ -301,19 +301,7 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
 
     // instantiate
     if (m_ctx.identifier_refers_to_function_template(x))
-    {
-      try { return instantiate_function_template(m_ctx, type); }
-      catch (const bad_code &exn)
-      {
-        // TODO: typically happens during negative assetions
-        return m_dont_emit_symbol;
-        // error("Failed to materialize {}", x);
-        // source_location location;
-        // if (get_location(x, location))
-        //   error("{}", display_location(location));
-        // throw bad_code {exn.what(), x};
-      }
-    }
+      return instantiate_function_template(m_ctx, type);
     else
       return x;
 
@@ -324,9 +312,9 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, query_result &q
 opi::value
 opi::scheme_emitter::_find_code_type(value code) const
 {
-  const value type = m_ctx.prolog_emitter().find_code_type(code);
-  const auto it = m_query_result.find(type);
-  if (it != m_query_result.end())
+  const value type = m_ctx.ctm().code_type(code);
+  const auto it = m_type_bindings.find(type);
+  if (it != m_type_bindings.end())
   {
     const auto &possibilities = it->second;
     if (possibilities.size() != 1)

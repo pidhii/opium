@@ -23,6 +23,7 @@
 #include "opium/stl/unordered_map.hpp"
 #include "opium/value.hpp"
 #include "opium/utilities/execution_timer.hpp"
+#include "opium/logging.hpp"
 
 
 static opi::object*
@@ -30,8 +31,8 @@ _initialize_cell(opi::object *ptr)
 {
   static char sym[] = "#__Cell";
   ptr->_t = opi::tag::sym;
-  ptr->sym.data = sym;
-  ptr->sym.len = sizeof(sym);
+  ptr->_sym.data = sym;
+  ptr->_sym.len = sizeof(sym);
   return ptr;
 }
 
@@ -51,9 +52,10 @@ _is_variable(opi::value x, bool &is_wildcard)
 {
   if (not issym(x))
     return (is_wildcard = false);
-  const bool starts_with_capital = isupper((unsigned char)x->sym.data[0]);
-  const bool starts_with_underscore = x->sym.data[0] == '_';
-  is_wildcard = starts_with_underscore and x->sym.len == 1;
+  const std::string_view xname = sym_name(x);
+  const bool starts_with_capital = isupper((unsigned char)xname[0]);
+  const bool starts_with_underscore = xname[0] == '_';
+  is_wildcard = starts_with_underscore and xname.size() == 1;
   return starts_with_capital or starts_with_underscore;
 }
 
@@ -283,7 +285,7 @@ _is_cell(opi::value expr, opi::cell *&result) noexcept
 {
   if (opi::ispair(expr) and opi::is(opi::car(expr), opi::cell_tag))
   {
-    result = static_cast<opi::cell*>(opi::cdr(expr)->ptr);
+    result = static_cast<opi::cell*>(ptr_val(cdr(expr)));
     return true;
   }
   return false;
@@ -359,14 +361,14 @@ struct _match_arguments_impl {
         default:
           if constexpr (ForceMatch)
           {
-            // if (not opi::equal(pexpr, eexpr) and
-            //     opi::loglevel >= opi::loglevel::debug)
-            // {
-            //   opi::debug("Ignoring mismatch between lhs and rhs of "
-            //             "match_arguments():\nlhs = {}\nrhs = {}",
-            //             opi::reconstruct(pexpr, opi::stringify_unbound_variables),
-            //             opi::reconstruct(eexpr, opi::stringify_unbound_variables));
-            // }
+            if (not opi::equal(pexpr, eexpr) and
+                opi::loglevel >= opi::loglevel::debug)
+            {
+              opi::warning("Ignoring mismatch between lhs and rhs of "
+                        "match_arguments():\nlhs = {}\nrhs = {}",
+                        opi::reconstruct(pexpr, opi::stringify_unbound_variables),
+                        opi::reconstruct(eexpr, opi::stringify_unbound_variables));
+            }
             return true;
           }
           return opi::equal(pexpr, eexpr);
