@@ -44,25 +44,6 @@ if let Some(m) = "___adfasd12312".find(re) then {
     println("  match #", i, " = ", m.indices(i))
 }
 
-require "argv"
-my_option = ""
-my_flag = false
-options = [
-  option("my-option")
-  .docstring("the command-line argument")
-  .required(true)
-  .value(true)
-  .handle(x => set my_option = x)
-  ,
-  option("my-flag")
-  .docstring("the flag")
-  .handle(x => set my_flag = true)
-]
-posargs = getopt(["--my-option=42", "--my-option=foo", "--my-flag", "42", "15"], options)
-println("my_option =", my_option)
-println("my_flag =", my_flag)
-println("posargs =", posargs)
-
 // require "zmq"
 
 // type message = {
@@ -135,3 +116,7 @@ test_null(x str?) =
   println("test_null: bool(", x, ") = ", bool(x))
 test_null("not-null")
 test_null(null)
+
+println(format("~S", "ĸ•⌚⏪"))
+
+{ if true then "something" } :: str?
