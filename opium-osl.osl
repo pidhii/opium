@@ -35,27 +35,22 @@ print_help() =
   println(" --objc  compile via an Objective C source file")
 }
 
-for opt, arg in getopt(argv, "hvrc:Rt:-:") do
+for mopt, marg in getopt(argv, "hvrc:Rt:-:") do
 {
-  if opt == 0 then
-  {
-    if inputpath == "" then
-      set inputpath = *arg
-    else
-      runargs.push(*arg)
-
-    continue
-  }
-
-  case str([char(opt)]) in
-  | "h" -> { print_help() exit(0) }
-  | "v" -> set verbose = true
-  | "r" -> set mode = Run
-  | "c" -> set mode = Compile(*arg)
-  | "R" -> set mode = RunCompiled
-  | "t" -> set tracelen = num(*arg)
-  | "-" -> set compile_target = "-" + *arg
-  | otherwize -> error("Invalid command-line option", char(opt), arg)
+  if let Some(opt) = mopt then
+    case str([char(opt)]) in
+    | "h" -> { print_help() exit(0) }
+    | "v" -> set verbose = true
+    | "r" -> set mode = Run
+    | "c" -> set mode = Compile(*marg)
+    | "R" -> set mode = RunCompiled
+    | "t" -> set tracelen = num(*marg)
+    | "-" -> set compile_target = "-" + *marg
+    | otherwize -> error("Invalid command-line option", char(opt), marg)
+  else if inputpath == "" then
+    set inputpath = *marg
+  else
+    runargs.push(*marg)
 }
 
 

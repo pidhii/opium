@@ -43,11 +43,11 @@ getopt(argv, optstring str) = generator {
     opt = c_getopt(argc, argvp, optstring)
     if opt < 0 then
       break
-    yield pack(opt, getoptarg())
+    yield pack(Some(opt), getoptarg())
   }
 
   for i in getoptind() : argc do
-    yield pack(0, argv[i] :: str?)
+    yield pack(Nothing, argv[i] :: str?)
 
   // NOTE: Releasing memory results in subsequent calls to (c_)getopt to produce
   // garbage. Resetting `optind` does not help. As the observed behaviour is 
