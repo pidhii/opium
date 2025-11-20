@@ -18,8 +18,9 @@ indices(matchobj regexp_match, groupid) = {
   assert { typein(groupid, 0, "") }
   extern identifier!(irregex-match-start-index) as getstart(regexp_match, _) -> num?
   extern identifier!(irregex-match-end-index) as getend(regexp_match, _) -> num?
-  let start = matchobj.getstart(groupid), end = matchobj.getend(groupid) in
-  return if start and end then start : end
+  match matchobj.getstart(groupid), matchobj.getend(groupid) in
+  | Some(start), Some(end) -> { return (start : end) :: range(num)? }
+  | otherwize -> return null
 }
 
 // TODO: replace

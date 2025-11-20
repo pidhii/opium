@@ -39,9 +39,11 @@ println(dict(j))
 
 println("testing regex")
 re = regexp("([a-z]+)([0-9]+)")
-if let Some(m) = "___adfasd12312".find(re) then {
-  for i in 0 : 2 do
-    println("  match #", i, " = ", m.indices(i))
+let s =  "___adfasd12312" in 
+if let Some(m) = s.find(re) then {
+  println("match object: ", m)
+  for i in 0 : 3 do
+    println("  match #", i, " = ", s[*m.indices(i)])
 }
 
 // require "zmq"
