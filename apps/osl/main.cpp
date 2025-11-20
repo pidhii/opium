@@ -1,6 +1,5 @@
 #include "opium/predicate_runtime.hpp"
 #include "opium/prolog.hpp"
-#include "opium/scheme/scheme_transformations.hpp"
 #include "parse.hpp"
 
 #include "opium/logging.hpp"
@@ -418,6 +417,9 @@ main(int argc, char **argv)
     }
   }
 
+  // Get input path
+  const std::string inputpath = varmap["input-file"].as<std::fs::path>();
+
   // Update LD_LIBRARY_PATH
   for (const std::string &path : osl::pathes)
   {
@@ -441,20 +443,20 @@ main(int argc, char **argv)
   // Load plugins
   load_plugin("parameterize.plugin");
 
-
-  std::string inputpath;
-  if (varmap.contains("input-file"))
-    inputpath = varmap["input-file"].as<std::fs::path>();
+  // Pre-configure translator:
+  scheme_translator translator;
+  // o pass oslpathes to the Prolog interpreter
+  for (const std::string &prefix : osl::pathes)
+    translator.prolog.add_path_prefix(prefix);
 
   // Parse program from OSL into OPI
   opi::value opiprogram;
   try
   {
     opi::osl::program_sources program;
-    opi::osl::tree_parser parser {program};
+    opi::osl::program_parser parser {program, translator};
 
     execution_timer parse_timer {"parsing OSL"};
-    program.append("syntax-requirements", osl::syntax_requirements());
     if (not varmap.contains("no-builtins"))
     {
       const std::filesystem::path builtinspath = opi::resolve_path(
@@ -479,16 +481,6 @@ main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-
-  scheme_translator translator;
-  // Configure preprocessor
-  translator.preprocessor.set_norename_prefix("norename#");
-
-  // Configure Prolog interpreter
-  for (const std::string &prefix : osl::pathes)
-    translator.prolog.add_path_prefix(prefix);
-  opi::apply_prolog_pragmas(opiprogram, translator.prolog); // FIXME
-
   try
   {
     // Compile OPI program into scheme
@@ -502,7 +494,6 @@ main(int argc, char **argv)
   catch (const opi::typecheck_failure &exn)
   {
     opi::error("{}", exn.what());
-    inputpath = varmap["input-file"].as<std::fs::path>();
     std::ifstream inputfile {inputpath};
     exn.tlm.display_source_with_types(inputpath, inputfile, std::cerr);
 

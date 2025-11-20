@@ -80,7 +80,7 @@ static
 opi::osl::generic_lexer *g_current_lexer;
 
 static
-opi::osl::tree_parser *g_current_tree_parser;
+opi::osl::program_parser *g_current_program_parser;
 
 
 static std::string g_source;
@@ -112,7 +112,8 @@ template <std::output_iterator<opi::value> Output>
 opi::value
 generate_record_definition(opi::value typesign, opi::value name, opi::value ctorname,
                            opi::value fields, opi::value fieldtypes,
-                           opi::value predname, Output output)
+                           opi::value predname, opi::scheme_translator &translator,
+                           Output output)
 {
   // Getters and setters
   opi::value accessors = opi::nil;
@@ -136,12 +137,9 @@ generate_record_definition(opi::value typesign, opi::value name, opi::value ctor
                                         opi::dot, accessors);
   *output++ = list("pragma", "scheme-translator", list("inline", recorddef, fastrecorddef));
 
-  opi::value predicates = opi::nil;
-
   // Write type signature for constructor
   const opi::value ctorsign = cons(ctorname, fieldtypes);
-  const opi::value ctorpred = list("predicate", list("result-of", ctorsign, typesign));
-  predicates = append(predicates, list(ctorpred));
+  translator.prolog <<  list("predicate", list("result-of", ctorsign, typesign));
 
   // Write type signatures of acessors
   if (fields != opi::nil)
@@ -150,15 +148,10 @@ generate_record_definition(opi::value typesign, opi::value name, opi::value ctor
     {
       const opi::value getter = car(cdr(field));
       const opi::value setter = car(cdr(cdr(field)));
-      const opi::value getterpred =
-          list("predicate", list("result-of", list(getter, typesign), type));
-      const opi::value setterpred = 
-          list("predicate", list("result-of", list(setter, typesign, type), "void"));
-      predicates = append(predicates, list(getterpred, setterpred));
+      translator.prolog << list("predicate", list("result-of", list(getter, typesign), type));
+      translator.prolog << list("predicate", list("result-of", list(setter, typesign, type), "void"));
     }
   }
-
-  *output++ = list("pragma", "prolog", opi::dot, predicates);
 
   return recorddef;
 }
@@ -196,8 +189,9 @@ generate_unpack_definition(opi::value recorddef, opi::value unpackname)
 
 template <std::output_iterator<opi::value> Output>
 static void
-generate_variant(opi::value typesign, opi::value ctorsign, Output output,
-                 const opi::source_location &location)
+generate_variant(opi::value typesign, opi::value ctorsign,
+                 const opi::source_location &location,
+                 opi::scheme_translator &translator, Output output)
 {
   // NOTE: Don't allow overloading constructors for now
   //       (no particular reason, just a design decision; can change it later)
@@ -222,10 +216,9 @@ generate_variant(opi::value typesign, opi::value ctorsign, Output output,
   set_location(unpackname, location);
 
   // Generate record for this variant
-  const opi::value recorddef = generate_record_definition(typesign, recordname,
-                                                          recordname, fields,
-                                                          cdr(ctorsign),
-                                                          predname, output);
+  const opi::value recorddef = generate_record_definition(
+      typesign, recordname, recordname, fields, cdr(ctorsign), predname,
+      translator, output);
 
 
   // Overload ctor name with constructor of a record form above
@@ -247,20 +240,19 @@ generate_variant(opi::value typesign, opi::value ctorsign, Output output,
                     list("cases-rule", mangledctorsign, typesign, predname, unpackname));
 
   // Generate Prolog predicates
-  const opi::value matchpred =
-      list("predicate", list("match-on", mangledctorsign, typesign));
-
-  *output++ = list("pragma", "prolog", matchpred);
+  translator.prolog << list("predicate", list("match-on", mangledctorsign, typesign));
 }
 
 
 template <std::output_iterator<opi::value> Output>
 static void
-generate_variant_type(opi::value typesign, opi::value variants, Output output,
-                      const opi::source_location &location)
+generate_variant_type(opi::value typesign, opi::value variants,
+                      const opi::source_location &location,
+                      opi::scheme_translator &translator,
+                      Output output)
 {
   for (const opi::value ctorsign : range(variants))
-    generate_variant(typesign, ctorsign, output, location);
+    generate_variant(typesign, ctorsign, location, translator, output);
 }
 
 
@@ -282,8 +274,10 @@ overloaded_setter_name(opi::value fieldname)
 
 template <std::output_iterator<opi::value> Output>
 static void
-generate_record_type(opi::value typesign, opi::value fields, Output output,
-                     const opi::source_location &location)
+generate_record_type(opi::value typesign, opi::value fields,
+                     const opi::source_location &location,
+                     opi::scheme_translator &translator,
+                     Output output)
 {
   const opi::value recordname = issym(typesign) ? typesign : car(typesign);
 
@@ -304,7 +298,7 @@ generate_record_type(opi::value typesign, opi::value fields, Output output,
   const opi::value recorddef =
       generate_record_definition(typesign, type_name,
                                  mangledname, fieldnames, fieldtypes, predname,
-                                 output);
+                                 translator, output);
 
   const opi::value define_overload = "define-overload";
   set_location(define_overload, location);
@@ -579,7 +573,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %token TYPE
 %token SET
 %token FN
-%token RETURN YIELD
+%token RETURN
 %token EXTERN AS
 
 %right '|'
@@ -588,9 +582,6 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %right ELSE
 
 %left '='
-
-%nonassoc RETURN_VOID
-%nonassoc RETURN_VALUE
 
 %right LET LETREC WHERE
 
@@ -789,20 +780,7 @@ Expr
     else
       $$ = list("letrec", list(letbinds), $1);
   }
-  | PRAGMA_ IDENT STRING_CHUNK {
-    lisp_parser parser;
-    assert(isstr($3));
-    std::istringstream buf {std::string(str_view($3))};
-    $$ = list("pragma", $2, dot, parser.parse_all(buf));
-  }
-  | RETURN %prec RETURN_VOID { $$ = list("return"); bindloc($$, @$); }
-  | RETURN Expr %prec RETURN_VALUE { $$ = list("return", $2); bindloc($$, @$); }
-  | RETURN Expr ',' ListOfExprs %prec RETURN_VALUE {
-    const value values = cons($2, $4);
-    $$ = cons("return", values);
-    bindloc($$, @$);
-  }
-  | YIELD Expr { const value yield = "yield"; bindloc(yield, @1); $$ = list(yield, $2); }
+  | RETURN Expr { $$ = list("return", $2); bindloc($$, @$); }
   | ASSERT '{' SeqOfExprs '}' {
     $$ = list("if", False, cons("begin", $3));
   }
@@ -1007,36 +985,11 @@ TopLvlExpr
     catch (const std::runtime_error &exn)
     { throw opi::bad_code {exn.what(), opi::osl::make_location(@$)}; }
 
-    if (not g_current_tree_parser->target().contains(fullpath))
-      g_current_tree_parser->load_file(fullpath);
+    if (not g_current_program_parser->target().contains(fullpath))
+      g_current_program_parser->load_file(fullpath);
 
     $$ = nil;
   }
-/*
-  | EXTERN FOREIGN IDENT AS IDENT DOUBLE_COLUMN ForeignType {
-    // TODO: refactor and make it a Stmt
-    // TODO: bind locations
-    const opi::value chickentype = list_ref($7, 0);
-    const opi::value osltype = list_ref($7, 1);
-    const opi::value p1 =
-      list("pragma", "inline-scheme",
-          list("define-foreign-variable", $5, chickentype, $3),
-        list("declare", $5, osltype));
-    $$ = list(p1);
-  }
-  | EXTERN FOREIGN IDENT DOUBLE_COLUMN ForeignType {
-    // TODO: refactor and make it a Stmt
-    // TODO: bind locations
-    const opi::value chickentype = list_ref($5, 0);
-    const opi::value osltype = list_ref($5, 1);
-    const opi::value p1 =
-      list("pragma", "scheme-translator",
-        list("inline",
-          list("define-foreign-variable", $3, chickentype)),
-        list("declare", $3, osltype));
-    $$ = list(p1);
-  }
-*/
   | FOREIGN_INLINE_BEGIN StringChunks FOREIGN_INLINE_END {
     std::string result;
     result += "\n#>\n";
@@ -1052,8 +1005,22 @@ TopLvlExpr
     bindloc($$, @$);
   }
   | MACRO {
-    parse_syntax_cases_macro(*g_current_lexer, *g_current_tree_parser);
+    parse_syntax_cases_macro(*g_current_lexer, *g_current_program_parser);
     $$ = nil;
+  }
+  | PRAGMA_ IDENT STRING_CHUNK {
+    lisp_parser parser;
+    assert(isstr($3));
+    std::istringstream buf {std::string(str_view($3))};
+    const value data = parser.parse_all(buf);
+    if ($2 == "prolog")
+    {
+      for (const value plexpr : range(data))
+        g_current_program_parser->m_translator_config.prolog << plexpr;
+      $$ = nil;
+    }
+    else
+      $$ = list(list("pragma", $2, dot, data));
   }
 ;
 
@@ -1065,7 +1032,9 @@ TypeDef
     location.source = g_source;
     location.start = @$.left;
     location.end = @$.right;
-    generate_variant_type($2, $4, std::back_inserter(tape), location);
+    generate_variant_type($2, $4, location,
+                          g_current_program_parser->m_translator_config,
+                          std::back_inserter(tape));
     $$ = list(tape);
     bindloc($$, @$);
   }
@@ -1076,7 +1045,9 @@ TypeDef
     location.source = g_source;
     location.start = @$.left;
     location.end = @$.right;
-    generate_record_type($2, $5, std::back_inserter(tape), location);
+    generate_record_type($2, $5, location,
+                         g_current_program_parser->m_translator_config,
+                         std::back_inserter(tape));
     $$ = list(tape);
     bindloc($$, @$);
   }
@@ -1370,11 +1341,11 @@ L_read_next:
 
 
 void
-tree_parser::load_source(const std::string &source, std::FILE *file)
+program_parser::load_source(const std::string &source, std::FILE *file)
 {
-  opi::utl::state_saver _ {g_source, g_current_tree_parser};
+  opi::utl::state_saver _ {g_source, g_current_program_parser};
   g_source = source;
-  g_current_tree_parser = this;
+  g_current_program_parser = this;
 
   lexer scanner {{source, 0, 0}, file};
   const opi::value result = parse(PARSE_TOPLVL, scanner);

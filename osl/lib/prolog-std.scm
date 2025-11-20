@@ -96,3 +96,12 @@
 (predicate (all _ ()))
 (predicate (all X (X . List))
   (all X List))
+
+
+;;;;
+;; subset SubSet Set
+;;;;
+(predicate (subset () _))
+(predicate (subset (X . Xs) Ys)
+  (member X Ys)
+  (subset Xs Ys))

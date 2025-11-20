@@ -37,19 +37,6 @@ _write_scheme_script(std::ostream &os, opi::value script)
 }
 
 
-// FIXME: it has to be somehow a part of preprocessor
-void
-opi::apply_prolog_pragmas(opi::value opiprogram, opi::prolog_repl &pl)
-{
-  // Collect and erase pragmas
-  pragmas pragmas;
-  _find_pragmas(opiprogram, pragmas);
-
-  // Run extra prolog expressions
-  for (const value plexpr : pragmas["prolog"])
-    pl << plexpr;
-}
-
 void
 opi::generate_scheme(const scheme_translator &config, value in,
                      const std::filesystem::path &opath,

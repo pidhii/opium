@@ -83,8 +83,7 @@ assert return ASSERT;
 
 macro return MACRO;
 
-return return RETURN;
-yield__ return YIELD;
+__RETURN return RETURN;
 
 match return MATCH;
 in    return IN;

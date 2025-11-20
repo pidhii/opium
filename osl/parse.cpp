@@ -2,8 +2,6 @@
 #include "syntax_definitions.h"
 #include "osl_parser.hpp"
 
-#include "opium/lisp_parser.hpp"
-
 #include <filesystem>
 #include <format>
 
@@ -147,21 +145,16 @@ opi::osl::stateful_lexer::recover_state(state target_state)
 }
 
 
-opi::value
-opi::osl::syntax_requirements()
+opi::osl::program_parser::program_parser(program_sources &target,
+                                         scheme_translator &translator_config)
+: m_target {target},
+  m_translator_config {translator_config}
 {
-  opi::lisp_parser lispparser;
-  const opi::value header = lispparser.parse_all(osl_syntax_definitions);
-  return header;
+  translator_config.preprocessor.set_norename_prefix("norename#");
 }
 
-
-opi::osl::tree_parser::tree_parser(program_sources &target)
-: m_target {target}
-{ }
-
 void
-opi::osl::tree_parser::load_file(const std::string &pathstr)
+opi::osl::program_parser::load_file(const std::string &pathstr)
 {
   const std::filesystem::path path = std::filesystem::absolute(pathstr);
   const std::filesystem::path dirpath = path.parent_path();

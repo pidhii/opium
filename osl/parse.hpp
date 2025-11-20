@@ -1,16 +1,17 @@
 #pragma once
 
-#include "opium/predicate_runtime.hpp"
 #include "osl_parser.hpp" // FIXME
 
+#include "opium/exceptions.hpp"
+#include "opium/hash.hpp"
+#include "opium/prolog.hpp"
+#include "opium/scheme/scheme_type_system.hpp"
 #include "opium/source_location.hpp"
 #include "opium/stl/deque.hpp"
-#include "opium/stl/vector.hpp"
 #include "opium/stl/unordered_map.hpp"
+#include "opium/stl/vector.hpp"
 #include "opium/value.hpp"
-#include "opium/hash.hpp"
-#include "opium/exceptions.hpp"
-#include "opium/prolog.hpp"
+
 #include <eco/eco.h>
 
 #include <readline/history.h>
@@ -191,14 +192,9 @@ class program_sources {
 };
 
 
-// Auxiliary definitions used by parser
-value
-syntax_requirements();
-
-
-class tree_parser: public parser {
+class program_parser: public parser {
   public:
-  tree_parser(program_sources &target);
+  program_parser(program_sources &target, scheme_translator &translator_config);
 
   void
   load_source(const std::string &source, std::FILE *file);
@@ -216,10 +212,15 @@ class tree_parser: public parser {
 
   private:
   program_sources &m_target;
+  scheme_translator &m_translator_config;
 
   friend opi::value
   parse_current(yyscan_t scanner, std::optional<int> starttok,
                 std::optional<range_location> startloc);
+
+  friend int ::yypush_parse(yypstate *yyps, int yypushed_char,
+                            YYSTYPE const *yypushed_val, YYLTYPE *yypushed_loc,
+                            yyscan_t scanner);
 };
 
 } // namespace opi::osl

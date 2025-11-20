@@ -1,3 +1,0 @@
-
-static const char osl_syntax_definitions[] = R"-(@osl_syntax_definitions@)-";
-
