@@ -73,14 +73,14 @@ class scheme_code_flattener: public ext_scheme_code_transformer {
 }; // class opi::scheme_code_flattener
 
 
-class scheme_preprocessor {
+class opium_preprocessor {
   public:
-  scheme_preprocessor(symbol_generator &gensym)
+  opium_preprocessor(symbol_generator &gensym)
   : m_flattener {gensym},
     m_unique_identifiers {gensym}
   { }
 
-  scheme_preprocessor()
+  opium_preprocessor()
   : m_default_counter {0},
     m_default_symbol_generator {{m_default_counter.value(), "uid{}"}},
     m_flattener {m_default_symbol_generator.value()},
@@ -107,8 +107,8 @@ class scheme_preprocessor {
   std::optional<symbol_generator> m_default_symbol_generator;
   scheme_code_flattener m_flattener;
   scheme_unique_identifiers m_unique_identifiers;
-}; // class opi::scheme_preprocessor
-static_assert(transformation<scheme_preprocessor>);
+}; // class opi::opium_preprocessor
+static_assert(transformation<opium_preprocessor>);
 
 
 struct code_type_map {
@@ -160,17 +160,21 @@ struct code_type_map {
                                                 typenames */
 };
 
-class scheme_to_prolog: public code_transformer {
+
+class prolog_emitter: public code_transformer {
   public:
+  using type_coder = std::function<value(value)>;
+
   struct unknown_identifier: public code_transformation_error {
     using code_transformation_error::code_transformation_error;
-  }; // struct opi::scheme_to_prolog::unknown_identifier
+  }; // struct opi::prolog_emitter::unknown_identifier
 
   struct duplicate_code_objects: public code_transformation_error {
     using code_transformation_error::code_transformation_error;
-  }; // struct opi::scheme_to_prolog::duplicate_code_objects
+  }; // struct opi::prolog_emitter::duplicate_code_objects
 
-  scheme_to_prolog(size_t &counter, code_type_map &code_types);
+  prolog_emitter(size_t &counter, const type_coder &typecoder,
+                   code_type_map &code_types);
 
   static void
   setup_prolog(prolog &pl);
@@ -181,11 +185,11 @@ class scheme_to_prolog: public code_transformer {
   value
   transform_block(value block);
 
+  protected:
   template <std::output_iterator<value> CodeOutput>
   value
-  to_type(value atom, bool resolve_symbols, CodeOutput code_output);
+  _to_type(value atom, bool resolve_symbols, CodeOutput code_output);
 
-  protected:
   value
   _create_template(value param_symbols, value resul_symbolt, value body);
 
@@ -203,10 +207,11 @@ class scheme_to_prolog: public code_transformer {
   value m_targets;
   value m_alist;
   value m_global_alist;
+  type_coder m_typecoder;
   code_type_map &m_ctm;
   symbol_generator m_typevargen;
   symbol_generator m_termgen;
-}; // class opi::scheme_to_prolog
+}; // class opi::prolog_emitter
 
 
 struct scheme_syntax_plugin {
@@ -222,7 +227,7 @@ struct scheme_syntax_plugin {
   load(scheme_code_flattener &transformer) = 0;
 
   virtual void
-  load(scheme_to_prolog &transformer) = 0;
+  load(prolog_emitter &transformer) = 0;
 
   template <typename Transformer>
   static void

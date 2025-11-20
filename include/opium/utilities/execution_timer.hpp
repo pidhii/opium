@@ -104,9 +104,11 @@ class execution_timer {
 
 #ifdef OPI_FUNCTION_BENCHMARKS_ENABLED
 #define OPI_FUNCTION_BENCHMARK                                                 \
-  opi::execution_timer _et##__LINE__ {__FUNCTION__};
+  opi::execution_timer __function_timer__ {__FUNCTION__};
+#define OPI_END_FUNCTION_BENCHMARK __function_timer__.stop();
 #else
 #define OPI_FUNCTION_BENCHMARK
+#define OPI_END_FUNCTION_BENCHMARK
 #endif
 
 

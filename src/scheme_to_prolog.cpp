@@ -34,7 +34,7 @@ using namespace std::placeholders;
 
 
 void
-opi::scheme_to_prolog::setup_prolog(prolog &pl)
+opi::prolog_emitter::setup_prolog(prolog &pl)
 {
   // Helpers for type coercions
   pl.add_predicate("(coerce-list In Out)"_lisp,
@@ -58,10 +58,14 @@ opi::scheme_to_prolog::setup_prolog(prolog &pl)
             (call Body))"_lisp);
 }
 
-opi::scheme_to_prolog::scheme_to_prolog(size_t &counter, code_type_map &code_types)
+
+opi::prolog_emitter::prolog_emitter(size_t &counter,
+                                        const type_coder &typecoder,
+                                        code_type_map &code_types)
 : m_targets {"_"},
   m_alist {nil},
   m_global_alist {nil},
+  m_typecoder {typecoder},
   m_ctm {code_types},
   m_typevargen {counter, "Osl_typevar{}"},
   m_termgen {counter, "osl_term{}"}
@@ -612,7 +616,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter, code_type_map &code_typ
 
     const value resexpr =
         list("=", m_targets,
-             list(to_type(cdr(ms.at("x")), false, std::back_inserter(code))));
+             list(_to_type(cdr(ms.at("x")), false, std::back_inserter(code))));
     code.push_back(resexpr);
 
     assert(code.size() >= 1);
@@ -641,7 +645,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter, code_type_map &code_typ
     // const value form = list(range(cons(f, xs)) | std::views::transform(totype));
   #else
     const auto totype = [&](value atom) {
-      return to_type(atom, true, std::back_inserter(code));
+      return _to_type(atom, true, std::back_inserter(code));
     };
     const value form = list(range(cons(f, xs)) | std::views::transform(totype));
   #endif
@@ -662,7 +666,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter, code_type_map &code_typ
     const value x = ms.at("x");
 
     opi::stl::vector<value> code;
-    const value expr = list("=", m_targets, list(to_type(x, true, std::back_inserter(code))));
+    const value expr = list("=", m_targets, list(_to_type(x, true, std::back_inserter(code))));
     code.push_back(expr);
 
     assert(code.size() >= 1);
@@ -679,7 +683,7 @@ opi::scheme_to_prolog::scheme_to_prolog(size_t &counter, code_type_map &code_typ
 
 
 opi::value
-opi::scheme_to_prolog::transform_block(value block)
+opi::prolog_emitter::transform_block(value block)
 {
   if (length(block) == 0)
     return nil;
@@ -707,7 +711,7 @@ opi::scheme_to_prolog::transform_block(value block)
 
 
 void
-opi::scheme_to_prolog::add_global(value ident, value type)
+opi::prolog_emitter::add_global(value ident, value type)
 {
   value registered_type;
   if (assoc(ident, m_global_alist, registered_type))
@@ -727,7 +731,7 @@ opi::scheme_to_prolog::add_global(value ident, value type)
 
 
 std::string
-opi::scheme_to_prolog::_type_name_for(value ident) const
+opi::prolog_emitter::_type_name_for(value ident) const
 { 
   if (not issym(ident))
     throw bad_code {std::format("Not a symbol: {}", ident), ident};
@@ -736,7 +740,7 @@ opi::scheme_to_prolog::_type_name_for(value ident) const
 
 
 opi::value
-opi::scheme_to_prolog::_generate_type_and_copy_location(value ident)
+opi::prolog_emitter::_generate_type_and_copy_location(value ident)
 {
   const value type = sym(_type_name_for(ident));
   copy_location(ident, type);
@@ -790,7 +794,7 @@ _quote_unquote_times(opi::value x, size_t surroundinglevel)
 
 template <std::output_iterator<opi::value> CodeOutput>
 opi::value
-opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out, bool lvalue)
+opi::prolog_emitter::_require_symbol(value ident, CodeOutput out, bool lvalue)
 {
   // Check for mapped types in the a-list
   struct resolve_result { value type; value code; };
@@ -895,28 +899,13 @@ opi::scheme_to_prolog::_require_symbol(value ident, CodeOutput out, bool lvalue)
 
 template <std::output_iterator<opi::value> CodeOutput>
 opi::value
-opi::scheme_to_prolog::to_type(value atom, bool resolve_symbols, CodeOutput out)
+opi::prolog_emitter::_to_type(value atom, bool resolve_symbols, CodeOutput out)
 {
   value result = nil;
-  switch (tag(atom))
-  {
-    case tag::nil: result = "nil"; break;
-    case tag::num: result = "num"; break;
-    case tag::str: result = "str"; break;
-    case tag::boolean: result = "bool"; break;
+  if (issym(atom) and resolve_symbols)
+    return _require_symbol(atom, out);
 
-    case tag::sym:
-      if (resolve_symbols)
-        return _require_symbol(atom, out);
-      else
-        result = "sym";
-      break;
-
-    default:
-      error("unimplemented transformation for '{}'", atom);
-      std::terminate();
-  }
-
+  result = m_typecoder(atom);
   copy_location(atom, result);
   m_ctm.assign_type(atom, result);
   return result;

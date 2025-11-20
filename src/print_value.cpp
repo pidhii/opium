@@ -42,6 +42,8 @@ static void
 _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
        int maxdepth, int depth)
 {
+  OPI_FUNCTION_BENCHMARK
+
   using namespace opi;
 
   switch (opi::tag(val))
@@ -152,21 +154,12 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
 
 void
 opi::write(std::ostream &os, const opi::value &val, int maxdepth)
-{
-  execution_timer _ {"write()"};
-  _print(mode::write, os, val, opi::nil, maxdepth, 0);
-}
+{ _print(mode::write, os, val, opi::nil, maxdepth, 0); }
 
 void
 opi::display(std::ostream &os, const opi::value &val, int maxdepth)
-{
-  execution_timer _ {"display()"};
-  _print(mode::display, os, val, opi::nil, maxdepth, 0);
-}
+{ _print(mode::display, os, val, opi::nil, maxdepth, 0); }
 
 void
 opi::print(std::ostream &os, const opi::value &val, int maxdepth)
-{
-  execution_timer _ {"print()"};
-  _print(mode::print, os, val, opi::nil, maxdepth, 0);
-}
+{ _print(mode::print, os, val, opi::nil, maxdepth, 0); }

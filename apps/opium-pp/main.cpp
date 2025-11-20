@@ -222,7 +222,7 @@ main(int argc, char **argv)
     // Run preprocessor
     info("Running preprocessor");
     opi::execution_timer preprocessor_timer {"Preprocessor"};
-    scheme_preprocessor pp;
+    opium_preprocessor pp;
     const value ppcode = pp.transform_block(in);
     preprocessor_timer.stop();
 

@@ -100,9 +100,6 @@ println("test division: ", 4 / 2 / 2)
 let x = 1 in
 println("test unary: ", -x < 0)
 
-println("list->string: ", str(["a"[0], "b"[0]]))
-// println("list->string: ", identifier!(list->string)(["a"[0], "b"[0]]))
-
 type one = One
 {
   tup = pack(1, "one", One)

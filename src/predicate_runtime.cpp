@@ -204,11 +204,24 @@ opi::find(cell *x)
 }
 
 
+opi::cell *
+opi::predicate_runtime::find(cell *x)
+{
+  // Path compression
+  while (x->next != x)
+  {
+    m_history.emplace_back(x->next, x->next->next);
+    x = x->next = x->next->next;
+  }
+  return x;
+}
+
+
 bool
 opi::predicate_runtime::unify(cell *x, cell *y)
 {
-  cell* repx = find(x);
-  cell* repy = find(y);
+  cell* repx = this->find(x);
+  cell* repy = this->find(y);
 
   // If they're already unified, nothing to do
   if (repx == repy)
@@ -221,22 +234,22 @@ opi::predicate_runtime::unify(cell *x, cell *y)
   // Case 2: x is a value, y is a variable
   if (repx->kind == cell::kind::value)
   {
+    m_history.emplace_back(repy, repy->next);
     repy->next = repx;
-    m_history.push_back(repy);
     return true;
   }
 
   // Case 3: x is a variable, y is a value
   if (repy->kind == cell::kind::value)
   {
+    m_history.emplace_back(repx, repx->next);
     repx->next = repy;
-    m_history.push_back(repx);
     return true;
   }
 
   // Case 4: Both are variables
+  m_history.emplace_back(repx, repx->next);
   repx->next = repy;
-  m_history.push_back(repx);
   return true;
 }
 
@@ -244,8 +257,8 @@ opi::predicate_runtime::unify(cell *x, cell *y)
 void
 opi::predicate_runtime::unwind()
 {
-  for (cell *c : m_history)
-    c->next = c;
+  for (const auto [c, n] : m_history)
+    c->next = n;
   m_history.clear();
 }
 
@@ -314,8 +327,7 @@ struct _match_arguments_impl {
   opi::stl::unordered_set<mem_element_type, mem_element_hash> mem;
 
   bool
-  match(opi::predicate_runtime &prt, opi::value pexpr,
-                  opi::value eexpr)
+  match(opi::predicate_runtime &prt, opi::value pexpr, opi::value eexpr)
   {
     opi::cell *c1, *c2;
 
@@ -328,9 +340,9 @@ struct _match_arguments_impl {
     // Expand variables whenever possible
     OPI_BLOCK_BENCHMARK("variable expansion", {
       if (_is_cell(pexpr, c1))
-        opi::get_value(c1, pexpr);
-      if (_is_cell(eexpr, c1))
-        opi::get_value(c1, eexpr);
+        opi::get_value(prt.find(c1), pexpr);
+      if (_is_cell(eexpr, c2))
+        opi::get_value(prt.find(c2), eexpr);
     })
 
     // Unify or assign variables

@@ -316,18 +316,18 @@ struct debugger {
 
 
 static void
-interactive_debugger(opi::value opiprogram, opi::scheme_preprocessor &pp,
-                     opi::prolog &pl)
+interactive_debugger(const opi::scheme_translator &translator,
+                     opi::value opiprogram)
 {
   // Get longest trace
   opi::stl::vector<opi::source_location> maxtrace;
-  opi::scan_traces(pl.query_trace(), [&maxtrace](const auto &tcand) {
+  opi::scan_traces(translator.prolog.query_trace(), [&maxtrace](const auto &tcand) {
     if (tcand.size() > maxtrace.size())
       maxtrace = tcand;
   });
 
   debugger dbg {maxtrace.begin(), maxtrace.end()};
-  generate_scheme(opiprogram, pp, pl, "/dev/null", std::ref(dbg));
+  generate_scheme(translator, opiprogram, "/dev/null", std::ref(dbg));
 }
 
 
@@ -479,21 +479,20 @@ main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
+
+  scheme_translator translator;
   // Configure preprocessor
-  scheme_preprocessor pp;
-  pp.set_norename_prefix("norename#");
+  translator.preprocessor.set_norename_prefix("norename#");
 
   // Configure Prolog interpreter
-  prolog_repl pl;
   for (const std::string &prefix : osl::pathes)
-    pl.add_path_prefix(prefix);
-  opi::scheme_to_prolog::setup_prolog(pl);
-  opi::apply_prolog_pragmas(opiprogram, pl);
+    translator.prolog.add_path_prefix(prefix);
+  opi::apply_prolog_pragmas(opiprogram, translator.prolog); // FIXME
 
   try
   {
     // Compile OPI program into scheme
-    generate_scheme(opiprogram, pp, pl, opath);
+    generate_scheme(translator, opiprogram, opath);
   }
   catch (const opi::ambiguous_type_error &exn)
   {
@@ -507,16 +506,16 @@ main(int argc, char **argv)
     std::ifstream inputfile {inputpath};
     exn.tlm.display_source_with_types(inputpath, inputfile, std::cerr);
 
-    tracedump(pl, tracelen);
+    tracedump(translator.prolog, tracelen);
     if (isatty(STDIN_FILENO))
-      interactive_debugger(opiprogram, pp, pl);
+      interactive_debugger(translator, opiprogram);
 
     return EXIT_FAILURE;
   }
   catch (const opi::bad_code &exn)
   {
     opi::error("{}", exn.display());
-    tracedump(pl, tracelen);
+    tracedump(translator.prolog, tracelen);
     return EXIT_FAILURE;
   }
 

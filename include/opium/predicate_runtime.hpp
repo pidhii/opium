@@ -308,6 +308,17 @@ class predicate_runtime {
   { unwind(); }
 
   /**
+  * Find the representative cell (version with DFS optimization)
+  * 
+  * \param x The cell to find the representative for
+  * \return Pointer to the representative cell
+  * 
+  * \ingroup prolog
+  */
+  cell *
+  find(cell *x);
+
+  /**
   * Unify two variables or a variable with a value
   * 
   * \param x Left-hand side cell
@@ -395,7 +406,7 @@ class predicate_runtime {
 
   private:
   opi::stl::unordered_map<value, cell *> m_varmap; /**< Associations table between variables and cells */
-  opi::stl::deque<cell *> m_history;
+  opi::stl::deque<std::pair<cell *, cell *>> m_history;
 }; // class opi::predicate_runtime
 
 

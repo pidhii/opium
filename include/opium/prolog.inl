@@ -37,6 +37,7 @@
 #include "opium/pretty_print.hpp"
 #include "opium/logging.hpp"
 #include "opium/stl/unordered_map.hpp"
+#include "opium/utilities/execution_timer.hpp"
 #include "opium/utilities/separate_stack_executor.hpp"
 #include "opium/utilities/state_saver.hpp"
 #include "opium/value.hpp"
@@ -515,8 +516,6 @@ prolog::_try_recursion_heuristic(const call_frame &frame, const void *id,
                                       value signature,
                                       Continuation &&cont) const
 {
-  OPI_FUNCTION_BENCHMARK
-
   bool applied_heuristic = false;
   for (const call_frame *framep = &frame; framep != nullptr; framep = framep->prev)
   {

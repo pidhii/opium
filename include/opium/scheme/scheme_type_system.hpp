@@ -22,7 +22,7 @@
 #include "opium/logging.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
 #include "opium/scheme/scheme_type_location_map.hpp"
-#include "opium/prolog.hpp"
+#include "opium/prolog_repl.hpp"
 #include "opium/pretty_print.hpp"
 #include "opium/utilities/execution_timer.hpp"
 
@@ -113,10 +113,40 @@ _gather_literals(value x, Output output) noexcept
   }
 }
 
+
+struct default_type_coder {
+  value
+  operator () (value x) const
+  {
+    switch (tag(x))
+    {
+      case tag::nil: return "nil";
+      case tag::num: return "num";
+      case tag::str: return "str";
+      case tag::boolean: return "bool";
+      default: throw bad_code {"default_typ_coder - unsupported type", x};
+    }
+  }
+};
+
+
+struct scheme_translator {
+  scheme_translator()
+  : type_coder {default_type_coder()}
+  { prolog_emitter::setup_prolog(prolog); }
+
+  opium_preprocessor preprocessor;
+  opi::prolog_repl prolog;
+  prolog_emitter::type_coder type_coder;
+  mutable size_t counter;
+};
+
+
 template <std::ranges::range Pragmas = std::initializer_list<value>>
 static std::pair<value, scheme_type_location_map>
 translate_to_scheme(
-    size_t &counter, const prolog &pl, value ppcode, Pragmas &&pragmas = {},
+    const scheme_translator &translator_config, value ppcode,
+    Pragmas &&pragmas = {},
     const std::optional<prolog_guide_function> &guide = std::nullopt)
 {
   // Utility variable
@@ -124,7 +154,8 @@ translate_to_scheme(
 
   // Compose translator from Scheme to Prolog
   code_type_map code_types;
-  scheme_to_prolog to_prolog {counter, code_types};
+  prolog_emitter to_prolog {translator_config.counter,
+                            translator_config.type_coder, code_types};
   prolog_cleaner pl_cleaner;
 
   execution_timer prolog_generation_timer {"Prolog generation"};
@@ -144,7 +175,7 @@ translate_to_scheme(
 
   // Translate the code to proper scheme
   opi::stl::vector<value> main_tape;
-  scheme_emitter_context ctx {pl, code_types, main_tape};
+  scheme_emitter_context ctx {translator_config.prolog, code_types, main_tape};
 
   // Process pragmas
   const match matchcasesrule {list("cases-rule"),

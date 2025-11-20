@@ -19,7 +19,7 @@ resolve_path(const std::filesystem::path &filename, BeginIter begin,
       return std::filesystem::absolute(fullpath);
   }
 
-  throw std::runtime_error {"Failed to resolve path"};
+  throw std::runtime_error {"Failed to resolve path: " + filename.string()};
 }
 
 } // namespace opi

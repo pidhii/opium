@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include "opium/scheme/scheme_transformations.hpp"
 #include "repl.hpp"
 
 #include "opium/lisp_parser.hpp"
@@ -29,6 +30,7 @@
 
 #include <cassert>
 #include <cstdlib>
+#include <exception>
 #include <fstream>
 #include <ios>
 #include <iostream>
@@ -186,6 +188,8 @@ main(int argc, char **argv)
   prolog_repl pl;
   lisp_parser parser;
 
+  opi::prolog_emitter::setup_prolog(pl);
+
   // Load prolog files
   for (const std::fs::path &path : load)
   {
@@ -200,10 +204,10 @@ main(int argc, char **argv)
 
     std::ifstream inputfile {inputpath, std::ios::binary};
     assert(inputfile.is_open());
-    value in = parser.parse_all(inputfile, inputpath);
+    [[maybe_unused]] value in = parser.parse_all(inputfile, inputpath);
 
-    scheme_preprocessor pp;
-    generate_scheme(in, pp, pl, opath);
+    // try { generate_scheme(in, pp, pl, opath); }
+    // catch (const opi::bad_code &exn) { error("{}", exn.display()); }
   }
   else
     read_eval_print_loop(parser, pl);

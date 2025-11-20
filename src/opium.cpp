@@ -50,10 +50,9 @@ opi::apply_prolog_pragmas(opi::value opiprogram, opi::prolog_repl &pl)
     pl << plexpr;
 }
 
-
 void
-opi::generate_scheme(opi::value in, opi::scheme_preprocessor &pp,
-                     const opi::prolog &pl, const std::filesystem::path &opath,
+opi::generate_scheme(const scheme_translator &config, value in,
+                     const std::filesystem::path &opath,
                      const std::optional<prolog_guide_function> &guide)
 {
   using namespace opi;
@@ -63,14 +62,13 @@ opi::generate_scheme(opi::value in, opi::scheme_preprocessor &pp,
   _find_pragmas(in, pragmas);
 
   opi::execution_timer preprocessor_timer {"Preprocessor"};
-  const value ppcode = pp.transform_block(in);
+  const value ppcode = config.preprocessor.transform_block(in);
   preprocessor_timer.stop();
 
   info("\e[1mrunning Type Check\e[0m");
   opi::execution_timer analyzer_timer {"Type analyzer"};
-  size_t cnt = 0;
   const auto [out, tlm] =
-      translate_to_scheme(cnt, pl, ppcode, pragmas["scheme-translator"], guide);
+      translate_to_scheme(config, ppcode, pragmas["scheme-translator"], guide);
   analyzer_timer.stop();
 
   // Write generated Scheme script
