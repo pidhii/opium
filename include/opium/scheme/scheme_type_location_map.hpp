@@ -141,10 +141,22 @@ class scheme_type_location_map {
    * 
    * \param type_style ANSI style string for type annotations (default: green)
    */
-  void
+  std::string
   display_source_with_types(std::string_view source, std::istream &in,
-                            std::ostream &out,
+                            int start_offset = 0, int end_offset = -1,
                             std::string_view type_style = "\e[2m") const;
+
+  /**
+   * Display source location with type annotations
+   * 
+   * This function reads a source file and displays it with type annotations in the format
+   * `<expr>:<type>`, where `:type` is written in a different color.
+   * 
+   * \param type_style ANSI style string for type annotations (default: green)
+   */
+  std::string
+  display_location_with_types(const source_location &locaton,
+                              std::string_view type_style = "\e[2m") const;
 
   private:
   opi::stl::unordered_map<source_location, value, source_location_hash,

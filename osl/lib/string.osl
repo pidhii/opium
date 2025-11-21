@@ -44,8 +44,13 @@ substr(s str, start num, end num) = {
 }
 s::str[r::range(num)] = substr(s, r#start, r#end)
 
-// STRING <cmp-op> STRING -> bool
-//
+view(s str, start num, end num) = {
+  extern identifier!(substring/shared)(str, num, num) -> str
+  let start = if start < 0 then length(s) + start else start in
+  let end = if end < 0 then length(s) + end else end in
+  return identifier!(substring/shared)(s, start, end)
+}
+
 // String comparison operators
 extern identifier!(string=?) as (==) (str, str) -> bool
 s1::str != s2::str = not (s1 == s2)
@@ -54,11 +59,10 @@ extern identifier!(string>?) as (>) (str, str) -> bool
 extern identifier!(string<=?) as (<=) (str, str) -> bool
 extern identifier!(string>=?) as (>=) (str, str) -> bool
 
-// lenght(STRING) -> num
-//
 // String length
 extern identifier!(string-length) as length(str) -> num
 
+// Casts
 str(s str) = s
 extern identifier!(string->list) as list(str) -> list(char)
 num(s str) = {
@@ -68,9 +72,6 @@ num(s str) = {
 extern identifier!(integer->char) as char(num) -> char
 extern identifier!(char->integer) as num(char) -> num
 
-// chomp(STRING) -> str
-// chomp(STRING, SUFFIX) -> str
-//
 // If STRING ends with SUFFIX, then this procedure returns a copy of its first
 // argument with the suffix removed, otherwise returns STRING unchanged.
 // SUFFIX defaults to "\n".

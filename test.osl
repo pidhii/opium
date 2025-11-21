@@ -41,9 +41,9 @@ println("testing regex")
 re = regexp("([a-z]+)([0-9]+)")
 let s =  "___adfasd12312" in 
 if let Some(m) = s.find(re) then {
-  println("match object: ", m)
   for i in 0 : 3 do
-    println("  match #", i, " = ", s[*m.indices(i)])
+    let start, end = unpack(*m.indices(i)) in
+    println("  match #", i, " = ", s.view(start, end))
 }
 
 // require "zmq"

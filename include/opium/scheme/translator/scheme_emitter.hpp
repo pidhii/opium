@@ -21,16 +21,12 @@
 
 #include "opium/code_transformer.hpp"
 #include "opium/scheme/scheme_code_transformer.hpp"
-#include "opium/scheme/scheme_emitter_context.hpp"
+#include "opium/scheme/translator/scheme_emitter_context.hpp"
 #include "opium/value.hpp"
 
 
 namespace opi {
 
-
-struct ambiguous_type_error: code_transformation_error {
-  using code_transformation_error::code_transformation_error;
-};
 
 using type_bindings =
     opi::stl::unordered_map<value, opi::stl::unordered_set<value>>;

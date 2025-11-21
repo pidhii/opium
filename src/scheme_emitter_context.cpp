@@ -16,17 +16,18 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
-#include "opium/scheme/scheme_emitter_context.hpp"
+#include "opium/scheme/translator/scheme_emitter_context.hpp"
 #include "opium/predicate_runtime.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
 
 
 opi::scheme_emitter_context::scheme_emitter_context(
-    const prolog &pl, const code_type_map &ctm, code_tape &output)
+    const prolog &pl, const code_type_map &ctm,
+    const match_translation_rules &mtr, code_tape &output)
 : m_output {std::back_inserter(output)},
   m_pl {pl},
   m_code_types {ctm},
+  m_match_translation {mtr},
   m_parent {*this}
 { }
 
@@ -36,6 +37,7 @@ opi::scheme_emitter_context::scheme_emitter_context(
 : m_output {std::back_inserter(output)},
   m_pl {parent.pl()},
   m_code_types {parent.ctm()},
+  m_match_translation {parent.mtr()},
   m_parent {parent}
 { }
 
@@ -124,26 +126,4 @@ opi::scheme_emitter_context::register_identifier_for_function_template(
 {
   // NOTE: duplicate insertions occure naturally due to function overloads
   m_function_template_identifiers.emplace(identifier);
-}
-
-
-void
-opi::scheme_emitter_context::add_case_rule(const case_to_scheme &rule) noexcept
-{ m_cases_rules.emplace_back(rule); }
-
-
-const opi::case_to_scheme&
-opi::scheme_emitter_context::find_case_rule(value pattern, value type) const
-{
-  const auto it = std::ranges::find_if(m_cases_rules, [&](const auto &rule) {
-    return rule.ctor_match(pattern) and rule.type_match(type);
-  });
-  if (it != m_cases_rules.end())
-    return *it;
-
-  if (has_parent())
-    return m_parent.find_case_rule(pattern, type);
-
-  throw bad_code {
-      std::format("No handler for case {} with type {}", pattern, type)};
 }

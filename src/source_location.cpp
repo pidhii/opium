@@ -57,6 +57,58 @@ opi::copy_location(opi::value from, opi::value to)
   return bool(to->location = from->location);
 }
 
+std::pair<size_t, size_t>
+opi::compute_linespan_indices(const source_location &location,
+                              size_t context_lines)
+{
+  if (location.source[0] == '<')
+    return {0, 0};
+
+  // Try to open the file
+  std::ifstream file {location.source.data()};
+  if (not file.is_open())
+    throw std::runtime_error {
+        std::format("Could not open file: {}", location.source)};
+
+  // Read the entire file content
+  std::string content {std::istreambuf_iterator<char>(file),
+                       std::istreambuf_iterator<char>()};
+  file.close();
+
+  // Find line and column information
+  std::vector<size_t> line_starts;
+  line_starts.push_back(0); // First line starts at offset 0
+
+  for (size_t i = 0; i < content.size(); ++i)
+  {
+    if (content[i] == '\n')
+      line_starts.push_back(i + 1);
+  }
+
+  // Find the line containing the start position
+  size_t start_line = 0;
+  while (start_line < line_starts.size() &&
+         line_starts[start_line] <= location.start)
+  {
+    start_line++;
+  }
+  start_line = start_line > 0 ? start_line - 1 : 0;
+
+  // Find the line containing the end position
+  size_t end_line = start_line;
+  while (end_line < line_starts.size() and line_starts[end_line] <= location.end)
+    end_line++;
+  end_line = end_line > 0 ? end_line - 1 : 0;
+
+  // Calculate the range of lines to display
+  size_t display_start =
+      start_line > context_lines ? start_line - context_lines : 0;
+  size_t display_end =
+      std::min(end_line + context_lines, line_starts.size() - 1);
+
+  return {line_starts[display_start], line_starts[display_end+1]};
+}
+
 std::string
 opi::display_location(const opi::source_location &location,
                       size_t context_lines, std::string_view hlstyle,

@@ -1,6 +1,7 @@
 #include "opium/opium.hpp"
 #include "opium/logging.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
+#include "opium/scheme/scheme_type_location_map.hpp"
 #include "opium/scheme/scheme_type_system.hpp"
 #include <optional>
 
@@ -40,6 +41,7 @@ _write_scheme_script(std::ostream &os, opi::value script)
 void
 opi::generate_scheme(const scheme_translator &config, value in,
                      const std::filesystem::path &opath,
+                     scheme_type_location_map &tlm,
                      const std::optional<prolog_guide_function> &guide)
 {
   using namespace opi;
@@ -54,8 +56,8 @@ opi::generate_scheme(const scheme_translator &config, value in,
 
   info("\e[1mrunning Type Check\e[0m");
   opi::execution_timer analyzer_timer {"Type analyzer"};
-  const auto [out, tlm] =
-      translate_to_scheme(config, ppcode, pragmas["scheme-translator"], guide);
+  const auto [out, _] =
+      translate_to_scheme(config, ppcode, tlm, pragmas["scheme-translator"], guide);
   analyzer_timer.stop();
 
   // Write generated Scheme script

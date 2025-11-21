@@ -16,12 +16,12 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 #include "opium/scheme/scheme_type_system.hpp"
 #include "opium/logging.hpp"
 #include "opium/predicate_runtime.hpp"
-#include "opium/scheme/scheme_emitter_context.hpp"
-#include "opium/scheme/scheme_emitter.hpp"
+#include "opium/scheme/translator/exceptions.hpp"
+#include "opium/scheme/translator/scheme_emitter.hpp"
+#include "opium/scheme/translator/scheme_emitter_context.hpp"
 #include "opium/source_location.hpp"
 #include "opium/utilities/execution_timer.hpp"
 
@@ -147,13 +147,8 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode,
     if (global_flags.contains("IgnoreFailedQuery"))
       return {nil, {}};
     else
-    {
-      // TODO: rerun the query following the longest trace and generate TLM
-      //       before the unwind
       throw typecheck_failure {
-          "Prolog query failed (use -fIgnoreFailedQuery to ignore)",
-          build_type_location_map(ctx.ctm(), ppcode)};
-    }
+          "Prolog query failed (use -fIgnoreFailedQuery to ignore)"};
   }
   else
     debug("\e[1mQUERY SUCCEEDED\e[0m");

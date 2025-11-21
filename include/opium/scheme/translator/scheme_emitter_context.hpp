@@ -16,11 +16,11 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 #pragma once
 
 #include "opium/prolog.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
+#include "opium/scheme/translator/match_translation_rules.hpp"
 #include "opium/stl/deque.hpp"
 #include "opium/value.hpp"
 
@@ -29,8 +29,6 @@ namespace opi {
 
 
 using code_tape = opi::stl::vector<value>;
-
-
 using code_tape_output = std::back_insert_iterator<code_tape>;
 
 
@@ -43,17 +41,9 @@ struct function_template {
 };
 
 
-struct case_to_scheme {
-  match ctor_match;
-  match type_match;
-  value predicate;
-  value unpack;
-};
-
-
 struct scheme_emitter_context {
   scheme_emitter_context(const prolog &pl, const code_type_map &ctm,
-                         code_tape &output);
+                         const match_translation_rules &mtr, code_tape &output);
 
   scheme_emitter_context(scheme_emitter_context &parent, code_tape &output);
 
@@ -92,12 +82,6 @@ struct scheme_emitter_context {
   void
   register_identifier_for_function_template(value identifier);
 
-  void
-  add_case_rule(const case_to_scheme &rule) noexcept;
-
-  const case_to_scheme&
-  find_case_rule(value pattern, value type) const;
-
   /**
    * Get output tape for supplementary code
    */
@@ -105,19 +89,17 @@ struct scheme_emitter_context {
   output()
   { return m_output; }
 
-  /**
-   * Get reference to the prolog instance
-   */
   const prolog &
   pl() const
   { return m_pl; }
 
-  /**
-   * Get reference to the prolog emitter
-   */
   const code_type_map &
   ctm() const
   { return m_code_types; }
+
+  const match_translation_rules&
+  mtr() const
+  { return m_match_translation; }
 
 private:
   code_tape_output m_output; /**< Output tape for supplementary code */
@@ -132,11 +114,9 @@ private:
   opi::stl::deque<std::pair<value /* type */, value /* function identifier */>>
       m_specializations;
 
-  /** Rules on handling matching in cases expressions */
-  opi::stl::deque<case_to_scheme> m_cases_rules;
-
-  const prolog &m_pl; /**< Storage for predicates */
+  const prolog &m_pl;
   const code_type_map &m_code_types;
+  const match_translation_rules &m_match_translation;
 
   scheme_emitter_context &m_parent;
 }; // struct opi::scheme_emitter_context

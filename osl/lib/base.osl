@@ -193,6 +193,7 @@ extern identifier!(exit-handler) as exit_handler :: fn(num) -> _
 //
 type range(T) = {start T, end T}
 (a::T) : (b::T) = range(a, b)
+unpack(r range(T)) = values(r#start, r#end)
 
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -16,15 +16,14 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 #pragma once
 
-#include "opium/source_location.hpp"
-#include "opium/value.hpp"
+#include "opium/exceptions.hpp"
 #include "opium/format.hpp" // IWYU pragma: export
 #include "opium/predicate_runtime.hpp"
+#include "opium/source_location.hpp"
 #include "opium/stl/vector.hpp"
-#include "opium/exceptions.hpp"
+#include "opium/value.hpp"
 
 #include <concepts>
 #include <string>

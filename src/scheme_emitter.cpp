@@ -16,13 +16,13 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
-#include "opium/scheme/scheme_emitter.hpp"
-#include "opium/scheme/scheme_emitter_context.hpp"
+#include "opium/scheme/translator/scheme_emitter.hpp"
 #include "opium/scheme/scheme_type_system.hpp"
+#include "opium/scheme/translator/exceptions.hpp"
+#include "opium/scheme/translator/scheme_emitter_context.hpp"
 #include "opium/source_location.hpp"
-#include "opium/value.hpp"
 #include "opium/utilities/ranges.hpp"
+#include "opium/value.hpp"
 
 
 opi::value
@@ -115,8 +115,8 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, type_bindings &
         {
           const value exprtype = _find_code_type(expr);
           const value patterntype = _unfold_pattern_type(pattern);
-          const case_to_scheme &rule =
-              m_ctx.find_case_rule(patterntype, exprtype);
+          const match_translation_rules::rule &rule =
+              m_ctx.mtr().find_rule(patterntype, exprtype);
           // Create new condition to guard the branch
           const value newcond = list(rule.predicate, expr);
           conditions = append(conditions, list(newcond));

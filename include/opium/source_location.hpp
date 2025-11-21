@@ -68,7 +68,7 @@ struct source_location {
 
   bool
   contains(const source_location &other) const noexcept
-  { return source == other.source and start >= other.start and end <= other.end; }
+  { return source == other.source and start <= other.start and end >= other.end; }
 
   stl::string source; ///< Source name (filepath or "<string>")
   size_t start; ///< Start offset in the input stream
@@ -113,6 +113,10 @@ has_location(value val)
  */
 bool
 copy_location(opi::value from, opi::value to);
+
+[[nodiscard]] std::pair<size_t, size_t>
+compute_linespan_indices(const source_location &location,
+                         size_t context_lines = 0);
 
 /**
  * Display a fragment of a file according to location with surrounding context

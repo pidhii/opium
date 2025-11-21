@@ -116,16 +116,24 @@ build_type_location_map(const code_type_map &code_types, value ppcode)
   return map;
 }
 
-
-void
+std::string
 scheme_type_location_map::display_source_with_types(
-    std::string_view source, std::istream &in, std::ostream &out,
+    std::string_view source, std::istream &in, int start_offset, int end_offset,
     std::string_view type_style) const
 {
   // Read the entire file content
   std::string content {std::istreambuf_iterator<char>(in),
                        std::istreambuf_iterator<char>()};
 
+  if (start_offset < 0)
+    start_offset = 0;
+  if (end_offset < 0)
+    end_offset = content.size();
+
+  // Cut out location delimited by `start_offset` and `end_offset`
+  content.erase(end_offset);
+  content.erase(0, start_offset);
+  
   // Create a vector of type annotations sorted by end position
   struct type_annotation {
     size_t start;
@@ -136,8 +144,10 @@ scheme_type_location_map::display_source_with_types(
   std::vector<type_annotation> annotations;
   for (const auto &[loc, type] : m_map)
   {
-    if (loc.source == source)
-      annotations.emplace_back(type_annotation {loc.start, loc.end, type});
+    if (loc.source == source and loc.start >= size_t(start_offset) and
+        loc.end <= size_t(end_offset))
+      annotations.emplace_back(loc.start - start_offset, loc.end - start_offset,
+                               type);
   }
 
   // Sort annotations by end position (descending) to process from end to start
@@ -147,17 +157,27 @@ scheme_type_location_map::display_source_with_types(
             });
 
   // Insert type annotations
-  std::string result = content;
   for (const auto &ann : annotations)
   {
     std::ostringstream buf;
     pretty_template_instance_name(ann.type, buf);
     std::string type_annotation =
-        std::format("{}:{}\e[0m", type_style, buf.str());
-    result.insert(ann.end, type_annotation);
+        std::format("{}::{}\e[0m", type_style, buf.str());
+    content.insert(ann.end, type_annotation);
   }
 
-  out << result;
+  return content;
+}
+
+std::string
+scheme_type_location_map::display_location_with_types(
+    const source_location &location, std::string_view type_style) const
+{
+  const auto [start, end] = compute_linespan_indices(location, 1);
+  info("linespan indices: {} - {}", start, end);
+  std::ifstream file {location.source.c_str()};
+  return display_source_with_types(location.source, file, start, end,
+                                   type_style);
 }
 
 } // namespace opi

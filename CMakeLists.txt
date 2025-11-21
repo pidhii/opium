@@ -169,7 +169,8 @@ if (OPIUM_SCRIPT)
   add_executable (osl apps/osl/main.cpp ${osl_src_files} ${osl_syntax_src})
   target_compile_options (osl PRIVATE -Wno-error=unused-function)
   target_include_directories(osl
-    PUBLIC
+    PRIVATE
+      apps/osl
       ${osl_prefix}
       ${PROJECT_BINARY_DIR}
       ${PROJECT_SOURCE_DIR}/include

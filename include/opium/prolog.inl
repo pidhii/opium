@@ -37,7 +37,6 @@
 #include "opium/pretty_print.hpp"
 #include "opium/logging.hpp"
 #include "opium/stl/unordered_map.hpp"
-#include "opium/utilities/execution_timer.hpp"
 #include "opium/utilities/separate_stack_executor.hpp"
 #include "opium/utilities/state_saver.hpp"
 #include "opium/value.hpp"

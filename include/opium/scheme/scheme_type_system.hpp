@@ -16,52 +16,22 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 #pragma once
 
 #include "opium/logging.hpp"
+#include "opium/pretty_print.hpp"
+#include "opium/prolog_repl.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
 #include "opium/scheme/scheme_type_location_map.hpp"
-#include "opium/prolog_repl.hpp"
-#include "opium/pretty_print.hpp"
+#include "opium/scheme/translator/match_translation_rules.hpp"
+#include "opium/scheme/translator/scheme_emitter_context.hpp"
 #include "opium/utilities/execution_timer.hpp"
-
-#include "opium/scheme/scheme_emitter_context.hpp"
 #include "opium/value.hpp"
 
-#include <exception>
 #include <fstream>
-#include <iterator>
-#include <ranges>
 
 
 namespace opi {
-
-
-struct typecheck_failure: std::exception {
-  typecheck_failure(const std::string &what, scheme_type_location_map &&tlm)
-  : _what {what}, tlm {std::move(tlm)}
-  { }
-
-  const char*
-  what() const noexcept override
-  { return _what.c_str(); }
-
-  std::string _what;
-  scheme_type_location_map tlm;
-};
-
-
-struct interupt_emit: std::exception {
-  interupt_emit(std::string_view reason): reason {reason} { }
-
-  const char *
-  what() const noexcept
-  { return reason.c_str(); }
-
-  std::string reason;
-};
-
 
 std::pair<value, scheme_type_location_map>
 emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode,
@@ -100,20 +70,6 @@ void
 pretty_template_instance_name(value type, std::ostream &os);
 
 
-template <std::output_iterator<value> Output>
-void
-_gather_literals(value x, Output output) noexcept
-{
-  if (issym(x) and x != "_" and not std::isupper(sym_name(x)[0]))
-    *output++ = x;
-  else if (ispair(x))
-  {
-    _gather_literals(car(x), output);
-    _gather_literals(cdr(x), output);
-  }
-}
-
-
 struct default_type_coder {
   value
   operator () (value x) const
@@ -136,8 +92,10 @@ struct scheme_translator {
   { prolog_emitter::setup_prolog(prolog); }
 
   opium_preprocessor preprocessor;
-  opi::prolog_repl prolog;
+  prolog_repl prolog;
   prolog_emitter::type_coder type_coder;
+  match_translation_rules match_translation;
+
   mutable size_t counter;
 };
 
@@ -146,7 +104,7 @@ template <std::ranges::range Pragmas = std::initializer_list<value>>
 static std::pair<value, scheme_type_location_map>
 translate_to_scheme(
     const scheme_translator &translator_config, value ppcode,
-    Pragmas &&pragmas = {},
+    scheme_type_location_map &tlm, Pragmas &&pragmas = {},
     const std::optional<prolog_guide_function> &guide = std::nullopt)
 {
   // Utility variable
@@ -158,10 +116,14 @@ translate_to_scheme(
                             translator_config.type_coder, code_types};
   prolog_cleaner pl_cleaner;
 
+  // Emit TypeCheck script
   execution_timer prolog_generation_timer {"Prolog generation"};
   const value plcode = list(range(to_prolog.transform_block(ppcode))
                             | std::views::transform(std::ref(pl_cleaner)));
   prolog_generation_timer.stop();
+
+  // Build TLM
+  tlm = build_type_location_map(code_types, ppcode);
 
   if (global_flags.contains("DumpTypeCheck"))
   {
@@ -175,7 +137,8 @@ translate_to_scheme(
 
   // Translate the code to proper scheme
   opi::stl::vector<value> main_tape;
-  scheme_emitter_context ctx {translator_config.prolog, code_types, main_tape};
+  scheme_emitter_context ctx {translator_config.prolog, code_types,
+                              translator_config.match_translation, main_tape};
 
   // Process pragmas
   const match matchcasesrule {list("cases-rule"),
@@ -191,17 +154,9 @@ translate_to_scheme(
       const value typepattern = ms.at("type-pattern");
       const value predicate = ms.at("predicate");
       const value unpack = ms.at("unpack");
-
-      std::vector<value> ctorliterals, typeliterals;
-      _gather_literals(ctorpattern, std::back_inserter(ctorliterals));
-      _gather_literals(typepattern, std::back_inserter(typeliterals));
-
-      ctx.add_case_rule({
-        match {list(ctorliterals), ctorpattern},
-        match {list(typeliterals), typepattern},
-        predicate,
-        unpack,
-      });
+      const_cast<scheme_translator &>(translator_config)
+          .match_translation.add_rule(ctorpattern, typepattern, predicate,
+                                      unpack);
     }
     else if (ms.clear(), matchinline(expr, ms))
     {
