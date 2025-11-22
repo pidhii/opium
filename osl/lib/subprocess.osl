@@ -19,10 +19,10 @@ type process = {
       (cond
         (args
           (let-values (((pstdout pstdin pid pstderr) (process* cmd args)))
-            (osl:process pstdout pstderr pstdin pid)))
+            (osl#ctor#process pstdout pstderr pstdin pid)))
         (else
           (let-values (((pstdout pstdin pid pstderr) (process* cmd)))
-            (osl:process pstdout pstderr pstdin pid)))))
+            (osl#ctor#process pstdout pstderr pstdin pid)))))
 
     (define osl_process_sleep process-sleep)
   )

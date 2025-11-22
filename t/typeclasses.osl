@@ -1,0 +1,74 @@
+#!/usr/bin/env -S ./install/bin/opium-osl -rv
+
+
+#pragma scheme-translator {
+  ; (cases-rule (osl#ctor#Cons _ _) (list _) pair? unpack-pair)
+  ; (cases-rule (osl#ctor#EmptyList) (list _) null? <unused>) ;; nothing to unpack
+
+  (cases-rule ((typename num) _) _ number? identity)
+  (cases-rule ((typename str) _) _ string? identity)
+  (cases-rule ((typename (maybe _)) _) _ (lambda (x) (or (maybe.Some? x) (maybe.Nothing? x))) identity)
+}
+
+#pragma prolog {
+  (predicate (coerce str textlike))
+  (predicate (coerce sym textlike))
+
+  (predicate (coerce str utf8))
+}
+
+t_x_textlike(x textlike) = println(x, " is textlike")
+t_x_utf8text(x textlike and utf8) = println(x, " is a utf8 text")
+
+t_x_num_or_str_or_maybenum(x num or str or maybe(num)) = {
+  match x in
+  | num x -> println(x, " is a number")
+  | str x -> println(x, " is a string")
+  | maybe(_) x -> println(x, " might be")
+}
+
+t_not_utf8(x not utf8) = println(x, " is not a utf8")
+t_nonutf8text(x textlike and (not utf8)) = println(x, " is a non-utf8 text")
+
+t_x_not_text_and_not_num(x not (textlike or num)) =
+  println(x, " is neither a textlike nor a num")
+
+t_x_not_not_num(x not not num) = println(x, " is a num after all")
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                                  or
+//
+// o T ->  U1 or U2 or ...
+t_x_num_or_str_or_maybenum(1)
+t_x_num_or_str_or_maybenum("\"text\"")
+t_x_num_or_str_or_maybenum(Some(41))
+// assert not { t_x_num_or_str_or_maybenum(sym("a")) }
+// o T1 or T2 or ... ->  U
+t_x_textlike("\"text\"" :: (sym or str))
+// assert not { t_x_textlike("\"text\"" :: (sym or num)) }
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                                 and
+//
+// o T -> U1 and U2
+t_x_utf8text("\"text\"")
+// o T1 and T2 and ... ->  U
+t_x_textlike("\"text\"" :: (textlike and utf8))
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                                 not
+//
+// o T -> not U
+t_not_utf8(42)
+// o T -> U and not V
+t_not_utf8(sym("identifier"))
+// assert not { t_not_utf8("\"text\"") }
+// assert not { t_nonutf8text("\"text\"") }
+// o not (T or U) = (not T) and (not U)
+t_x_not_text_and_not_num(() => "foo")
+// assert not { t_x_not_str_and_not_num(sym("identifier")) }
+// o not not T -> T
+t_x_not_not_num(42)

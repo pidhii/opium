@@ -127,7 +127,7 @@ class scheme_type_location_map {
       const auto it = query_result.find(type);
       if (it != query_result.end())
       {
-        assert(std::next(it->second.begin(), 1) == it->second.end());
+        // assert(std::next(it->second.begin(), 1) == it->second.end());
         type = *it->second.begin();
       }
     }

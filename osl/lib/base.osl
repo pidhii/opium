@@ -53,12 +53,16 @@ identifier!(EmptyList)() = identifier!(list.EmptyList)()
 #pragma prolog {
   (predicate (match-on (osl#ctor#Cons T (list T)) (list T)))
   (predicate (match-on (osl#ctor#EmptyList) (list _)))
+
+  (predicate (match-on ((typename T) T) T))
+  (predicate (match-on ((typename T) T) (or . Ts))
+    (member T Ts))
 }
 
 // Explicit coercion
 #pragma prolog {
   (predicate (result-of (coerce T) U)
-    (coerce T U))
+    (fast-coerce T U))
 }
 #pragma scheme-translator {
   (inline
@@ -90,8 +94,48 @@ bool(x) = identifier!(osl#?->bool)(x)
 
 // Unions/variants
 #pragma prolog {
-  (predicate (coerce T (or . Ts)) (member T Ts))
-  (predicate (coerce (or . Ts) (or . Us)) (subset Ts Us))
+  ;;;;;
+  ;; (coerce T (or U1 U2 ...))
+  ;;
+  ;;     ∃ Ui: T ≤ Ui
+  ;;;;
+  (predicate (coerce T (or U . Us))
+    (if (fast-coerce T U) #t
+        (coerce T (or . Us))))
+
+  ;;;;
+  ;; (coerce (or T1 T2 ...) U)
+  ;;
+  ;;     ∀ Ti: Ti ≤ U
+  ;;;;
+  (predicate (coerce (or . Ts) U)
+    (all-less-then* fast-coerce Ts U))
+
+  ;;;;
+  ;; (coerce T (and U1 U2 ...))
+  ;;
+  ;;     ∀ Ui: T ≤ Ui
+  ;;;;
+  (predicate (coerce T (and . Us))
+    (less-then-all* fast-coerce T Us))
+
+  ;;;;
+  ;; (coerce (and T1 T2 ...) U)
+  ;;
+  ;;     ∃ Ti: Ti ≤ U
+  ;;;;
+  (predicate (coerce (and T . Ts) U)
+    (if (fast-coerce T U) #t
+        (coerce (and . Ts) U)))
+
+  ;;;;
+  ;;
+  ;; (coerce T (not U))
+  ;;
+  ;;       ¬(T ≤ U)
+  ;;;;
+  (predicate (coerce T (not U))
+    (not (fast-coerce T U)))
 }
 
 // Return expression (Bison misunderstands my intentions)

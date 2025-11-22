@@ -105,3 +105,19 @@
 (predicate (subset (X . Xs) Ys)
   (member X Ys)
   (subset Xs Ys))
+
+;;;;
+;; ∀ Xi: Xi ≤ Y
+;;;;
+(predicate (all-less-then* _ () _))
+(predicate (all-less-then* Less (X . Xs) Y)
+  (call Less X Y)
+  (all-less-then* Less Xs Y))
+
+;;;;
+;; ∀ Yi: X ≤ Yi
+;;;;
+(predicate (less-then-all* _ _ ()))
+(predicate (less-then-all* Less X (Y . Ys))
+  (call Less X Y)
+  (less-then-all* Less X Ys))

@@ -145,7 +145,7 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
         if (ispair(pattern))
         { // Generate patter matching via match-on predicate
           const value constructor = car(pattern);
-          assert(issym(constructor));
+          // assert(issym(constructor)); // NOTE constructor does not have to be a symbol
           const value arguments = cdr(pattern);
           value plarguments = nil;
           for (const value ident : range(arguments))

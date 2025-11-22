@@ -288,9 +288,9 @@ generate_record_type(opi::value typesign, opi::value fields,
     fieldtypes = append(fieldtypes, list(car(cdr(field))));
   }
 
-  const opi::value mangledname = opi::sym(std::format("osl:{}", recordname));
+  const opi::value mangledname = opi::sym(std::format("osl#ctor#{}", recordname));
   const opi::value predname = opi::sym(std::format("{}?", mangledname));
-  const opi::value type_name = opi::sym(std::format("<{}>", mangledname));
+  const opi::value type_name = opi::sym(std::format("osl#{}", recordname));
   set_location(mangledname, location);
   set_location(predname, location);
   set_location(type_name, location);
@@ -575,7 +575,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %token RETURN
 %token EXTERN AS
 
-%right '|'
+%right '|' '&'
 
 %nonassoc IF THEN
 %right ELSE
@@ -610,7 +610,11 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %type Bind ListOfBinds
 %type Ctor Ctor_mangled
 %type TopLvlSeq TopLvlExpr
-%type TypeDef AtomTypeSign TypeSignVariants_column TypeSignVariants_or TypeSign CtorSign ListOfCtorSigns TypeParam ListOfTypeParams ListOfFields
+%type TypeDef AtomTypeSign
+%type OrTypeSign_column OrTypeSign_or OrTypeSign
+%type AndTypeSign_ampersand AndTypeSign_and AndTypeSign
+%type TypeSign CtorSign ListOfCtorSigns TypeParam ListOfTypeParams
+%type ListOfFields
 %type If
 %type Lambda
 %type ExprWithOptTypeParam
@@ -1067,23 +1071,40 @@ AtomTypeSign
   }
   | AtomTypeSign '?' { $$ = list($2, $1); }
   | '(' TypeSign ')'  { $$ = $2; }
+  | NOT AtomTypeSign { $$ = list("not", $2); }
 ;
 
-TypeSignVariants_column
+OrTypeSign_column
   : AtomTypeSign { $$ = list($1); }
-  | TypeSignVariants_column '|' AtomTypeSign { $$ = cons($3, $1); }
+  | OrTypeSign_column '|' AtomTypeSign %prec OR { $$ = cons($3, $1); }
 ;
 
-TypeSignVariants_or
+OrTypeSign_or
   : AtomTypeSign { $$ = list($1); }
-  | TypeSignVariants_or OR AtomTypeSign { $$ = cons($3, $1); }
+  | OrTypeSign_or OR AtomTypeSign { $$ = cons($3, $1); }
 ;
 
-TypeSign
-  : AtomTypeSign
-  | AtomTypeSign '|' TypeSignVariants_column { $$ = cons("or", cons($1, $3)); }
-  | AtomTypeSign OR TypeSignVariants_or { $$ = cons("or", cons($1, $3)); }
+OrTypeSign
+  : AtomTypeSign '|' OrTypeSign_column { $$ = cons("or", cons($1, $3)); }
+  | AtomTypeSign OR OrTypeSign_or { $$ = cons("or", cons($1, $3)); }
 ;
+
+AndTypeSign_ampersand
+  : AtomTypeSign { $$ = list($1); }
+  | AndTypeSign_ampersand '&' AtomTypeSign { $$ = cons($3, $1); }
+;
+
+AndTypeSign_and
+  : AtomTypeSign { $$ = list($1); }
+  | AndTypeSign_and AND AtomTypeSign { $$ = cons($3, $1); }
+;
+
+AndTypeSign
+  : AtomTypeSign '&' AndTypeSign_ampersand { $$ = cons("and", cons($1, $3)); }
+  | AtomTypeSign AND AndTypeSign_and { $$ = cons("and", cons($1, $3)); }
+;
+
+TypeSign: AtomTypeSign | OrTypeSign | AndTypeSign;
 
 ListOfCtorSigns
   : CtorSign { $$ = list($1); }
@@ -1156,6 +1177,8 @@ ListOfExprPatterns
 ExprPattern
   : EXPAT
   | AtomPattern
+  | IDENT IDENT { $$ = list(list("typename", $1), $2); }
+  | IDENT '(' ListOfTypeParams ')' IDENT { $$ = list(list("typename", cons($1, $3)), $4); }
   | ExprPattern ':' ExprPattern {
     const value Cons = mangle_type_constructor("Cons");
     bindloc(Cons, @2);
