@@ -14,7 +14,6 @@
 
 %{
 #include "parse.hpp"
-#include "syntax_definitions.h"
 #include "unroll_flow.hpp"
 #include "macros.hpp"
 

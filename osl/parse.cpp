@@ -1,5 +1,4 @@
 #include "parse.hpp"
-#include "syntax_definitions.h"
 #include "osl_parser.hpp"
 
 #include <filesystem>
