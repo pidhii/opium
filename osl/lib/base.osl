@@ -54,9 +54,8 @@ identifier!(EmptyList)() = identifier!(list.EmptyList)()
   (predicate (match-on (osl#ctor#Cons T (list T)) (list T)))
   (predicate (match-on (osl#ctor#EmptyList) (list _)))
 
-  (predicate (match-on ((typename T) T) T))
-  (predicate (match-on ((typename T) T) (or . Ts))
-    (member T Ts))
+  (predicate (match-on ((typename T) T) U)
+    (coerce T U))
 }
 
 // Explicit coercion
