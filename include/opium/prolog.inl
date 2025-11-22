@@ -277,7 +277,8 @@ prolog::_make_true(const call_frame &frame, value e, Cont cont,
         const std::string predname = sym_name(car(e)).data();
         const value eargs = cdr(e);
 
-        utl::state_saver _ {m_cutpred};
+        utl::state_saver _ {m_cut, m_cutpred};
+        m_cut = false;
         for (const predicate &p : predicate_branches(predname))
         {
           m_cutpred = false;
