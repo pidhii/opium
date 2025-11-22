@@ -8,7 +8,9 @@ require "base"
 //
 // So change the backend or implement it yourself (be a man).
 
-#pragma scheme-translator { (inline (import iterators)) }
+~~~
+(import iterators)
+~~~
 
 extern coroutine as generator_co(fn(fn(T) -> void) -> _) -> generator_co(T)
 extern identifier!(co-value) as co_value(generator_co(T)) -> T

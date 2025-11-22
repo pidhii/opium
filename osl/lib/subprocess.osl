@@ -11,22 +11,20 @@ type process = {
   pid num,
 }
 
-#pragma scheme-translator {
-  (inline
-    (import (chicken process))
+~~~
+(import (chicken process))
 
-    (define (osl_process cmd #!optional (args #f))
-      (cond
-        (args
-          (let-values (((pstdout pstdin pid pstderr) (process* cmd args)))
-            (osl#ctor#process pstdout pstderr pstdin pid)))
-        (else
-          (let-values (((pstdout pstdin pid pstderr) (process* cmd)))
-            (osl#ctor#process pstdout pstderr pstdin pid)))))
+(define (osl_process cmd #!optional (args #f))
+  (cond
+    (args
+      (let-values (((pstdout pstdin pid pstderr) (process* cmd args)))
+        (osl#ctor#process pstdout pstderr pstdin pid)))
+    (else
+      (let-values (((pstdout pstdin pid pstderr) (process* cmd)))
+        (osl#ctor#process pstdout pstderr pstdin pid)))))
 
-    (define osl_process_sleep process-sleep)
-  )
-}
+(define osl_process_sleep process-sleep)
+~~~
 
 #pragma prolog {
   (predicate (result-of (osl_process . Args) process)

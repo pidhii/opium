@@ -1,6 +1,8 @@
 require "base"
 
-#pragma scheme-translator { (inline (import (chicken blob) srfi-4)) }
+~~~
+(import (chicken blob) srfi-4)
+~~~
 
 // Constructors
 extern identifier!(make-blob) as blob(num) -> blob

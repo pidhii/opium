@@ -1,5 +1,7 @@
 
-#pragma scheme-translator { (inline (import (chicken process-context))) }
+~~~
+(import (chicken process-context))
+~~~
 
 argv = {
   extern argv() -> list(str)

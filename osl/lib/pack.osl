@@ -10,16 +10,21 @@
     (coerce-list Ts Results))
 }
 
-#pragma scheme-translator {
-  (inline
-    (define (pack . args) args)
-    (define (osl#unpack-pack pack) (apply values pack))
-    (define-compiler-syntax pack
-      (syntax-rules ()
-        ((_ x ...) (list x ...))))
-    (define-compiler-syntax osl#unpack-pack
-      (syntax-rules ()
-        ((_ x) (apply values x)))))
-}
+~~~
+(define (pack . args) args)
+(define (osl#unpack-pack pack) (apply values pack))
+
+(define-compiler-syntax pack
+  (syntax-rules ()
+    ((_ x ...) (list x ...))))
+
+(define-compiler-syntax osl#unpack-pack
+  (syntax-rules ()
+    ((_ x) (apply values x))))
+
+(define-compiler-syntax osl#unpack-pack
+  (syntax-rules ()
+    ((_ (pack x ...)) (values x ...))))
+~~~
 
 unpack(p) = identifier!(osl#unpack-pack)(p)

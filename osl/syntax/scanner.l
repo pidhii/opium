@@ -48,6 +48,7 @@ std::optional<int> start_token;
 %x STRING
 %x PRAGMA
 %x FOREIGN_INLINE
+%x SCHEME_INLINE
 
 %%
 
@@ -57,6 +58,7 @@ std::optional<int> start_token;
 
 
 require return REQUIRE;
+
 
 ^"```".*$ {
   BEGIN(FOREIGN_INLINE);
@@ -76,6 +78,24 @@ require return REQUIRE;
   opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return STRING_CHUNK;
 }
+<FOREIGN_INLINE>\n
+
+
+^"~~~".*$ {
+  BEGIN(SCHEME_INLINE);
+  return SCHEME_INLINE_BEGIN;
+}
+<SCHEME_INLINE>^"~~~"$ {
+  BEGIN(INITIAL);
+  return SCHEME_INLINE_END;
+}
+<SCHEME_INLINE>^.+$ {
+  yylval = str(yytext);
+  opi::set_location(yylval, opi::osl::make_location(*loc_p));
+  return STRING_CHUNK;
+}
+<SCHEME_INLINE>\n
+
 
 foreign return FOREIGN;
 

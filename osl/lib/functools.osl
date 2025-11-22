@@ -1,7 +1,8 @@
-#pragma scheme-translator { (inline (import (chicken base))) }
+~~~
+(import (chicken base))
+(define osl#constant constantly)
+~~~
 
-
-#pragma scheme-translator { (inline (define osl#constant constantly)) }
 #pragma prolog { (predicate (result-of (osl#constant T) (fn _ T))) }
 extern identifier!(osl#constant) as constant(T) -> fn() -> T
 

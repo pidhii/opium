@@ -3,21 +3,19 @@
 require "base"
 require "error"
 
-#pragma scheme-translator {
-  (inline
-    (cond-expand
-      (chicken
-        (import hash-trie)
-        (define makeHashTrieType make-hash-trie-type)
-        (define makeHashTrie make-hash-trie)
-        (define hashTrieInsert hash-trie/insert)
-        (define hashTrieDelete hash-trie/delete)
-        (define hashTrieLookup hash-trie/lookup)
-        (define hashTrieCount hash-trie/count)
-        (define hashTrieEmpty hash-trie/empty?)
-        (define hashTrieContains hash-trie/member?)
-        (define is eq?))))
-}
+~~~
+(import hash-trie)
+(define makeHashTrieType make-hash-trie-type)
+(define makeHashTrie make-hash-trie)
+(define hashTrieInsert hash-trie/insert)
+(define hashTrieDelete hash-trie/delete)
+(define hashTrieLookup hash-trie/lookup)
+(define hashTrieCount hash-trie/count)
+(define hashTrieEmpty hash-trie/empty?)
+(define hashTrieContains hash-trie/member?)
+(define is eq?)
+~~~
+
 #pragma prolog {
   (predicate (result-of (makeHashTrieType (fn (K K) bool) (fn (K) num)) (trietype K V)))
   (predicate (result-of (makeHashTrie (trietype K V)) (trie K V)))

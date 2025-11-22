@@ -1,6 +1,8 @@
 // FIXME: All lifted paremeters are wrong as dont account for returns of `false`.
 
-#pragma scheme-translator { (inline (import (chicken tcp))) }
+~~~
+(import (chicken tcp))
+~~~
 
 // Server
 extern identifier!(tcp-listen) as tcp_listen(num, num, str) -> tcp_listener

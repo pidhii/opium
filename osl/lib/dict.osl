@@ -1,7 +1,9 @@
 require "base"
 require "coroutines"
 
-#pragma scheme-translator { (inline (import srfi-69)) }
+~~~
+(import srfi-69)
+~~~
 
 ////
 //

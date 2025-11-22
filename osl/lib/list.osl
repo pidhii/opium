@@ -1,7 +1,9 @@
 require "base"
 
 
-#pragma scheme-translator { (inline (import srfi-1)) }
+~~~
+(import srfi-1)
+~~~
 
 list(l list(_)) = l
 

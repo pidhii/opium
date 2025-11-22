@@ -3,30 +3,9 @@
 #include "opium/scheme/scheme_transformations.hpp"
 #include "opium/scheme/scheme_type_location_map.hpp"
 #include "opium/scheme/scheme_type_system.hpp"
+
 #include <optional>
-
-
-using pragmas =
-    opi::stl::unordered_map<std::string, opi::stl::deque<opi::value>>;
-
-
-void
-_find_pragmas(opi::value script, pragmas &pragmas)
-{
-  opi::stl::unordered_map<opi::value, opi::value> matches;
-  for (const opi::value expr : range(script))
-  {
-    // Handle pragmas
-    if (opi::ispair(expr) and car(expr) == "pragma")
-    {
-      if (length(cdr(expr)) < 2 or not issym(car(cdr(expr))))
-        throw opi::bad_code {"Invalid pragma", expr};
-
-      const std::string tag {sym_name(car(cdr(expr)))};
-      std::ranges::copy(range(cdr(cdr(expr))), std::back_inserter(pragmas[tag]));
-    }
-  }
-}
+#include <fstream>
 
 
 static void
@@ -46,18 +25,13 @@ opi::generate_scheme(const scheme_translator &config, value in,
 {
   using namespace opi;
 
-  // Collect and erase pragmas
-  pragmas pragmas;
-  _find_pragmas(in, pragmas);
-
   opi::execution_timer preprocessor_timer {"Preprocessor"};
   const value ppcode = config.preprocessor.transform_block(in);
   preprocessor_timer.stop();
 
   info("\e[1mrunning Type Check\e[0m");
   opi::execution_timer analyzer_timer {"Type analyzer"};
-  const auto [out, _] =
-      translate_to_scheme(config, ppcode, tlm, pragmas["scheme-translator"], guide);
+  const auto [out, _] = translate_to_scheme(config, ppcode, tlm, guide);
   analyzer_timer.stop();
 
   // Write generated Scheme script

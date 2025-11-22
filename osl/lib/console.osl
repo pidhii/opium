@@ -8,27 +8,25 @@
   (predicate (result-of (osl#println . _) void))
   (predicate (result-of (osl#eprintln . _) void))
 }
-#pragma scheme-translator {
-  (inline
-    (import (chicken base) (chicken port))
+~~~
+(import (chicken base) (chicken port))
 
-    (define (osl#print . args)
-      (apply print* args))
+(define (osl#print . args)
+  (apply print* args))
 
-    (define (osl#println . args)
-      (apply print args))
+(define (osl#println . args)
+  (apply print args))
 
-    (define (osl#eprint . args)
-      (with-output-to-port
-        (current-error-port)
-        (lambda () (apply print* args))))
+(define (osl#eprint . args)
+  (with-output-to-port
+    (current-error-port)
+    (lambda () (apply print* args))))
 
-    (define (osl#eprintln . args)
-      (with-output-to-port
-        (current-error-port)
-        (lambda () (apply print args))))
-  )
-}
+(define (osl#eprintln . args)
+  (with-output-to-port
+    (current-error-port)
+    (lambda () (apply print args))))
+~~~
 
 macro print {[print] = [identifier!(osl#print)]}
 macro println {[println] = [identifier!(osl#println)]}

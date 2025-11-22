@@ -5,12 +5,11 @@ require "number"
 //
 // Builtin operations with strings
 //
-#pragma scheme-translator {
-  (inline
-    (import (chicken string) srfi-13)
+~~~
+(import (chicken string) srfi-13)
 
-    (define concat string-append))
-}
+(define concat string-append)
+~~~
 //
 #pragma prolog {
   (ensure-loaded "prolog-std.scm")

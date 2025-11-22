@@ -1,6 +1,8 @@
 require "typeutils"
 
-#pragma scheme-translator { (inline (import (chicken irregex))) }
+~~~
+(import (chicken irregex))
+~~~
 
 extern identifier!(string->irregex) as regexp(str) -> regexp
 

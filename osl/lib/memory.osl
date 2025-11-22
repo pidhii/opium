@@ -31,7 +31,9 @@ sizeof(_ the(ptr(_))) = 8 // FIXME (platform dependent)
 ////////////////////////////////////////////////////////////////////////////////
 //                             Locatives
 //
-#pragma scheme-translator { (inline (import (chicken locative))) }
+~~~
+(import (chicken locative))
+~~~
 // NOTE: Purposefuly omiting locatives for pairs (lists) as implementation will
 // be rather sketchy and their potential use cases appear to me being very
 // questionable
@@ -71,7 +73,9 @@ extern identifier!(locative-set!) as identifier!(osl#store)(locative(T, _), T) -
 ////////////////////////////////////////////////////////////////////////////////
 //                             Pointers
 //
-#pragma scheme-translator { (inline (import (chicken memory))) }
+~~~
+(import (chicken memory))
+~~~
 
 // TODO:
 // In some occasions it is possible to pass an apropriate locative in place of a

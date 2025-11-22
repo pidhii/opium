@@ -107,12 +107,10 @@ random_access_setter()
 
 
 
-template <std::output_iterator<opi::value> Output>
-opi::value
+static opi::value
 generate_record_definition(opi::value typesign, opi::value name, opi::value ctorname,
                            opi::value fields, opi::value fieldtypes,
-                           opi::value predname, opi::scheme_translator &translator,
-                           Output output)
+                           opi::value predname, opi::scheme_translator &translator)
 {
   // Getters and setters
   opi::value accessors = opi::nil;
@@ -134,7 +132,7 @@ generate_record_definition(opi::value typesign, opi::value name, opi::value ctor
                                         opi::list("unsafe", "unchecked", "inline"),
                                         cons(ctorname, fields), predname,
                                         opi::dot, accessors);
-  *output++ = list("pragma", "scheme-translator", list("inline", recorddef, fastrecorddef));
+  append_mut(translator.prologue, list(recorddef, fastrecorddef));
 
   // Write type signature for constructor
   const opi::value ctorsign = cons(ctorname, fieldtypes);
@@ -217,7 +215,7 @@ generate_variant(opi::value typesign, opi::value ctorsign,
   // Generate record for this variant
   const opi::value recorddef = generate_record_definition(
       typesign, recordname, recordname, fields, cdr(ctorsign), predname,
-      translator, output);
+      translator);
 
 
   // Overload ctor name with constructor of a record form above
@@ -234,9 +232,9 @@ generate_variant(opi::value typesign, opi::value ctorsign,
 
   // Matching rules
   const opi::value unpackdef = generate_unpack_definition(recorddef, unpackname);
-  *output++ = list("pragma", "scheme-translator",
-                    list("inline", unpackdef),
-                    list("cases-rule", mangledctorsign, typesign, predname, unpackname));
+  append_mut(translator.prologue, list(unpackdef));
+  translator.match_translation.add_rule(mangledctorsign, typesign, predname,
+                                        unpackname);
 
   // Generate Prolog predicates
   translator.prolog << list("predicate", list("match-on", mangledctorsign, typesign));
@@ -297,7 +295,9 @@ generate_record_type(opi::value typesign, opi::value fields,
   const opi::value recorddef =
       generate_record_definition(typesign, type_name,
                                  mangledname, fieldnames, fieldtypes, predname,
-                                 translator, output);
+                                 translator);
+  translator.match_translation.add_rule(list(list("typename", typesign),"_"),
+                                        "_", predname, "identity");
 
   const opi::value define_overload = "define-overload";
   set_location(define_overload, location);
@@ -561,7 +561,9 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 // General syntax tokens
 %token INLINE_TYPCHECK
 %token MACRO
-%token REQUIRE FOREIGN_INLINE_BEGIN FOREIGN_INLINE_END FOREIGN
+%token REQUIRE
+%token FOREIGN_INLINE_BEGIN FOREIGN_INLINE_END FOREIGN
+%token SCHEME_INLINE_BEGIN SCHEME_INLINE_END SCHEME
 %token ASSERT
 %token IDENT
 %token CAPIDENT
@@ -1002,10 +1004,32 @@ TopLvlExpr
       result.push_back('\n');
     }
     result += "<#\n";
-    $$ = list(
-      list("pragma", "scheme-translator",
-        list("inline", sym(result))));
-    bindloc($$, @$);
+    append_mut(g_current_program_parser->m_translator_config.prologue,
+               list(sym(result)));
+    $$ = nil;
+  }
+  | SCHEME_INLINE_BEGIN StringChunks SCHEME_INLINE_END {
+    std::string text;
+    for (const value chunk : range($2))
+    {
+      std::ranges::copy(str_view(chunk), std::back_inserter(text));
+      text.push_back('\n');
+    }
+
+    opi::lisp_parser parser;
+    try {
+      const value schemecode = parser.parse_all(text);
+      append_mut(g_current_program_parser->m_translator_config.prologue,
+                 schemecode);
+    }
+    catch (const std::exception &exn)
+    {
+      opi::error("while parsing inline scheme block: {}\n{}", exn.what(),
+                 opi::display_location(osl::make_location(@$)));
+      throw;
+    }
+
+    $$ = nil;
   }
   | MACRO {
     parse_syntax_cases_macro(*g_current_lexer, *g_current_program_parser);
@@ -1022,8 +1046,27 @@ TopLvlExpr
         g_current_program_parser->m_translator_config.prolog << plexpr;
       $$ = nil;
     }
+    else if ($2 == "match-translation-rule")
+    {
+      value match_pattern;
+      value type_pattern;
+      value predicate;
+      value unpack;
+      if (not assoc("match-pattern", data, match_pattern) or
+          not assoc("type-pattern", data, type_pattern) or
+          not assoc("predicate", data, predicate) or
+          not assoc("unpack", data, unpack))
+        throw opi::bad_code {"Invalid match-translation-rule",
+                             osl::make_location(@$)};
+      g_current_program_parser
+          ->m_translator_config
+          .match_translation
+          .add_rule(match_pattern, type_pattern, predicate, unpack);
+      $$ = nil;
+    }
     else
-      $$ = list(list("pragma", $2, dot, data));
+      throw opi::bad_code {std::format("Unkown pragma, {}", $2),
+                           osl::make_location(@$)};
   }
 ;
 
@@ -1192,11 +1235,7 @@ AtomPattern
   | '(' ExprPattern ')' { $$ = $2; }
   | Ctor_mangled %prec AFTER_APPLY { $$ = list($1); }
   | Ctor_mangled '(' ListOfExprPatterns ')' %prec APPLY { $$ = cons($1, $3); }
-  | '[' ']' {
-    const value EmptyList = mangle_type_constructor("EmptyList");
-    bindloc(EmptyList, @$);
-    $$ = list(EmptyList);
-  }
+  | '[' ']' { $$= list("osl#list"); bindloc($$, @$); }
 ;
 
 

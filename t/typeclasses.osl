@@ -1,19 +1,27 @@
 #!/usr/bin/env -S ./install/bin/opium-osl -rv
 
-
-#pragma scheme-translator {
-  ; (cases-rule (osl#ctor#Cons _ _) (list _) pair? unpack-pair)
-  ; (cases-rule (osl#ctor#EmptyList) (list _) null? <unused>) ;; nothing to unpack
-
-  (cases-rule ((typename num) _) _ number? identity)
-  (cases-rule ((typename str) _) _ string? identity)
-  (cases-rule ((typename (maybe _)) _) _ (lambda (x) (or (maybe.Some? x) (maybe.Nothing? x))) identity)
+#pragma match-translation-rule {
+  (match-pattern . ((typename num) _))
+  (type-pattern . _)
+  (predicate . number?)
+  (unpack . identity)
+}
+#pragma match-translation-rule {
+  (match-pattern . ((typename str) _))
+  (type-pattern . _)
+  (predicate . string?)
+  (unpack . identity)
+}
+#pragma match-translation-rule {
+  (match-pattern . ((typename (maybe _)) _))
+  (type-pattern . _)
+  (predicate . (lambda (x) (or (maybe.Some? x) (maybe.Nothing? x))))
+  (unpack . identity)
 }
 
 #pragma prolog {
   (predicate (coerce str textlike))
   (predicate (coerce sym textlike))
-
   (predicate (coerce str utf8))
 }
 

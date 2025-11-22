@@ -1,24 +1,21 @@
 require "base"
 
-#pragma scheme-translator {
-  (inline
-    (import zmq)
-    (import (chicken blob))
+~~~
+(import zmq)
+(import (chicken blob))
 
-    (define (zmq_send_message SOCKET MESSAGE OPTIONS)
-      (let ((sndmore (memq (quote sndmore) OPTIONS))
-            (dontwait (memq (quote dontwait) OPTIONS)))
-        (send-message SOCKET MESSAGE send-more: sndmore non-blocking: dontwait)))
+(define (zmq_send_message SOCKET MESSAGE OPTIONS)
+  (let ((sndmore (memq (quote sndmore) OPTIONS))
+        (dontwait (memq (quote dontwait) OPTIONS)))
+    (send-message SOCKET MESSAGE send-more: sndmore non-blocking: dontwait)))
 
-    (define (zmq_receive_message SOCKET OPTIONS)
-      (let* ((dontwait (memq (quote dontwait) OPTIONS))
-             (message (receive-message SOCKET non-blocking: dontwait as: (quote blob))))
-        (if message
-          (maybe.Some message)
-          (maybe.Nothing))))
-      
-  )
-}
+(define (zmq_receive_message SOCKET OPTIONS)
+  (let* ((dontwait (memq (quote dontwait) OPTIONS))
+          (message (receive-message SOCKET non-blocking: dontwait as: (quote blob))))
+    (if message
+      (maybe.Some message)
+      (maybe.Nothing))))
+~~~
 
 #pragma prolog {
   (predicate (result-of (zmq_send_message zmq_socket MESSAGE (list zmq_send_option)) num)

@@ -25,6 +25,59 @@
 #include "opium/source_location.hpp"
 #include "opium/utilities/execution_timer.hpp"
 
+#include <fstream>
+
+
+std::pair<opi::value, opi::scheme_type_location_map>
+opi::translate_to_scheme(
+    const scheme_translator &translator_config, value ppcode,
+    scheme_type_location_map &tlm,
+    const std::optional<prolog_guide_function> &guide)
+{
+  // Utility variable
+  opi::stl::unordered_map<value, value> ms;
+
+  // Compose translator from Scheme to Prolog
+  code_type_map code_types;
+  prolog_emitter to_prolog {translator_config.counter,
+                            translator_config.type_coder, code_types};
+  prolog_cleaner pl_cleaner;
+
+  // Emit TypeCheck script
+  execution_timer prolog_generation_timer {"Prolog generation"};
+  const value plcode = list(range(to_prolog.transform_block(ppcode))
+                            | std::views::transform(std::ref(pl_cleaner)));
+  prolog_generation_timer.stop();
+
+  // Build TLM
+  tlm = build_type_location_map(code_types, ppcode);
+
+  if (global_flags.contains("DumpTypeCheck"))
+  {
+    if (std::ofstream file {"TypeCheck.scm"})
+      file << pprint_pl(plcode) << std::endl;
+    else
+      warning("Failed to open TypeCheck.scm for writing");
+  }
+
+  debug("\e[1mType Check Prolog code:\e[0m\n```\n{}\n```", pprint_pl(plcode));
+
+  // Translate the code to proper scheme
+  opi::stl::vector<value> main_tape;
+  scheme_emitter_context ctx {translator_config.prolog, code_types,
+                              translator_config.match_translation, main_tape};
+
+  execution_timer emit_timer {"Scheme emitter"};
+  auto [main, type_map] = emit_scheme(ctx, plcode, ppcode, guide);
+  emit_timer.stop();
+
+  value result = nil;
+  append_mut(result, translator_config.prologue);
+  append_mut(result, list(main_tape));
+  append_mut(result, main);
+  return {result, type_map};
+}
+
 
 opi::value
 opi::generate_function_template_body(scheme_emitter_context &ctx,

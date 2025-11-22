@@ -7,44 +7,42 @@ type json = Structure(dict(str, json))
           | Null
           
 
-#pragma scheme-translator {
-  (inline
-    (import json)
+~~~
+(import json)
 
-    (define (scm->json obj)
-      (cond ((vector? obj)
-              (let* ((objl (vector->list obj))
-                     (kv->json (lambda (kv) (cons (car kv) (scm->json (cdr kv)))))
-                     (newlist (map kv->json objl)))
-                (json.Structure (alist->hash-table newlist))))
-            ((pair? obj) (json.Array (map scm->json obj)))
-            ((null? obj) (json.Array obj))
-            ((number? obj) (json.Number obj))
-            ((string? obj) (json.String obj))
-            (else (error "Unsupported JSON object" obj))))
+(define (scm->json obj)
+  (cond ((vector? obj)
+          (let* ((objl (vector->list obj))
+                  (kv->json (lambda (kv) (cons (car kv) (scm->json (cdr kv)))))
+                  (newlist (map kv->json objl)))
+            (json.Structure (alist->hash-table newlist))))
+        ((pair? obj) (json.Array (map scm->json obj)))
+        ((null? obj) (json.Array obj))
+        ((number? obj) (json.Number obj))
+        ((string? obj) (json.String obj))
+        (else (error "Unsupported JSON object" obj))))
 
-    (define (json->scm obj)
-      (cond ((json.Structure? obj)
-              (let* ((hashtable (json.Structure-:0 obj))
-                     (alist (hash-table-map hashtable
-                              (lambda (key val) (cons key (json->scm val)))))
-                     (avec (list->vector alist)))
-                avec))
-            ((json.Array? obj) (map json->scm (json.Array-:0 obj)))
-            ((json.Null? obj) (void))
-            ((json.Number? obj) (json.Number-:0 obj))
-            ((json.String? obj) (json.String-:0 obj))
-            (else obj)))
+(define (json->scm obj)
+  (cond ((json.Structure? obj)
+          (let* ((hashtable (json.Structure-:0 obj))
+                  (alist (hash-table-map hashtable
+                          (lambda (key val) (cons key (json->scm val)))))
+                  (avec (list->vector alist)))
+            avec))
+        ((json.Array? obj) (map json->scm (json.Array-:0 obj)))
+        ((json.Null? obj) (void))
+        ((json.Number? obj) (json.Number-:0 obj))
+        ((json.String? obj) (json.String-:0 obj))
+        (else obj)))
 
 
-    (define (read_json port)
-      (let ((obj (json-read port)))
-        (scm->json obj)))
+(define (read_json port)
+  (let ((obj (json-read port)))
+    (scm->json obj)))
 
-    (define (write_json PORT JSON)
-      (json-write (json->scm JSON) PORT))
-  )
-}
+(define (write_json PORT JSON)
+  (json-write (json->scm JSON) PORT))
+~~~
 #pragma prolog {
   (predicate (result-of (read_json port) json))
   (predicate (result-of (write_json port _) void))

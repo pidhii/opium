@@ -8,21 +8,17 @@ require "string"
   (predicate (result-of (osl_printf str . _) void))
 }
 
-#pragma scheme-translator {
-  (inline
-    (cond-expand 
-      (chicken (import format))
-      (else))
+~~~
+(import format)
 
-    (define (osl_format fmt . args)
-      (let ((applargs (append (list #f fmt) args)))
-        (apply format applargs)))
-        
-    (define (osl_printf fmt . args)
-      (let ((applargs (append (list #t fmt) args)))
-        (apply format applargs)))
-  )
-}
+(define (osl_format fmt . args)
+  (let ((applargs (append (list #f fmt) args)))
+    (apply format applargs)))
+    
+(define (osl_printf fmt . args)
+  (let ((applargs (append (list #t fmt) args)))
+    (apply format applargs)))
+~~~
 
 format = osl_format
 

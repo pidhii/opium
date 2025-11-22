@@ -1,7 +1,9 @@
 
 // null
 #pragma prolog { (predicate (result-of (osl#null) (? _))) }
-#pragma scheme-translator { (inline (define-inline (osl#null) #f)) }
+~~~
+(define-inline (osl#null) #f)
+~~~
 macro null {[null] = [identifier!(osl#null)()]}
 
 // maybe-like matching on optionals
@@ -9,6 +11,9 @@ macro null {[null] = [identifier!(osl#null)()]}
   (predicate (match-on (osl#ctor#Some T) (? T)))
   (predicate (match-on (osl#ctor#Nothing) (? T)))
 }
-#pragma scheme-translator {
-  (cases-rule (osl#ctor#Some T) (? T) osl#?->bool identity)
+#pragma match-translation-rule {
+  (match-pattern . (osl#ctor#Some T))
+  (type-pattern . (? T))
+  (predicate . osl#?->bool)
+  (unpack . identity)
 }
