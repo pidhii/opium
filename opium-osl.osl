@@ -71,24 +71,23 @@ translate_opium_script(osl_filename, scm_filename) =
   info("translating OSL into Scheme")
   command = format("./install/bin/osl -o ~A --oslpath ~A --trace-length ~A ~A",
                    scm_filename, default_oslpath, tracelen, osl_filename)
-  if verbose then
-   info("osl command: " + command)
 
+  info("osl command: " + command)
   p = run(command)
 
-  stdoutbuf = openstring()
+  outputbuf = openstring()
   while let Some(line) = p#stderr.readline() do
-    stdoutbuf.writeln(line)
+    outputbuf.writeln(line)
 
   _, _, status = p.wait()
   if status != 0 then
   {
     println("OSL translation failed")
-    print(str(stdoutbuf))
+    print(str(outputbuf))
     exit(1)
   }
   else if verbose then
-    print(str(stdoutbuf))
+    print(str(outputbuf))
 }
 
 // Run Scheme with Chicken Scheme interpreter
@@ -97,8 +96,7 @@ run_scheme(scm_filename) =
   info("evaluating Scheme script with Chicken interpreter")
   cmdline_args_string = runargs.iter().join(" ", "")
   command = "chicken-csi -s " + scm_filename + " " + cmdline_args_string
-  if verbose then
-   info("csi command: " + command)
+  info("csi command: " + command)
   return system(command)
 }
 
@@ -110,8 +108,7 @@ compile_scheme(scm_filename, output_filename) =
   if optimize then
     set compile_flags = compile_flags + " -O5 -local -no-bound-checks -no-procedure-checks -no-argc-checks -d0"
   command = "chicken-csc " + compile_flags + " " + scm_filename
-  if verbose then
-   info("csc command: " + command)
+  info("csc command: " + command)
   return system(command)
 }
 
