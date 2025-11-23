@@ -70,9 +70,8 @@ _rename_pattern(opi::value pattern, opi::symbol_generator &gensym,
 
 
 opi::scheme_unique_identifiers::scheme_unique_identifiers(
-    symbol_generator &gensym, const std::optional<std::string> &norename_prefix)
+    symbol_generator &gensym)
 : T {std::bind(&scheme_unique_identifiers::_T, this, _1)},
-  m_norename_prefix {norename_prefix},
   m_gensym {gensym},
   m_alist {nil},
   m_overload_alist {nil}
@@ -713,9 +712,6 @@ opi::scheme_unique_identifiers::_into_unique_symbol(
     throw bad_code {
         std::format("Invalid identifier ({}{})", prefix, identifier),
         identifier};
-  if (m_norename_prefix and
-      sym_name(identifier).starts_with(m_norename_prefix.value()))
-    return identifier;
   const std::string fmt = std::format("{}{}{{}}", prefix, sym_name(identifier));
   return m_gensym(fmt);
 }

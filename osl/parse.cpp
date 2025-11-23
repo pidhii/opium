@@ -148,9 +148,7 @@ opi::osl::program_parser::program_parser(program_sources &target,
                                          scheme_translator &translator_config)
 : m_target {target},
   m_translator_config {translator_config}
-{
-  translator_config.preprocessor.set_norename_prefix("norename#");
-}
+{ }
 
 void
 opi::osl::program_parser::load_file(const std::string &pathstr)

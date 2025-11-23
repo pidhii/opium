@@ -33,9 +33,7 @@ namespace opi {
 //       it has to be done by a separate transformer
 class scheme_unique_identifiers: public ext_scheme_code_transformer {
   public:
-  scheme_unique_identifiers(
-      symbol_generator &gensym,
-      const std::optional<std::string> &norename_prefix = std::nullopt);
+  scheme_unique_identifiers(symbol_generator &gensym);
 
   void
   set_norename_prefix(std::string_view prefix)
@@ -86,10 +84,6 @@ class opium_preprocessor {
     m_flattener {m_default_symbol_generator.value()},
     m_unique_identifiers {m_default_symbol_generator.value()}
   { }
-
-  void
-  set_norename_prefix(std::string_view prefix)
-  { m_unique_identifiers.set_norename_prefix(prefix); }
 
   value
   operator () (value expr) const

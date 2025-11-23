@@ -141,6 +141,12 @@ macro return {
   [return] = [__RETURN void()]
 }
 
+// Inline Scheme:
+// o Allow calling results of inline-scheme expressions (does not produce any
+//   type constraints).
+#pragma prolog {
+  (predicate (result-of (inline-scheme-result . Args) . Results))
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 //                             parameters
@@ -197,7 +203,7 @@ extern identifier!(call-with-current-continuation) as callcc(fn(fn(T) -> U) -> T
 //                            Function classes
 //
 #pragma prolog {
-  (predicate (result-of ((fn Args Result) . InArgs) Result)
+  (predicate (result-of ((fn Args . Results) . InArgs) . Results)
     (coerce-list InArgs Args))
   (predicate (coerce Fn (fn Args . Results))
     (result-of (Fn . Args) . Results))

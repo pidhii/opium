@@ -96,6 +96,11 @@ require return REQUIRE;
 }
 <SCHEME_INLINE>\n
 
+scm[[:space:]]*"{"[^}]*"}" {
+  const std::string data {strchr(yytext, '{') + 1, strchr(yytext, '}')};
+  yylval = opi::str(data);
+  return INLINE_SCHEME;
+}
 
 foreign return FOREIGN;
 

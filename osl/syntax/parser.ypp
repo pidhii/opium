@@ -564,6 +564,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %token REQUIRE
 %token FOREIGN_INLINE_BEGIN FOREIGN_INLINE_END FOREIGN
 %token SCHEME_INLINE_BEGIN SCHEME_INLINE_END SCHEME
+%token INLINE_SCHEME
 %token ASSERT
 %token IDENT
 %token CAPIDENT
@@ -604,7 +605,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 //                              Structures
 %type ApplExpr Expr Stmt
 %type ListOfExprs ListOfArgs NonZeroListOfIdents
-%type SeqOfExprs
+%type SeqOfStmts
 %type TopLvlExpr
 %type Match MatchClause MatchClauses
 %type AtomPattern ExprPattern ListOfExprPatterns
@@ -663,7 +664,7 @@ ApplExpr
     $$ = sym(std::format("osl#unanimous#{}", g_counter++));
   }
   | String { $$ = $1; bindloc($$, @$); }
-  | '{' SeqOfExprs '}' { $$ = cons("begin", $2); bindloc($$, @$); }
+  | '{' SeqOfStmts '}' { $$ = cons("begin", $2); bindloc($$, @$); }
   | '[' ListOfExprs ']' %prec AFTER_APPLY {
     $$ = cons("osl#list", $2);
     bindloc($$, @$);
@@ -686,6 +687,20 @@ ApplExpr
     $$ = list(getter, $1, $3);
   }
   | ApplExpr DOUBLE_COLUMN TypeParam { $$ = list("annotate-type", $1, $3); }
+  | INLINE_SCHEME {
+    opi::lisp_parser parser;
+    try {
+      const value sexpr = parser.parse(str_view($1).data());
+      const value inlinescm = list("pragma", "inline-scheme", sexpr);
+      $$ = list("annotate-type", inlinescm, "inline-scheme-result");
+    }
+    catch (const std::exception &exn)
+    {
+      opi::error("while parsing inline scheme block: {}\n{}", exn.what(),
+                 opi::display_location(osl::make_location(@$)));
+      throw;
+    }
+  }
 ;
 
 Expr
@@ -786,10 +801,10 @@ Expr
       $$ = list("letrec", list(letbinds), $1);
   }
   | RETURN Expr { $$ = list("return", $2); bindloc($$, @$); }
-  | ASSERT '{' SeqOfExprs '}' {
+  | ASSERT '{' SeqOfStmts '}' {
     $$ = list("if", False, cons("begin", $3));
   }
-  | ASSERT NOT '{' SeqOfExprs '}' {
+  | ASSERT NOT '{' SeqOfStmts '}' {
     const value lambda = list("lambda", nil, dot, $4);
     const value assertion = list("assert_thunk", lambda);
     $$ = list("annotate-type", assertion, "assertion_failure");
@@ -845,30 +860,33 @@ Stmt
     stl::vector<value> wrapperargs, argnames;
     for (const value argtype : range($4))
     {
-      const value argname = sym(std::format("norename#osl#argument{}", g_counter++));
+      const value argname = sym(std::format("x{}", g_counter++));
       argnames.push_back(argname);
       wrapperargs.push_back(list(argname, argtype));
     }
-
     $$ =
       list("define-overload", cons($2, list(wrapperargs)),
-        list("annotate-type",
-          list("pragma", "inline-scheme", cons($2, list(argnames))),
-          dot, $7));
+        list(
+          list("annotate-type",
+            list("pragma", "inline-scheme", $2),
+            list("fn", $4, dot, $7)),
+          dot, list(argnames)));
   }
   | EXTERN IDENT AS IDENT '(' ListOfTypeParams ')' RIGHT_ARROW ListOfTypeParams {
     stl::vector<value> wrapperargs, argnames;
     for (const value argtype : range($6))
     {
-      const value argname = sym(std::format("norename#osl#argument{}", g_counter++));
+      const value argname = sym(std::format("x{}", g_counter++));
       argnames.push_back(argname);
       wrapperargs.push_back(list(argname, argtype));
     }
     $$ =
       list("define-overload", cons($4, list(wrapperargs)),
-        list("annotate-type",
-          list("pragma", "inline-scheme", cons($2, list(argnames))),
-          dot, $9));
+        list(
+          list("annotate-type",
+            list("pragma", "inline-scheme", $2),
+            list("fn", $6, dot, $9)),
+          dot, list(argnames)));
   }
   | EXTERN FOREIGN IDENT AS IDENT '(' ListOfForeignTypes ')' RIGHT_ARROW ForeignType {
     // TODO: bind locations
@@ -879,8 +897,7 @@ Stmt
     opi::value oslargs = nil;
     for (const opi::value t : range($7))
     {
-      const opi::value argname =
-          sym(std::format("norename#osl#argument{}", g_counter++));
+      const opi::value argname = sym(std::format("x{}", g_counter++));
       const value chickentype = list_ref(t, 0);
       const value osltype = list_ref(t, 1);
       append_mut(chickentypes, list(chickentype));
@@ -892,10 +909,11 @@ Stmt
     const opi::value foreign_safe_lambda =
       list("foreign-safe-lambda", chickenrettype, $3, opi::dot, chickentypes);
     const opi::value foreign_call =
-      list("annotate-type",
-        list("pragma", "inline-scheme",
-          list(foreign_safe_lambda, dot, argnames)),
-        oslrettype);
+      list(
+        list("annotate-type",
+          list("pragma", "inline-scheme", foreign_safe_lambda),
+          list("fn", osltypes, oslrettype)),
+        dot, argnames);
     $$ = list("define-overload", cons($5, oslargs), foreign_call);
   }
   | EXTERN FOREIGN IDENT '(' ListOfForeignTypes ')' RIGHT_ARROW ForeignType {
@@ -908,8 +926,7 @@ Stmt
     opi::value oslargs = nil;
     for (const opi::value t : range($5))
     {
-      const opi::value argname =
-          sym(std::format("norename#osl#argument{}", g_counter++));
+      const opi::value argname = sym(std::format("x{}", g_counter++));
       const value chickentype = list_ref(t, 0);
       const value osltype = list_ref(t, 1);
       append_mut(chickentypes, list(chickentype));
@@ -921,10 +938,11 @@ Stmt
     const opi::value foreign_safe_lambda =
       list("foreign-safe-lambda", chickenrettype, $3, opi::dot, chickentypes);
     const opi::value foreign_call =
-      list("annotate-type",
-        list("pragma", "inline-scheme",
-          list(foreign_safe_lambda, dot, argnames)),
-        oslrettype);
+      list(
+        list("annotate-type",
+          list("pragma", "inline-scheme", foreign_safe_lambda),
+          list("fn", osltypes, oslrettype)),
+        dot, argnames);
     $$ = list("define-overload", cons($3, oslargs), foreign_call);
   }
 ;
@@ -965,9 +983,9 @@ Match
   }
 ;
 
-SeqOfExprs
+SeqOfStmts
   : { $$ = nil; }
-  | Stmt SeqOfExprs %prec AFTER_APPLY { $$ = cons($1, $2); }
+  | Stmt SeqOfStmts %prec AFTER_APPLY { $$ = cons($1, $2); }
 ;
 
 TopLvlSeq
