@@ -257,7 +257,7 @@ opi::predicate_runtime::unify(cell *x, cell *y)
 void
 opi::predicate_runtime::unwind()
 {
-  for (const auto [c, n] : m_history)
+  for (const auto [c, n] : std::ranges::reverse_view(m_history))
     c->next = n;
   m_history.clear();
 }

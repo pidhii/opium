@@ -17,6 +17,7 @@
  */
 
 #include "opium/scheme/scheme_type_system.hpp"
+#include "opium/code_transformer.hpp"
 #include "opium/logging.hpp"
 #include "opium/predicate_runtime.hpp"
 #include "opium/scheme/translator/exceptions.hpp"
@@ -35,19 +36,14 @@ opi::translate_to_scheme(
     scheme_type_location_map &tlm,
     const std::optional<prolog_guide_function> &guide)
 {
-  // Utility variable
-  opi::stl::unordered_map<value, value> ms;
-
   // Compose translator from Scheme to Prolog
   code_type_map code_types;
   prolog_emitter to_prolog {translator_config.counter,
                             translator_config.type_coder, code_types};
-  prolog_cleaner pl_cleaner;
 
   // Emit TypeCheck script
   execution_timer prolog_generation_timer {"Prolog generation"};
-  const value plcode = list(range(to_prolog.transform_block(ppcode))
-                            | std::views::transform(std::ref(pl_cleaner)));
+  const value plcode = clean_prolog(to_prolog.transform_block(ppcode));
   prolog_generation_timer.stop();
 
   // Build TLM

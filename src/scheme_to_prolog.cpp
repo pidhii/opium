@@ -437,6 +437,7 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
 
     // Translate the body with apropriate target
     m_targets = plresults;
+    // const value plbody = clean_prolog(transform_block(body)); // FIXME
     const value plbody = transform_block(body);
 
     // Wrapp it up. Instances of this template can now be created by simple
@@ -484,7 +485,8 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
 
     // Translate the body with apropriate target
     m_targets = plresults;
-    const value plbody = transform_block(body);
+    const value plbody = clean_prolog(transform_block(body)); // NOTE: may cause segfault
+    // const value plbody = transform_block(body);
 
     // Generate unique identifier for this lambda
     const value lambdaname = m_termgen();

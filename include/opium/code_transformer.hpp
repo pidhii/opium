@@ -23,9 +23,9 @@
 #include "opium/match.hpp"
 #include "opium/stl/deque.hpp"
 #include "opium/stl/list.hpp"
+#include "opium/utilities/execution_timer.hpp"
 #include "opium/value.hpp"
 
-#include <concepts>
 #include <functional>
 
 /**
@@ -205,6 +205,22 @@ transform_block(const Transformer &transformer, value block)
 // TODO: move to a separate file
 struct prolog_cleaner: public code_transformer {
   prolog_cleaner();
+  bool nop = false;
 }; // struct opi::prolog_cleaner
+
+inline value
+clean_prolog(value plexpr)
+{
+  OPI_FUNCTION_BENCHMARK
+
+  prolog_cleaner cleaner;
+  int i;
+  for (i = 0; i < 10 and not cleaner.nop; ++i)
+  {
+    cleaner.nop = true;
+    plexpr = cleaner(plexpr);
+  }
+  return plexpr;
+}
 
 } // namespace opi

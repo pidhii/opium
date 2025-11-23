@@ -24,6 +24,7 @@ opi::generate_scheme(const scheme_translator &config, value in,
 {
   using namespace opi;
 
+  info("\e[1mrunning preprocessor\e[0m");
   opi::execution_timer preprocessor_timer {"Preprocessor"};
   const value ppcode = config.preprocessor.transform_block(in);
   preprocessor_timer.stop();

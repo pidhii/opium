@@ -64,51 +64,87 @@ opi::code_transformer::operator () (value inexpr) const
 }
 
 
-static void
-_flatten_clauses(std::string_view tag, opi::value expr, opi::value &result)
-{
-  if (opi::ispair(expr) and issym(car(expr), tag))
-  {
-    for (const opi::value clause : range(cdr(expr)))
-      _flatten_clauses(tag, clause, result);
-  }
-  else
-    result = append(result, list(expr));
-}
-
-
 opi::prolog_cleaner::prolog_cleaner()
 {
   // FIXME
-  // append_rule({list("and"), cons("and", "clauses")}, [this](const auto &ms) {
-  //   value clauses = ms.at("clauses");
+  append_rule({list("and"), cons("and", "clauses")}, [this](const auto &ms) {
+    const value clauses = ms.at("clauses");
 
-  //   // Flatten clauses w.r.t. nested AND statements
-  //   value newclauses = nil;
-  //   for (const value clause : range(clauses))
-  //     _flatten_clauses("and", clause, newclauses);
-  //   clauses = newclauses;
+    value newclauses = nil;
+    for (const value clause : range(clauses))
+    {
+      if (clause == True)
+      {
+        nop = false;
+        continue;
+      }
+      else if (clause == False)
+      {
+        nop = false;
+        return False;
+      }
+      append_mut(newclauses, list((*this)(clause)));
+    }
 
-  //   if (length(clauses) == 1)
-  //     return (*this)(car(clauses));
-  //   else
-  //     return  cons("and", clauses);
-  // });
+    if (length(newclauses) == 0)
+    {
+      nop = false;
+      return True;
+    }
+    else if (length(newclauses) == 1)
+    {
+      nop = false;
+      return car(newclauses);
+    }
+    else
+      return cons("and", newclauses);
+  });
 
-  // append_rule({list("or"), cons("or", "clauses")}, [this](const auto &ms) {
-  //   value clauses = ms.at("clauses");
+  append_rule({list("or"), cons("or", "clauses")}, [this](const auto &ms) {
+    const value clauses = ms.at("clauses");
 
-  //   // Flatten clauses w.r.t. nested OR statements
-  //   value newclauses = nil;
-  //   for (const value clause : range(clauses))
-  //     _flatten_clauses("OR", clause, newclauses);
-  //   clauses = newclauses;
+    value newclauses = nil;
+    for (const value clause : range(clauses))
+    {
+      if (clause == False)
+      {
+        nop = false;
+        continue;
+      }
+      append_mut(newclauses, list((*this)(clause)));
+    }
 
-  //   if (length(clauses) == 1)
-  //     return (*this)(car(clauses));
-  //   else
-  //     return  cons("or", clauses);
-  // });
+    if (length(newclauses) == 0)
+    {
+      nop = false;
+      return list(False);
+    }
+    if (length(newclauses) == 1)
+    {
+      nop = false;
+      return car(newclauses);
+    }
+    else
+      return cons("or", newclauses);
+  });
+
+  append_rule({list("if"), list("if", "cond", "then", "else")}, [this](const auto &ms) {
+    const value newcond = (*this)(ms.at("cond"));
+    const value newthenbr = (*this)(ms.at("then"));
+    const value newelsebr = (*this)(ms.at("else"));
+    if (newcond == True)
+    {
+      nop = false;
+      return newthenbr;
+    }
+    else if (newcond == False)
+    {
+      nop = false;
+      return newelsebr;
+    }
+    else
+      return list("if", newcond, newthenbr, newelsebr);
+  });
 
   append_rule({nil, "x"}, [](const auto &ms) { return ms.at("x"); });
 }
