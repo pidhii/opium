@@ -1,16 +1,110 @@
+/*
+ * Opium - Ultimate static type system for type-annotation-free code
+ * Copyright (C) 2025  Ivan Pidhurskyi
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+
 #pragma once
 
+#include "opium/prolog_repl.hpp"
 #include "opium/scheme/scheme_type_location_map.hpp"
-#include "opium/scheme/scheme_type_system.hpp"
+#include "opium/scheme/translator/match_translation_rules.hpp"
 #include "opium/value.hpp"
 
 
 namespace opi {
 
+// Translation steps:
+// 1. opicode -> [PP] -> ircode
+// 2. ircode -> [Prolog emitter] -> plcode + code_types
+// 3. plcode -> [Prolog] -> type_bindings
+//
+// Target-specific:
+// 4. ircode + code_types + type_bindings -> [target language emitter] -> tgtcode
+//
+// By-products:
+// - ircode + code_types -> raw_tlm
+//   Useful for tracing debugging, when typecheck fails, and so true_tlm is
+//   unaccessible.
+// - raw_tlm(=ircode+code_types) + type_bindings -> true_tlm
+//   Fully annotated code (besides natural ambiguities in templates bodies).
+
+struct program {
+  using type_bindings_t =
+      opi::stl::unordered_map<value, opi::stl::unordered_set<value>>;
+
+  std::optional<value> ircode;
+  std::optional<value> typecheck_script;
+  std::optional<code_type_map> code_types;
+  std::optional<type_bindings_t> type_bindings;
+};
+
+struct scheme_program: public program {
+  std::optional<value> scheme_script;
+};
+
+
 void
-generate_scheme(const scheme_translator &config, value in,
-                const std::filesystem::path &opath,
-                scheme_type_location_map &tlm,
-                const std::optional<prolog_guide_function> &guide = std::nullopt);
+generate_ir(program &program, const opium_preprocessor &pp, value opicode);
+
+void
+generate_typecheck_script(program &program,
+                          const opi::prolog_emitter::type_coder &type_coder);
+
+bool
+typecheck(program &program, const prolog &prolog,
+          const prolog_guide_function &guide = nullptr);
+
+bool
+generate_scheme(scheme_program &scmprogram,
+                const match_translation_rules &match_translation);
+
+
+struct default_type_coder {
+  value
+  operator () (value x) const
+  {
+    switch (tag(x))
+    {
+      case tag::nil: return "nil";
+      case tag::num: return "num";
+      case tag::str: return "str";
+      case tag::boolean: return "bool";
+      default: throw bad_code {"default_type_coder - unsupported type", x};
+    }
+  }
+};
+
+
+struct scheme_translator {
+  scheme_translator()
+  : type_coder {default_type_coder()}
+  { prolog_emitter::setup_prolog(prolog); }
+
+  opium_preprocessor preprocessor;
+  prolog_repl prolog;
+  prolog_emitter::type_coder type_coder;
+  match_translation_rules match_translation;
+  value prologue;
+
+  mutable size_t counter;
+};
+
+void
+translate_to_scheme(const scheme_translator &config, value opicode,
+                    scheme_program &scmprogram,
+                    const prolog_guide_function &guide = nullptr);
 
 } // namespace opi

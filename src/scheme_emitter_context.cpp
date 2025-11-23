@@ -22,10 +22,9 @@
 
 
 opi::scheme_emitter_context::scheme_emitter_context(
-    const prolog &pl, const code_type_map &ctm,
-    const match_translation_rules &mtr, code_tape &output)
+    const code_type_map &ctm, const match_translation_rules &mtr,
+    code_tape &output)
 : m_output {std::back_inserter(output)},
-  m_pl {pl},
   m_code_types {ctm},
   m_match_translation {mtr},
   m_parent {*this}
@@ -35,7 +34,6 @@ opi::scheme_emitter_context::scheme_emitter_context(
 opi::scheme_emitter_context::scheme_emitter_context(
     scheme_emitter_context &parent, code_tape &output)
 : m_output {std::back_inserter(output)},
-  m_pl {parent.pl()},
   m_code_types {parent.ctm()},
   m_match_translation {parent.mtr()},
   m_parent {parent}

@@ -5,8 +5,6 @@
 #include "opium/opium.hpp"
 #include "opium/prolog.hpp"
 #include "opium/scheme/translator/exceptions.hpp"
-#include "opium/scheme/scheme_type_location_map.hpp"
-#include "opium/scheme/scheme_type_system.hpp"
 #include "opium/source_location.hpp"
 #include "opium/utilities/execution_timer.hpp"
 #include "opium/utilities/path_resolver.hpp"
@@ -189,11 +187,11 @@ main(int argc, char **argv)
     translator.prolog.add_path_prefix(prefix);
 
   // Parse program from OSL into OPI
-  opi::value opiprogram;
+  opi::value opicode;
   try
   {
-    opi::osl::program_sources program;
-    opi::osl::program_parser parser {program, translator};
+    opi::osl::program_sources codesources;
+    opi::osl::program_parser parser {codesources, translator};
 
     execution_timer parse_timer {"parsing OSL"};
     if (not varmap.contains("no-builtins"))
@@ -205,12 +203,12 @@ main(int argc, char **argv)
     parser.load_file(inputpath);
     parse_timer.stop();
 
-    opiprogram = program.build_program();
+    opicode = codesources.build_program();
 
     if (varmap.contains("opi"))
     {
       std::ofstream out {opath};
-      write_scheme_script(out, opiprogram);
+      write_scheme_script(out, opicode);
       return EXIT_SUCCESS;
     }
   }
@@ -220,13 +218,19 @@ main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
-  opi::scheme_type_location_map tlm;
+  opi::scheme_program scmprogram;
   try
   {
     // Compile OPI program into scheme
-    generate_scheme(translator, opiprogram, opath, tlm);
+    translate_to_scheme(translator, opicode, scmprogram);
+
+    // Write Scheme script to a file
+    if (std::ofstream ofile {opath})
+      write_scheme_script(ofile, *scmprogram.scheme_script);
+
+    // (optional) Run debugger
     if (varmap.contains("debugger"))
-      interactive_debugger(translator, opiprogram, tlm);
+      interactive_debugger(translator, scmprogram);
   }
   catch (const opi::ambiguous_type_error &exn)
   {
@@ -239,7 +243,7 @@ main(int argc, char **argv)
 
     tracedump(translator.prolog, tracelen);
     if (isatty(STDIN_FILENO))
-      interactive_debugger(translator, opiprogram, tlm);
+      interactive_debugger(translator, scmprogram);
 
     return EXIT_FAILURE;
   }

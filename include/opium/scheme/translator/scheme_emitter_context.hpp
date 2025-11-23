@@ -42,7 +42,7 @@ struct function_template {
 
 
 struct scheme_emitter_context {
-  scheme_emitter_context(const prolog &pl, const code_type_map &ctm,
+  scheme_emitter_context(const code_type_map &ctm,
                          const match_translation_rules &mtr, code_tape &output);
 
   scheme_emitter_context(scheme_emitter_context &parent, code_tape &output);
@@ -89,10 +89,6 @@ struct scheme_emitter_context {
   output()
   { return m_output; }
 
-  const prolog &
-  pl() const
-  { return m_pl; }
-
   const code_type_map &
   ctm() const
   { return m_code_types; }
@@ -114,7 +110,6 @@ private:
   opi::stl::deque<std::pair<value /* type */, value /* function identifier */>>
       m_specializations;
 
-  const prolog &m_pl;
   const code_type_map &m_code_types;
   const match_translation_rules &m_match_translation;
 

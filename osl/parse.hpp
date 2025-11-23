@@ -4,8 +4,8 @@
 
 #include "opium/exceptions.hpp"
 #include "opium/hash.hpp"
+#include "opium/opium.hpp"
 #include "opium/prolog.hpp"
-#include "opium/scheme/scheme_type_system.hpp"
 #include "opium/source_location.hpp"
 #include "opium/stl/deque.hpp"
 #include "opium/stl/unordered_map.hpp"

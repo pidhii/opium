@@ -448,8 +448,6 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
     const value function_template =
         list("quasiquote", list("#dynamic-function-dispatch", ident, plparams,
                                 plresults, plbody));
-    if (sym_name(ident).find("<") != std::string_view::npos)
-      info("dyn func body example: {} = {}", ident, plbody);
     copy_location(fm, function_template);
 
     return list("=", proxyvar, function_template);

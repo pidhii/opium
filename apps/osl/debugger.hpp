@@ -268,8 +268,7 @@ struct debugger {
 
 static void
 interactive_debugger(const opi::scheme_translator &translator,
-                     opi::value opiprogram,
-                     const opi::scheme_type_location_map &tlm)
+                     opi::scheme_program &scmprogram)
 {
   // Get longest trace
   opi::stl::vector<opi::source_location> maxtrace;
@@ -278,8 +277,12 @@ interactive_debugger(const opi::scheme_translator &translator,
       maxtrace = tcand;
   });
 
+  opi::scheme_type_location_map tlm =
+      opi::build_type_location_map(*scmprogram.code_types, *scmprogram.ircode);
+  if (scmprogram.type_bindings.has_value())
+    tlm.substitute_type_aliases(*scmprogram.type_bindings);
+
   debugger dbg {tlm, maxtrace.begin(), maxtrace.end()};
 
-  opi::scheme_type_location_map _tlm;
-  generate_scheme(translator, opiprogram, "/dev/null", _tlm, std::ref(dbg));
+  opi::typecheck(scmprogram, translator.prolog, std::ref(dbg));
 }

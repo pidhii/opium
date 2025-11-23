@@ -32,7 +32,7 @@ using type_bindings =
     opi::stl::unordered_map<value, opi::stl::unordered_set<value>>;
 
 struct scheme_emitter {
-  scheme_emitter(scheme_emitter_context &ctx, type_bindings &query);
+  scheme_emitter(scheme_emitter_context &ctx, const type_bindings &query);
 
   template <std::output_iterator<value> ExprOutput>
   void

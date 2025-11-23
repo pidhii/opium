@@ -42,7 +42,8 @@ opi::scheme_emitter::_unfold_pattern_type(opi::value pattern) const
 }
 
 
-opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx, type_bindings &query)
+opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
+                                    const type_bindings &query)
 : m_dont_emit_symbol {"<dont-emit>"}, m_type_bindings {query}, m_ctx {ctx}
 {
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
