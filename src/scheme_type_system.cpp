@@ -24,6 +24,7 @@
 #include "opium/scheme/translator/scheme_emitter_context.hpp"
 #include "opium/source_location.hpp"
 #include "opium/utilities/execution_timer.hpp"
+#include "opium/value.hpp"
 
 #include <fstream>
 
@@ -55,7 +56,7 @@ opi::translate_to_scheme(
   if (global_flags.contains("DumpTypeCheck"))
   {
     if (std::ofstream file {"TypeCheck.scm"})
-      file << pprint_pl(plcode) << std::endl;
+      file << pprint_pl(raw_printer, plcode) << std::endl;
     else
       warning("Failed to open TypeCheck.scm for writing");
   }
@@ -233,7 +234,7 @@ opi::pretty_template_instance_name(value type, std::ostream &os)
   if (not ispair(type))
   {
     // Not a template instance, return as is
-    os << type;
+    raw_printer.print(os, type);
     return;
   }
 
@@ -242,7 +243,8 @@ opi::pretty_template_instance_name(value type, std::ostream &os)
     const value tag = car(cdr(type));
     const value typeparams = car(cdr(cdr((type))));
     const value resulttypes = car(cdr(cdr(cdr(type))));
-    os << tag << "<";
+    raw_printer.print(os, tag);
+    os << "<";
     for (std::string prefix = ""; const value type : range(typeparams))
     {
       os << prefix;
@@ -268,7 +270,8 @@ opi::pretty_template_instance_name(value type, std::ostream &os)
     return;
   }
 
-  os << car(type) << "<";
+  raw_printer.print(os, car(type));
+  os << "<";
   for (std::string prefix = ""; const value x : range(cdr(type)))
   {
     os << prefix;

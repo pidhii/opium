@@ -23,6 +23,7 @@
 
 #include <stdexcept>
 #include <string>
+#include <vector>
 #include <ostream>
 #include <cstring>
 #include <ranges>
@@ -929,29 +930,79 @@ list_ref(value l, size_t k)
  * \{
  */
 
- /**
+struct printer {
+  struct color_palette {
+    /**
+    * Colors for highlighting parentheses.
+    *
+    * Each (nested) set of parentheses printed into the output will be
+    * highlighted with a color from the given array according to:
+    *
+    *   color(nesting-level) = parent_colors[nesting-level MOD n]
+    *
+    * where nesting-level starts from 0, and n is the length of the length of
+    * the parent_colors vector.
+    *
+    * \note Leaving this empty will result in no color highlihting of
+    * parentheses
+    */
+    std::vector<std::string> parent_colors;
+
+    std::string bool_color;    /**< HIghlight color for boolean values */
+    std::string number_color;  /**< Highlight color for numbers */
+    std::string string_color;  /**< Highlight color for strings */
+    std::string symbol_color;  /**< Highlight color for symbols */
+    std::string pointer_color; /**< Highlight color for pointer values */
+    std::string nil_color;     /**< Highlight color for nil values */
+  }; // struct opi::printer::color_palette
+
+  static const color_palette default_palette;
+
+  color_palette palette;
+  int default_maxdepth = -1;
+
+  void write(std::ostream &os, opi::value x, int maxdepth) const;
+  void write(std::ostream &os, opi::value x) const;
+
+  void display(std::ostream &os, opi::value x, int maxdepth) const;
+  void display(std::ostream &os, opi::value x) const;
+
+  void print(std::ostream &os, opi::value x, int maxdepth) const;
+  void print(std::ostream &os, opi::value x) const;
+};
+
+/** Colorized printer with default palette */
+extern const printer colorized_printer;
+
+/** Printer with empty color palette */
+extern const printer raw_printer;
+
+/**
   * Write value in a format that can be parsed back preserving the value
   *
   * \ingroup core
   */
-void
-write(std::ostream &os, const opi::value &val, int maxdepth = -1);
+inline void
+write(std::ostream &os, const opi::value &x, int maxdepth = -1)
+{ raw_printer.write(os, x, maxdepth); }
 
 /**
  * Write value in a human appealing format
  *
  * \ingroup core
  */
-void
-display(std::ostream &os, const opi::value &val, int maxdepth = -1);
+inline void
+display(std::ostream &os, const opi::value &x, int maxdepth = -1)
+{ raw_printer.display(os, x, maxdepth); }
 
 /**
  * Mixture of write- and display- formats
  *
  * \ingroup core
  */
-void
-print(std::ostream &os, const opi::value &val, int maxdepth = -1);
+inline void
+print(std::ostream &os, const opi::value &x, int maxdepth = -1)
+{ raw_printer.print(os, x, maxdepth); }
 
 /** \} */
 
@@ -972,7 +1023,7 @@ print(std::ostream &os, const opi::value &val, int maxdepth = -1);
  */
 inline std::ostream&
 operator << (std::ostream &os, const opi::value &val)
-{ opi::print(os, val); return os; }
+{ opi::raw_printer.print(os, val); return os; }
 
 inline
 opi::value::value()

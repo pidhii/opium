@@ -24,13 +24,11 @@
 #include "opium/value.hpp"
 #include "opium/logging.hpp"
 #include "opium/utilities/execution_timer.hpp"
-#include "opium/opium.hpp"
 
 #include <boost/program_options.hpp>
 
 #include <cassert>
 #include <cstdlib>
-#include <exception>
 #include <fstream>
 #include <ios>
 #include <iostream>
@@ -110,21 +108,6 @@ read_eval_print_loop(opi::lisp_parser &parser, opi::prolog_repl &pl)
 
   // Clean up readline before exiting
   cleanup_readline();
-}
-
-
-/**
- * Strip ANSI escape sequences from a string
- * 
- * \param input The input string containing escape sequences
- * \return The string with escape sequences removed
- */
-std::string
-strip_escape_sequences(const std::string &input)
-{
-  // Regex to match escape sequences starting with '\e' and ending with 'm'
-  static const std::regex escape_seq_regex("\\\e\\[[^m]*m");
-  return std::regex_replace(input, escape_seq_regex, "");
 }
 
 

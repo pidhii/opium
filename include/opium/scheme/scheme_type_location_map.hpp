@@ -23,6 +23,7 @@
 #include "opium/source_location.hpp"
 #include "opium/stl/unordered_map.hpp"
 #include "opium/value.hpp"
+
 #include <functional>
 
 

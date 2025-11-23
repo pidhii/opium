@@ -72,7 +72,7 @@ static void
 write_scheme_script(std::ostream &os, opi::value script)
 {
   for (const opi::value expr : range(script))
-    os << opi::strip_escape_sequences(pprint_scm(expr)) << "\n\n";
+    os << opi::pprint_scm(raw_printer, expr) << "\n\n";
 }
 
 
@@ -220,13 +220,13 @@ main(int argc, char **argv)
     return EXIT_FAILURE;
   }
 
+  opi::scheme_type_location_map tlm;
   try
   {
     // Compile OPI program into scheme
-    opi::scheme_type_location_map tlm;
     generate_scheme(translator, opiprogram, opath, tlm);
     if (varmap.contains("debugger"))
-      interactive_debugger(translator, opiprogram);
+      interactive_debugger(translator, opiprogram, tlm);
   }
   catch (const opi::ambiguous_type_error &exn)
   {
@@ -239,7 +239,7 @@ main(int argc, char **argv)
 
     tracedump(translator.prolog, tracelen);
     if (isatty(STDIN_FILENO))
-      interactive_debugger(translator, opiprogram);
+      interactive_debugger(translator, opiprogram, tlm);
 
     return EXIT_FAILURE;
   }

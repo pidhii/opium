@@ -116,15 +116,15 @@ generate_record_definition(opi::value typesign, opi::value name, opi::value ctor
   opi::value accessors = opi::nil;
   for (const opi::value field : opi::range(fields))
   {
-    const opi::value gettername = opi::sym(std::format("{}-{}", ctorname, field));
-    const opi::value settername = opi::sym(std::format("{}-set-{}!", ctorname, field));
+    const opi::value gettername = opi::sym(std::format("{:r}-{:r}", ctorname, field));
+    const opi::value settername = opi::sym(std::format("{:r}-set-{:r}!", ctorname, field));
     copy_location(field, gettername);
     copy_location(field, settername);
     accessors = append(accessors, list(list(field, gettername, settername)));
   }
 
   // Write define-record-type expression
-  const opi::value fixname = opi::sym(std::format("%{}", name));
+  const opi::value fixname = opi::sym(std::format("%{:r}", name));
   const opi::value recorddef = list("define-record-type", fixname,
                                     cons(ctorname, fields), predname,
                                     opi::dot, accessors);
@@ -194,7 +194,7 @@ generate_variant(opi::value typesign, opi::value ctorsign,
   //       (no particular reason, just a design decision; can change it later)
   const opi::value typenam = issym(typesign) ? typesign : car(typesign);
   const opi::value ctorname = car(ctorsign);
-  const opi::value recordname = opi::sym(std::format("{}.{}", typenam, ctorname));
+  const opi::value recordname = opi::sym(std::format("{:r}.{:r}", typenam, ctorname));
   const opi::value mangledctor = mangle_type_constructor(ctorname);
   const opi::value mangledctorsign = cons(mangledctor, cdr(ctorsign));
   const size_t arity = length(cdr(ctorsign));
@@ -207,8 +207,8 @@ generate_variant(opi::value typesign, opi::value ctorsign,
     set_location(fieldname, location);
     fields = append(fields, list(fieldname));
   }
-  const opi::value predname = opi::sym(std::format("{}?", recordname));
-  const opi::value unpackname = opi::sym(std::format("unpack-{}", recordname));
+  const opi::value predname = opi::sym(std::format("{:r}?", recordname));
+  const opi::value unpackname = opi::sym(std::format("unpack-{:r}", recordname));
   set_location(predname, location);
   set_location(unpackname, location);
 
@@ -256,7 +256,7 @@ generate_variant_type(opi::value typesign, opi::value variants,
 static opi::value
 overloaded_getter_name(opi::value fieldname)
 {
-  const opi::value result = opi::sym(std::format("osl#{}-ref", fieldname));
+  const opi::value result = opi::sym(std::format("osl#{:r}-ref", fieldname));
   copy_location(fieldname, result);
   return result;
 }
@@ -264,7 +264,7 @@ overloaded_getter_name(opi::value fieldname)
 static opi::value
 overloaded_setter_name(opi::value fieldname)
 {
-  const opi::value result = opi::sym(std::format("osl#{}-set!", fieldname));
+  const opi::value result = opi::sym(std::format("osl#{:r}-set!", fieldname));
   copy_location(fieldname, result);
   return result;
 }
@@ -286,9 +286,9 @@ generate_record_type(opi::value typesign, opi::value fields,
     fieldtypes = append(fieldtypes, list(car(cdr(field))));
   }
 
-  const opi::value mangledname = opi::sym(std::format("osl#ctor#{}", recordname));
-  const opi::value predname = opi::sym(std::format("{}?", mangledname));
-  const opi::value type_name = opi::sym(std::format("osl#{}", recordname));
+  const opi::value mangledname = opi::sym(std::format("osl#ctor#{:r}", recordname));
+  const opi::value predname = opi::sym(std::format("{:r}?", mangledname));
+  const opi::value type_name = opi::sym(std::format("osl#{:r}", recordname));
   set_location(mangledname, location);
   set_location(predname, location);
   set_location(type_name, location);

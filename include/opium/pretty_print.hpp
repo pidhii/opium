@@ -27,7 +27,7 @@ namespace opi {
 
 class pretty_printer {
   public:
-  pretty_printer(const code_transformer &formatter);
+  pretty_printer(const printer &printer, const code_transformer &formatter);
 
   static value
   format_block(bool keep_first, int extra_indent, value x)
@@ -58,6 +58,7 @@ class pretty_printer {
   _print_block(std::ostream &os, opi::value stmt, int indent,
                const _block_format &fmt);
 
+  const printer m_printer;
   const code_transformer &m_formatter;
 }; // class opi::pretty_print
 
@@ -68,13 +69,18 @@ struct scheme_formatter: public code_transformer {
 
 template <typename ...Args>
 inline auto
-pprint_scm(Args&& ...args)
+pprint_scm(const printer &printer, Args&& ...args)
 {
   scheme_formatter scmfmt;
-  pretty_printer pprint {scmfmt};
+  pretty_printer pprint {printer, scmfmt};
   return pprint(std::forward<Args>(args)...);
-
 }
+
+template <typename ...Args>
+inline auto
+pprint_scm(Args&& ...args)
+{ return pprint_scm(opi::colorized_printer, std::forward<Args>(args)...); }
+
 
 struct prolog_indenter: public code_transformer {
   prolog_indenter();
@@ -82,7 +88,7 @@ struct prolog_indenter: public code_transformer {
 
 template <typename ...Args>
 inline auto
-pprint_pl(Args&& ...args)
+pprint_pl(const printer &printer, Args&& ...args)
 {
   prolog_cleaner cleaner;
   prolog_indenter indenter;
@@ -91,9 +97,14 @@ pprint_pl(Args&& ...args)
   fmt.append_rule({nil, "x"}, [&](const auto &ms) {
     return indenter(cleaner(ms.at("x")));
   });
-  pretty_printer pprint {fmt};
+  pretty_printer pprint {printer, fmt};
   return pprint(std::forward<Args>(args)...);
 }
+
+template <typename ...Args>
+inline auto
+pprint_pl(Args&& ...args)
+{ return pprint_pl(opi::colorized_printer, std::forward<Args>(args)...); }
 
 
 } // namespace opi

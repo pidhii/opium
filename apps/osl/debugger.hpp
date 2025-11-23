@@ -3,6 +3,7 @@
 #include "opium/logging.hpp"
 #include "opium/opium.hpp"
 #include "opium/prolog.hpp"
+#include "opium/scheme/scheme_type_location_map.hpp"
 
 
 template <size_t I, typename ...Ts>
@@ -267,7 +268,8 @@ struct debugger {
 
 static void
 interactive_debugger(const opi::scheme_translator &translator,
-                     opi::value opiprogram)
+                     opi::value opiprogram,
+                     const opi::scheme_type_location_map &tlm)
 {
   // Get longest trace
   opi::stl::vector<opi::source_location> maxtrace;
@@ -276,7 +278,8 @@ interactive_debugger(const opi::scheme_translator &translator,
       maxtrace = tcand;
   });
 
-  opi::scheme_type_location_map tlm;
   debugger dbg {tlm, maxtrace.begin(), maxtrace.end()};
-  generate_scheme(translator, opiprogram, "/dev/null", tlm, std::ref(dbg));
+
+  opi::scheme_type_location_map _tlm;
+  generate_scheme(translator, opiprogram, "/dev/null", _tlm, std::ref(dbg));
 }

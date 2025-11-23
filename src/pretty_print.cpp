@@ -23,8 +23,9 @@
 #include "opium/utilities/ranges.hpp"
 
 
-opi::pretty_printer::pretty_printer(const code_transformer &formatter)
-: m_formatter {formatter}
+opi::pretty_printer::pretty_printer(const printer &printer,
+                                    const code_transformer &formatter)
+: m_printer {printer}, m_formatter {formatter}
 { }
 
 
@@ -45,7 +46,7 @@ opi::pretty_printer::print(std::ostream &os, value x, int indent)
     _print_block(os, matches.at("expr"), indent, fmt);
   }
   else
-    os << x;
+    m_printer.print(os, x);
 }
 
 
@@ -69,7 +70,8 @@ opi::pretty_printer::_print_block(std::ostream &os, opi::value stmt, int indent,
   const value clauses = cdr(stmt);
 
   // Print the operator
-  os << "(" << car(stmt);
+  os << "(";
+  m_printer.print(os, car(stmt));
 
   // If there are no clauses, just close the parenthesis
   if (not ispair(clauses))

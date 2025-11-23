@@ -93,6 +93,7 @@ template <>
 struct formatter<opi::value, char> {
   enum class style { write, display, print } style = style::print;
   unsigned long n = -1;
+  bool colored = false;
 
   template <class ParseContext>
   constexpr ParseContext::iterator
@@ -112,7 +113,19 @@ struct formatter<opi::value, char> {
         style = style::display;
         it++;
       }
-      
+
+      if (*it == 'c')
+      {
+        colored = true;
+        it++;
+      }
+
+      if (*it == 'r')
+      {
+        colored = false;
+        it++;
+      }
+
       if (*it == '#')
       {
         it++;
@@ -138,11 +151,12 @@ struct formatter<opi::value, char> {
   format(opi::value x, FmtContext &ctx) const
   {
     std::ostringstream buffer;
+    const opi::printer &p = colored ? opi::colorized_printer : opi::raw_printer;
     switch (style)
     {
-      case style::write: opi::write(buffer, x, n); break;
-      case style::display: opi::display(buffer, x, n); break;
-      case style::print: opi::print(buffer, x, n); break;
+      case style::write: p.write(buffer, x, n); break;
+      case style::display: p.display(buffer, x, n); break;
+      case style::print: p.print(buffer, x, n); break;
     }
     return std::ranges::copy(std::move(buffer).str(), ctx.out()).out;
   }

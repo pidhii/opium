@@ -11,9 +11,8 @@
 static void
 _write_scheme_script(std::ostream &os, opi::value script)
 {
-  os << "(cond-expand (guile (import (srfi :11))) (else))\n\n";
   for (const opi::value expr : range(script))
-    os << opi::strip_escape_sequences(pprint_scm(expr)) << "\n\n";
+    os << opi::pprint_scm(opi::raw_printer, expr) << "\n\n";
 }
 
 
@@ -31,8 +30,10 @@ opi::generate_scheme(const scheme_translator &config, value in,
 
   info("\e[1mrunning Type Check\e[0m");
   opi::execution_timer analyzer_timer {"Type analyzer"};
-  const auto [out, _] = translate_to_scheme(config, ppcode, tlm, guide);
+  const auto [out, restlm] = translate_to_scheme(config, ppcode, tlm, guide);
   analyzer_timer.stop();
+
+  tlm = restlm;
 
   // Write generated Scheme script
   if (not opath.empty())

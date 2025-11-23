@@ -716,6 +716,6 @@ opi::scheme_unique_identifiers::_into_unique_symbol(
   if (m_norename_prefix and
       sym_name(identifier).starts_with(m_norename_prefix.value()))
     return identifier;
-  const std::string fmt = std::format("{}{}{{}}", prefix, identifier);
+  const std::string fmt = std::format("{}{}{{}}", prefix, sym_name(identifier));
   return m_gensym(fmt);
 }
