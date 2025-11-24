@@ -1115,6 +1115,17 @@ TypeDef
     $$ = list(tape);
     bindloc($$, @$);
   }
+  | TYPE TypeSign '=' TypeSign {
+    const value T = sym("Osl#alias#typevar");
+    const value coercefrom = 
+      list("predicate", list("coerce", $2, T),
+        list("fast-coerce", $4, T));
+    const value coerceto =
+      list("predicate", list("coerce", T, $2),
+        list("fast-coerce", T, $4));
+    g_current_program_parser->m_translator_config.prolog << coercefrom;
+    g_current_program_parser->m_translator_config.prolog << coerceto;
+  }
 ;
 
 AtomTypeSign

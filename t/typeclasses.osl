@@ -80,3 +80,13 @@ t_x_not_text_and_not_num(() => "foo")
 // assert not { t_x_not_str_and_not_num(sym("identifier")) }
 // o not not T -> T
 t_x_not_not_num(42)
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                               alias
+//
+type numorstr = num or str
+
+match (1 :: numorstr) in
+| num x -> println(x, " is num")
+| str x -> println(x, " is str")
