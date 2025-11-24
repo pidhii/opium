@@ -5,6 +5,13 @@ require "coroutines"
 (import srfi-69)
 ~~~
 
+#pragma match-translation-rule {
+  (match-pattern . ((typename (dict K V)) _))
+  (type-pattern . _)
+  (predicate . hash-table?)
+  (unpack . identity)
+}
+
 ////
 //
 // Constructors

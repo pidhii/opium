@@ -33,8 +33,12 @@ println(d["one"])
 
 
 require "json"
-let j = open("test.json", "r").read_json() in
-println(dict(j))
+println("JSON:")
+let j = open("test.json", "r").readjson() :: json in {
+  println("j[one] = ", jsonref(j, "one"))
+  println("j[two] = ", jsonref(j, "two"))
+  println("j[two][2] = ", jsonref(j, "two").jsonref(2))
+}
 
 
 println("testing regex")

@@ -29,10 +29,10 @@
 static opi::object*
 _initialize_cell(opi::object *ptr)
 {
-  static char sym[] = "#__Cell";
+  static const char name[] = "#__Cell";
   ptr->_t = opi::tag::sym;
-  ptr->_sym.data = sym;
-  ptr->_sym.len = sizeof(sym);
+  ptr->_sym.data = name;
+  ptr->_sym.len = strlen(name);
   return ptr;
 }
 

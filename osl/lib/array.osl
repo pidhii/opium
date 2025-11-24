@@ -12,6 +12,13 @@ require "list"
 (import vector-lib)
 ~~~
 
+#pragma match-translation-rule {
+  (match-pattern . ((typename (array _)) _))
+  (type-pattern . _)
+  (predicate . vector?)
+  (unpack . identity)
+}
+
 extern identifier!(make-vector) as array(num, T) -> array(T)
 extern identifier!(make-vector) as uninitialized_array(num) -> array(T)
 extern identifier!(list->vector) as array(list(T)) -> array(T)

@@ -17,6 +17,7 @@
  */
 
 
+#include "opium/predicate_runtime.hpp"
 #include "opium/utilities/execution_timer.hpp"
 #include "opium/value.hpp"
 
@@ -124,6 +125,12 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
       break;
 
     case tag::pair: {
+      if (car(val) == cell_tag)
+      {
+        os << "<cell:" << cdr(val) << ">";
+        return;
+      }
+
       // Get color for current nesting level
       const std::string_view pcolor =
           cp.parent_colors.empty()
@@ -139,27 +146,27 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
 
       // Momorize the pair so we dont print it multiple times in case of
       // self-referencing structures
-      if (memq(val, mem))
-      {
-        os << "...";
-        return;
-      }
-      mem = cons(val, mem);
+      // if (memq(val, mem))
+      // {
+      //   os << "...";
+      //   return;
+      // }
+      // mem = cons(val, mem);
 
       // Print opening parenthesis with color
       os << pcolor << '(' << RESET_COLOR(pcolor);
       
       _print(mode, os, car(val), mem, maxdepth, depth + 1, cp);
-      value elt = nil;
-      for (elt = cdr(val); ispair(elt); elt = cdr(elt))
+      value elt;
+      for (elt = cdr(val); ispair(elt) and car(elt) != cell_tag; elt = cdr(elt))
       {
          // Similar trick about self-referencing
-        if (memq(elt, mem))
-        {
-          os << " ..." << pcolor << ")" << RESET_COLOR(pcolor);
-          return;
-        }
-        mem = cons(elt, mem);
+        // if (memq(elt, mem))
+        // {
+        //   os << " ..." << pcolor << ")" << RESET_COLOR(pcolor);
+        //   return;
+        // }
+        // mem = cons(elt, mem);
 
         // Normal printing
         os << ' ';

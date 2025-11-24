@@ -1,99 +1,58 @@
 require "io"
 
-type json = Structure(dict(str, json))
-          | Array(list(json))
-          | Number(num)
-          | String(str)
-          | Null
-          
+
+type json = dict(str, json) | array(json) | num | str | void
 
 ~~~
 (import json)
 
-(define (scm->json obj)
-  (cond ((vector? obj)
-          (let* ((objl (vector->list obj))
-                  (kv->json (lambda (kv) (cons (car kv) (scm->json (cdr kv)))))
-                  (newlist (map kv->json objl)))
-            (json.Structure (alist->hash-table newlist))))
-        ((pair? obj) (json.Array (map scm->json obj)))
-        ((null? obj) (json.Array obj))
-        ((number? obj) (json.Number obj))
-        ((string? obj) (json.String obj))
-        (else (error "Unsupported JSON object" obj))))
+(define (scm->json x)
+  (cond ((vector? x)
+          (let* ((l (vector->list x))
+                 (kv->json (lambda (kv) (cons (car kv) (scm->json (cdr kv)))))
+                 (ll (map kv->json (vector->list x))))
+            (alist->hash-table ll)))
+        ((pair? x) (list->vector (map scm->json x)))
+        ((null? x) (vector))
+        (else x)))
 
-(define (json->scm obj)
-  (cond ((json.Structure? obj)
-          (let* ((hashtable (json.Structure-:0 obj))
-                  (alist (hash-table-map hashtable
-                          (lambda (key val) (cons key (json->scm val)))))
-                  (avec (list->vector alist)))
+(define (json->scm x)
+  (cond ((hash-table? x)
+          (let* ((alist (hash-table-map
+                          hashtable 
+                          (lambda (key val)
+                            (cons key (json->scm val)))))
+                 (avec (list->vector alist)))
             avec))
-        ((json.Array? obj) (map json->scm (json.Array-:0 obj)))
-        ((json.Null? obj) (void))
-        ((json.Number? obj) (json.Number-:0 obj))
-        ((json.String? obj) (json.String-:0 obj))
-        (else obj)))
+        ((vector? x) (map json->scm (vector->list x)))
+        (else x)))
 
+(define (readjson PORT)
+  (let ((x (json-read PORT)))
+    (scm->json x)))
 
-(define (read_json port)
-  (let ((obj (json-read port)))
-    (scm->json obj)))
-
-(define (write_json PORT JSON)
+(define (writejson PORT JSON)
   (json-write (json->scm JSON) PORT))
 ~~~
-#pragma prolog {
-  (predicate (result-of (read_json port) json))
-  (predicate (result-of (write_json port _) void))
-}
 
-// read_json(port)
-// write_json(port, json)
-parse_json(s str) = {
+extern readjson(port) -> json
+extern writejson(port, json) -> void
+
+parsejson(s str) = {
   p = openstring(s)
-  result = p.read_json()
+  result = p.readjson()
   close(p)
   return result
 }
 
-json() = Structure(dict())
-json(x json) = x
-json(x num) = Number(x)
-json(x str) = String(x)
-json(x list(T)) = Array(x.iter().map(json).list())
-json(x dict(str, T)) = {
-  newdict = dict() :: dict(str, json)
-  x.keys().foreach(key => set newdict[key] = json(x[key]))
-  return Structure(newdict)
-}
-
-// num
-num(j json) = match j in
-| Number(x) -> x
-| otherwize -> error("Not a number", j)
-
-// str
-str(j json) = match j in
-| String(x) -> x
-| otherwize -> error("Not a string", j)
-
-// list(T)
-list(j json) = match j in
-| Array(x) -> x
-| otherwize -> error("Not a list", j)
-
-// dict(str, json)
-dict(j json) = match j in
-| Structure(x) -> x
-| otherwize -> error("Not a structure", j)
-
-// Element getters
-json_ref(j json, k str) = j.dict()[k]
-json_ref(j json, k num) = j.list()[k]
-j[k] = json_ref(j, k)
+// Element getter
+jsonref(j json, k num or str) = match j, k in
+| array(json)     l, num i -> l[i]
+| dict(str, json) d, str k -> d[k]
+| otherwize -> error("Invalid arguments to jsonref()")
 
 // Element setters
-json_set(j json, k str, v) = set j.dict()[k] = json(v)
-json_set(j json, k num, v) = set j.list()[k] = json(v)
-set j[k] = v = json_set(j, k, v)
+jsonset(j json, k num or str, v json) = match j, k in
+| array(json)     l, num i -> set l[i] = v
+| dict(str, json) d, str k -> set d[k] = v
+| otherwize -> error("Invalid arguments to jsonset()")

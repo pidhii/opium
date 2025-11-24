@@ -1,18 +1,6 @@
 #!/usr/bin/env -S ./install/bin/opium-osl -rv
 
 #pragma match-translation-rule {
-  (match-pattern . ((typename num) _))
-  (type-pattern . _)
-  (predicate . number?)
-  (unpack . identity)
-}
-#pragma match-translation-rule {
-  (match-pattern . ((typename str) _))
-  (type-pattern . _)
-  (predicate . string?)
-  (unpack . identity)
-}
-#pragma match-translation-rule {
   (match-pattern . ((typename (maybe _)) _))
   (type-pattern . _)
   (predicate . (lambda (x) (or (maybe.Some? x) (maybe.Nothing? x))))

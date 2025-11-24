@@ -89,7 +89,7 @@ bool(x) = identifier!(osl#?->bool)(x)
   ;; pattern-matching
   ;;;;
   (predicate (match-on ((typename T) T) U)
-    (coerce T U))
+    (fast-coerce T U))
 
   ;;;;;
   ;; (coerce T (or U1 U2 ...))
@@ -147,6 +147,41 @@ macro return {
 #pragma prolog {
   (predicate (result-of (inline-scheme-result . Args) inline-scheme-result))
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                        typename match translations
+#pragma match-translation-rule {
+  (match-pattern . ((typename num) _))
+  (type-pattern . _)
+  (predicate . number?)
+  (unpack . identity)
+}
+#pragma match-translation-rule {
+  (match-pattern . ((typename str) _))
+  (type-pattern . _)
+  (predicate . string?)
+  (unpack . identity)
+}
+#pragma match-translation-rule {
+  (match-pattern . ((typename sym) _))
+  (type-pattern . _)
+  (predicate . symbol?)
+  (unpack . identity)
+}
+#pragma match-translation-rule {
+  (match-pattern . ((typename bool) _))
+  (type-pattern . _)
+  (predicate . boolean?)
+  (unpack . identity)
+}
+#pragma match-translation-rule {
+  (match-pattern . ((typename char) _))
+  (type-pattern . _)
+  (predicate . character?)
+  (unpack . identity)
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 //                             parameters

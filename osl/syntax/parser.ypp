@@ -1250,7 +1250,7 @@ ExprPattern
   : EXPAT
   | AtomPattern
   | IDENT IDENT { $$ = list(list("typename", $1), $2); }
-  | IDENT '(' ListOfTypeParams ')' IDENT { $$ = list(list("typename", cons($1, $3)), $4); }
+  | IDENT '(' ListOfTypeParams ')' IDENT { $$ = list(list("typename", cons($1, $3)), $5); }
   | ExprPattern ':' ExprPattern {
     const value Cons = mangle_type_constructor("Cons");
     bindloc(Cons, @2);

@@ -5,6 +5,13 @@ require "base"
 (import srfi-1)
 ~~~
 
+#pragma match-translation-rule {
+  (match-pattern . ((typename (list _)) _))
+  (type-pattern . _)
+  (predicate . (lambda (x) (or (pair? x) (null? x))))
+  (unpack . identity)
+}
+
 list(l list(_)) = l
 
 list(iter) = {
