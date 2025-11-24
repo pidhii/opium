@@ -145,7 +145,7 @@ macro return {
 // o Allow calling results of inline-scheme expressions (does not produce any
 //   type constraints).
 #pragma prolog {
-  (predicate (result-of (inline-scheme-result . Args) . Results))
+  (predicate (result-of (inline-scheme-result . Args) inline-scheme-result))
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -228,9 +228,7 @@ iter(it) = {
 
 // reinterpret_cast
 ~~~
-(define-compiler-syntax reinterpret_cast
-  (syntax-rules ()
-    ((_ x) x)))
+(define-inline (reinterpret_cast x) x)
 ~~~
 extern reinterpret_cast(_) -> _
 

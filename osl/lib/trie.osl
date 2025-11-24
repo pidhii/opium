@@ -13,7 +13,6 @@ require "error"
 (define hashTrieCount hash-trie/count)
 (define hashTrieEmpty hash-trie/empty?)
 (define hashTrieContains hash-trie/member?)
-(define is eq?)
 ~~~
 
 #pragma prolog {
@@ -25,8 +24,6 @@ require "error"
   (predicate (result-of (hashTrieCount (trie K V)) num))
   (predicate (result-of (hashTrieEmpty (trie K V)) num))
   (predicate (result-of (hashTrieContains (trie K V) K) bool))
-  (predicate (result-of (gensym) _))
-  (predicate (result-of (is T T) bool))
 }
 
 
@@ -44,9 +41,9 @@ trie() = {
 
 trie[key] = {
   assert { trie :: trie(K, V) key :: K}
-  default = gensym() :: V
+  default = reinterpret_cast(scm { (gensym) }) :: V
   result = hashTrieLookup(trie, key, default)
-  if result.is(default) then
+  if reinterpret_cast(scm { eq? }(result, default)) :: bool then
     error("No such key", key, trie)
   return result
 }

@@ -119,3 +119,10 @@ test_null(null)
 println(format("~S", "ĸ•⌚⏪"))
 
 { if true then "something" } :: str?
+
+test_inline_scm() = {
+  println("before")
+  scm { print }(1, 2, 3)
+  println("after")
+}
+test_inline_scm()
