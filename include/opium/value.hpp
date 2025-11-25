@@ -126,6 +126,9 @@ class value {
 
   operator std::pair<value, value> () const;
 
+  [[nodiscard]] value
+  operator [] (size_t i) const;
+
   private:
   object *m_ptr; /**< Pointer to the object */
 }; // class opi::value
@@ -1050,3 +1053,7 @@ opi::value::operator std::pair<value, value>() const
 inline
 opi::value::operator opi::tag () const noexcept
 { return (*this)->_t; }
+
+inline opi::value
+opi::value::operator [] (size_t i) const
+{ return opi::list_ref(*this, i); }
