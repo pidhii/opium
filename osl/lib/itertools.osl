@@ -3,12 +3,6 @@ require "error"
 require "number"
 
 
-// disable cuttypecheck()
-// macro cuttypecheck {
-//   [cuttypecheck($expr:e)] = [$e]
-// }
-
-
 ////////////////////////////////////////////////////////////////////////////////
 //                             iteration
 //
@@ -43,14 +37,12 @@ find(it, p fn(_) -> bool) = match next(it) in
 ////////////////////////////////////////////////////////////////////////////////
 //                           map - iterator
 //
-type mapIterator(Iter, T, U) = {
+type map(Iter, T, U) = {
   inner Iter,
   func fn(T) -> U,
 }
 
-map(it, f fn(T) -> U) = mapIterator(it, f)
-
-next(it mapIterator(_, _, _)) =
+next(it map(_, _, _)) =
   match next(it#inner) in
   | Some(x) -> Some(it#func(x))
   | Nothing -> Nothing
@@ -59,19 +51,19 @@ next(it mapIterator(_, _, _)) =
 ////////////////////////////////////////////////////////////////////////////////
 //                           while - iterator
 //
-type whileIterator(Iter, T) = {
+type takewhile(Iter, T) = {
   inner Iter,
   pred fn(T) -> bool,
   isdone bool,
 }
 
-next(it whileIterator(Iter, T)) =
+next(it takewhile(Iter, T)) =
   if it#isdone then Nothing
   else match next(it#inner) in
   | Some(x) -> if it#pred(x) then Some(x) else { set it#isdone = true Nothing }
   | Nothing -> Nothing
 
-while(it, p) = whileIterator(it, p, false)
+take(it, p) = takewhile(it, p, false)
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -100,17 +92,12 @@ drop(it, n num) =
 ////////////////////////////////////////////////////////////////////////////////
 //                         filter - iterator
 //
-type filterIterator(Iter, T) = {
+type filter(Iter, T) = {
   inner Iter,
   pred  fn(T) -> bool,
 }
 
-filter(it, f fn(T) -> bool) = {
-  assert { next(it) }
-  return filterIterator(it, f)
-}
-
-next(it filterIterator(_, _)) =
+next(it filter(_, _)) =
   match next(it#inner) in
   | Some(x) -> if it#pred(x) :: bool then Some(x) else next(it)
   | Nothing -> Nothing
@@ -119,11 +106,11 @@ next(it filterIterator(_, _)) =
 ////////////////////////////////////////////////////////////////////////////////
 //                         range - iterator
 //
-type rangeIterator(T) = { start T, end T }
+type rangeiter(T) = { start T, end T }
 
-iter(r range(T)) = rangeIterator(r#start, r#end)
+iter(r range(T)) = rangeiter(r#start, r#end)
 
-next(it rangeIterator(T)) =
+next(it rangeiter(T)) =
   let result = it#start in
   if result < it#end then
   {
