@@ -289,8 +289,11 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
           else if (ispair(variant) and
                    car(variant) == "#dynamic-function-dispatch" and
                    get_location(car(cdr(variant)), location))
+          {
             buf << "option " << iopt << ": "
                 << display_location(location, 1, "\e[38;5;4;1m", "\e[2m");
+            buf << std::format("type: {:c#5}\n", variant);
+          }
           else
             buf << "option " << iopt << ": " << variant << "\n";
           iopt += 1;

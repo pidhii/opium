@@ -9,6 +9,8 @@
   (predicate (result-of (osl#unpack-pack (pack . Ts)) . Results)
     (coerce-list Ts Results))
 }
+extern identifier!(pack) :: identifier!(pack)
+extern identifier!(osl#unpack-pack) :: identifier!(osl#unpack-pack)
 
 ~~~
 (define (pack . args) args)

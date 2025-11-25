@@ -6,6 +6,7 @@
 // Bool operations
 bool(x bool) = x
 #pragma prolog { (predicate (result-of (not bool) bool)) }
+extern identifier!(not) :: identifier!(not) // FIXME: use scheme directly
 
 ~~~
 (import record-variants)
@@ -17,6 +18,8 @@ bool(x bool) = x
   (predicate (result-of (void) void))
   (predicate (result-of (values . Ts) . Ts))
 }
+extern void :: void // FIXME: use scheme directly
+extern values :: values
 
 // Meta assertion
 #pragma prolog {
@@ -31,19 +34,15 @@ bool(x bool) = x
 
 // List
 // o aliases for builtin `[ ... ]`-function
-#pragma prolog {
-  (predicate (result-of (osl#list . Ts) (list T)) (all T Ts))
-}
 ~~~
 (define osl#list list)
 ~~~
-// o pattern matching
 #pragma prolog {
-  (predicate (result-of (list.Cons T (list T)) (list T)))
-  (predicate (result-of (list.EmptyList) (list _)))
+  (predicate (result-of (osl#list . Ts) (list T)) (all T Ts))
 }
+extern identifier!(osl#list) :: identifier!(osl#list)
 
-// Rules for matching on list
+// o pattern matching
 #pragma prolog {
   (predicate (match-on (osl#ctor#Cons T (list T)) (list T)))
   (predicate (match-on (osl#ctor#EmptyList) (list _)))
@@ -54,6 +53,8 @@ bool(x bool) = x
   (predicate (result-of (coerce T) U)
     (fast-coerce T U))
 }
+extern identity as coerce :: coerce
+
 ~~~
 (define-compiler-syntax coerce
   (syntax-rules ()
@@ -76,12 +77,9 @@ bool(x bool) = x
 ~~~
 #pragma prolog {
   (predicate (coerce T (? T)))
-  (predicate (result-of (osl#?* (? T)) T))
-  (predicate (result-of (osl#?->bool (? T)) bool))
 }
-(*)(x) = identifier!(osl#?*)(x) // TODO: investigate; pointeres become ambiguous
-                                //       when type for `x` is specified
-bool(x) = identifier!(osl#?->bool)(x)
+extern identifier!(osl#?*) as (*) (T? and not T) -> T
+extern identifier!(osl#?->bool) as bool(T? and not T) -> bool
 
 // Type-classes
 #pragma prolog {

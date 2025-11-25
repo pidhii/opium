@@ -77,9 +77,9 @@ opi::typecheck(program &program, const prolog &prolog,
   type_bindings &results = program.type_bindings.emplace();
 
   // Function to save query results
-  bool success = false;
+  int successes = 0;
   auto save_results = [&]() {
-    success = true;
+    successes += 1;
     for (const value varname : prt.variables())
     {
       // Reconstruct variable value
@@ -101,7 +101,11 @@ opi::typecheck(program &program, const prolog &prolog,
   else
     prolog.make_true(cellularized, save_results);
 
-  return success;
+  if (successes > 1)
+    warning("Ambiguous typecheck, {} possible interpretations were found",
+            successes);
+
+  return successes > 0;
 }
 
 

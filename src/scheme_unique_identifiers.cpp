@@ -87,24 +87,22 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                atoms
-  append_rule({nil, "ident"}, [this](const auto &ms) {
-    const value ident = ms.at("ident");
-    if (ispair(ident))
-      throw code_transformation_error {
-          std::format("scheme_code_transformer rule [<ident> -> ...] - "
-                      "expected atom, got {}; likely unmatched syntax",
-                      ident),
-          ident};
-    // Lookup for identifier 
+  append_rule({nil, "atom"}, [this](const auto &ms) {
+    const value atom = ms.at("atom");
+    assert(not ispair(atom));
+    // Lookup for identifier, forward the rest
     value newident = nil;
-    if (issym(ident))
+    if (issym(atom))
     {
-      if (ident == "_")
-        return _into_unique_symbol(ident);
-      else if (assoc(ident, m_alist, newident))
+      if (atom == "_")
+        return _into_unique_symbol(atom);
+      else if (assoc(atom, m_alist, newident))
         return sym(sym_name(newident)); // Copy it for pointer-based code tracking
+      else
+        throw code_transformation_error {
+            std::format("Unbound identifier: {}", atom), atom};
     }
-    return ident;
+    return atom;
   });
 
   flip_page();

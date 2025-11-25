@@ -5,3 +5,4 @@ type the(T) = { }
   (predicate (result-of (typein T . Ts) . _)
     (member T Ts))
 }
+extern identity as typein :: typein

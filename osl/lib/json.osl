@@ -1,7 +1,7 @@
 require "io"
 
 
-type json = dict(str, json) | array(json) | num | str | void
+type json = dict(str, json) or array(json) or num or str or void
 
 ~~~
 (import json)

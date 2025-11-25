@@ -14,8 +14,8 @@ require "number"
 #pragma prolog {
   (ensure-loaded "prolog-std.scm")
   (predicate (result-of (concat . Strs) str) (all str Strs))
-  (predicate (result-of (str2num str) (maybe num)))
 }
+extern concat :: concat
 
 extern identifier!(list->string) as str(list(char)) -> str
 extern identifier!(string-copy) as copy(str) -> str

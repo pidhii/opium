@@ -50,29 +50,6 @@ if let Some(m) = s.find(re) then {
     println("  match #", i, " = ", s.view(start, end))
 }
 
-// require "zmq"
-
-// type message = {
-//   message str,
-// }
-
-// message(j json) = message(j["message"].str())
-// json(msg message) = {
-//   struct = dict()
-//   set struct["message"] = JsonString(msg#message)
-//   return JsonStructure(struct)
-// }
-
-// ctx = zmq_context(1)
-// sock = ctx.socket(zmq_rep)
-// sock.bind("tcp://*:4444")
-// request = sock.receive().expect("Failed to receive a request").str().parse_json()
-// println("request.message:", message(request)#message)
-// response = call_with_output_string(port => writejson(message("Hi there!").json(), port))
-// println("response:", response)
-// sock.send(response)
-
-
 type foobar = Foo | Bar
 foo = Foo
 match foo in
@@ -106,7 +83,7 @@ println("test division: ", 4 / 2 / 2)
 let x = 1 in
 println("test unary: ", -x < 0)
 
-type one = One
+type one = One | Two
 {
   tup = pack(1, "one", One)
   println("tup: ", tup)

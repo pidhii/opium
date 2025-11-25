@@ -14,7 +14,7 @@ type process = {
 ~~~
 (import (chicken process))
 
-(define (osl_process cmd #!optional (args #f))
+(define (osl#process cmd #!optional (args #f))
   (cond
     (args
       (let-values (((pstdout pstdin pid pstderr) (process* cmd args)))
@@ -22,21 +22,9 @@ type process = {
     (else
       (let-values (((pstdout pstdin pid pstderr) (process* cmd)))
         (osl#ctor#process pstdout pstderr pstdin pid)))))
-
-(define osl_process_sleep process-sleep)
 ~~~
 
-#pragma prolog {
-  (predicate (result-of (osl_process . Args) process)
-    (or (= Args (str))
-        (= Args (str (list str)))))
-
-  (predicate (result-of (osl_process_sleep num) num))
-
-  (predicate (result-of (system str) num))
-
-  (predicate (result-of (exit num) _))
-}
+extern exit(num) -> void
 
 // system(COMMANDLINE) -> num
 //
@@ -44,6 +32,7 @@ type process = {
 // the capabilities of the host shell. If the forking of a subprocess failed, an
 // exception is raised. Otherwise the return status of the subprocess is
 // returned unaltered.
+extern system(str) -> num
 
 // run(COMMANDLINE) -> process
 // Passes COMMANDLINE to the host-system's shell that is invoked as a subprocess
@@ -52,7 +41,8 @@ type process = {
 // Invokes the COMMAND as a subprocess passing ARGUMENT-LIST as arguments
 //
 // Create a subprocess
-run = osl_process
+extern identifier!(osl#process) as run(str) -> process
+extern identifier!(osl#process) as run(str, list(str)) -> process
 
 // wait() -> PID, EXITED, STATUS
 // wait(PID) -> PID, EXITED, STATUS
@@ -84,4 +74,4 @@ wait(p process, nohang bool) = wait(p#pid, nohang)
 //
 // Puts the process to sleep for SECONDS. Returns either 0 if the time has
 // completely elapsed, or the number of remaining seconds, if a signal occurred.
-sleep = osl_process_sleep
+extern identifier!(process-sleep) as sleep(num) -> num

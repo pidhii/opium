@@ -27,6 +27,10 @@
     (current-error-port)
     (lambda () (apply print args))))
 ~~~
+extern identifier!(osl#print) :: identifier!(osl#print)
+extern identifier!(osl#println) :: identifier!(osl#println)
+extern identifier!(osl#eprint) :: identifier!(osl#eprint)
+extern identifier!(osl#eprintln) :: identifier!(osl#eprintln)
 
 macro print {[print] = [identifier!(osl#print)]}
 macro println {[println] = [identifier!(osl#println)]}

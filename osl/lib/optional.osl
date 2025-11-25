@@ -1,6 +1,7 @@
 
 // null
 #pragma prolog { (predicate (result-of (osl#null) (? _))) }
+extern identifier!(osl#null) :: identifier!(osl#null)
 ~~~
 (define-inline (osl#null) #f)
 ~~~

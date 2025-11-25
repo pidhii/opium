@@ -4,22 +4,23 @@
 require "string"
 
 #pragma prolog {
-  (predicate (result-of (osl_format str . _) str))
-  (predicate (result-of (osl_printf str . _) void))
+  (predicate (result-of (osl#format str . _) str))
+  (predicate (result-of (osl#printf str . _) void))
 }
 
 ~~~
 (import format)
 
-(define (osl_format fmt . args)
+(define (osl#format fmt . args)
   (let ((applargs (append (list #f fmt) args)))
     (apply format applargs)))
     
-(define (osl_printf fmt . args)
+(define (osl#printf fmt . args)
   (let ((applargs (append (list #t fmt) args)))
     (apply format applargs)))
 ~~~
+extern identifier!(osl#format) :: identifier!(osl#format)
+extern identifier!(osl#printf) :: identifier!(osl#printf)
 
-format = osl_format
-
-printf = osl_printf
+format = identifier!(osl#format)
+printf = identifier!(osl#printf)

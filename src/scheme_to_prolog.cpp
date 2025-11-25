@@ -67,8 +67,8 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
   m_global_alist {nil},
   m_typecoder {typecoder},
   m_ctm {code_types},
-  m_typevargen {counter, "Osl_typevar{}"},
-  m_termgen {counter, "osl_term{}"}
+  m_typevargen {counter, "Opi#typevar{}"},
+  m_termgen {counter, "opi#term{}"}
 {
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                            inline-prolog
@@ -493,13 +493,15 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
                                 plparams, plresults, plbody));
 
     const value proxyvar = m_typevargen();
+    const value instvar = m_typevargen();
 
     // TODO: this is ugly
     m_ctm.assign_type(fm, proxyvar);
-    m_ctm.assign_type(car(fm), car(targets)); // FIXME
+    m_ctm.assign_type(car(fm), instvar); // FIXME
 
     return list("and", list("=", proxyvar, functemplate),
-                list("insert-cells", list(proxyvar), targets));
+                       list("insert-cells", proxyvar, instvar),
+                       list("=", targets, list(instvar)));
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>

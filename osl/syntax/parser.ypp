@@ -106,11 +106,21 @@ random_access_setter()
 { return "osl#set"; }
 
 
+static opi::value
+generate_inlinescm_lambda(opi::value scmexpr, opi::value argtypes,
+                          opi::value restypes)
+{
+  return
+    list("annotate-type",
+      list("pragma", "inline-scheme", scmexpr),
+      list("fn", argtypes, dot, restypes));
+}
+
 
 static opi::value
-generate_record_definition(opi::value typesign, opi::value name, opi::value ctorname,
-                           opi::value fields, opi::value fieldtypes,
-                           opi::value predname, opi::scheme_translator &translator)
+generate_record_definition(opi::value name, opi::value ctorname,
+                           opi::value fields, opi::value predname,
+                           opi::scheme_translator &translator)
 {
   // Getters and setters
   opi::value accessors = opi::nil;
@@ -134,28 +144,25 @@ generate_record_definition(opi::value typesign, opi::value name, opi::value ctor
                                         opi::dot, accessors);
   append_mut(translator.prologue, list(recorddef, fastrecorddef));
 
-  // Write type signature for constructor
-  const opi::value ctorsign = cons(ctorname, fieldtypes);
-  translator.prolog <<  list("predicate", list("result-of", ctorsign, typesign));
-
-  // Write type signatures of acessors
-  if (fields != opi::nil)
-  {
-    for (const auto &[field, type] : opi::utl::zip(range(accessors), range(fieldtypes)))
-    {
-      const opi::value getter = car(cdr(field));
-      const opi::value setter = car(cdr(cdr(field)));
-      translator.prolog << list("predicate", list("result-of", list(getter, typesign), type));
-      translator.prolog << list("predicate", list("result-of", list(setter, typesign, type), "void"));
-    }
-  }
-
   return recorddef;
 }
 
 
+static opi::value
+record_ctor(opi::value recorddef)
+{ return car(recorddef[2]); }
+
+static opi::value
+record_fields(opi::value recorddef)
+{ return cdr(recorddef[2]); }
+
+static opi::value
+record_predicate(opi::value recorddef)
+{ return recorddef[3]; }
+
+
 static std::pair<opi::value, opi::value>
-field_accessors(opi::value recorddef, opi::value field)
+record_field_accessors(opi::value recorddef, opi::value field)
 {
   const opi::value accessors = cdr(cdr(cdr(cdr(recorddef))));
   opi::value fieldaccessors;
@@ -165,8 +172,10 @@ field_accessors(opi::value recorddef, opi::value field)
 }
 
 
-static opi::value
-generate_unpack_definition(opi::value recorddef, opi::value unpackname)
+
+static void
+generate_unpack_definition(opi::value recorddef, opi::value unpackname,
+                           opi::scheme_translator &translator)
 {
   const opi::value signature = car(cdr(cdr(recorddef)));
   const opi::value fields = cdr(signature);
@@ -174,83 +183,17 @@ generate_unpack_definition(opi::value recorddef, opi::value unpackname)
   opi::value args = opi::nil;
   for (const opi::value field : opi::range(fields))
   {
-    const opi::value getter = field_accessors(recorddef, field).first;
+    const opi::value getter = record_field_accessors(recorddef, field).first;
     const opi::value getfield = list(getter, "x");
     args = append(args, list(getfield));
   }
 
-  return list("define", list(unpackname, "x"), cons("values", args));
-}
-
-
-
-template <std::output_iterator<opi::value> Output>
-static void
-generate_variant(opi::value typesign, opi::value ctorsign,
-                 const opi::source_location &location,
-                 opi::scheme_translator &translator, Output output)
-{
-  // NOTE: Don't allow overloading constructors for now
-  //       (no particular reason, just a design decision; can change it later)
-  const opi::value typenam = issym(typesign) ? typesign : car(typesign);
-  const opi::value ctorname = car(ctorsign);
-  const opi::value recordname = opi::sym(std::format("{:r}.{:r}", typenam, ctorname));
-  const opi::value mangledctor = mangle_type_constructor(ctorname);
-  const opi::value mangledctorsign = cons(mangledctor, cdr(ctorsign));
-  const size_t arity = length(cdr(ctorsign));
-
-  set_location(recordname, location);
-  opi::value fields = opi::nil;
-  for (size_t i = 0; i < arity; ++i)
-  {
-    const opi::value fieldname {std::format(":{}", i).c_str()};
-    set_location(fieldname, location);
-    fields = append(fields, list(fieldname));
-  }
-  const opi::value predname = opi::sym(std::format("{:r}?", recordname));
-  const opi::value unpackname = opi::sym(std::format("unpack-{:r}", recordname));
-  set_location(predname, location);
-  set_location(unpackname, location);
-
-  // Generate record for this variant
-  const opi::value recorddef = generate_record_definition(
-      typesign, recordname, recordname, fields, cdr(ctorsign), predname,
-      translator);
-
-
-  // Overload ctor name with constructor of a record form above
-  opi::value ovctorargs = opi::nil;
-  opi::value ovctorargnames = opi::nil;
-  for (int i = 0; opi::value argtype : range(cdr(ctorsign)))
-  {
-    opi::value argname = opi::sym(std::format("p{}", i++));
-    ovctorargnames = append_mut(ovctorargnames, list(argname));
-    ovctorargs = append_mut(ovctorargs, list(list(argname, argtype)));
-  }
-  *output++ = list("define-overload", list(ctorname, opi::dot, ovctorargs),
-                list(recordname, opi::dot, ovctorargnames));
-
-  // Matching rules
-  const opi::value unpackdef = generate_unpack_definition(recorddef, unpackname);
+  const opi::value unpackdef =
+    list("define", list(unpackname, "x"), cons("values", args));
   append_mut(translator.prologue, list(unpackdef));
-  translator.match_translation.add_rule(mangledctorsign, typesign, predname,
-                                        unpackname);
-
-  // Generate Prolog predicates
-  translator.prolog << list("predicate", list("match-on", mangledctorsign, typesign));
 }
 
 
-template <std::output_iterator<opi::value> Output>
-static void
-generate_variant_type(opi::value typesign, opi::value variants,
-                      const opi::source_location &location,
-                      opi::scheme_translator &translator,
-                      Output output)
-{
-  for (const opi::value ctorsign : range(variants))
-    generate_variant(typesign, ctorsign, location, translator, output);
-}
 
 
 static opi::value
@@ -271,52 +214,105 @@ overloaded_setter_name(opi::value fieldname)
 
 template <std::output_iterator<opi::value> Output>
 static void
-generate_record_type(opi::value typesign, opi::value fields,
-                     const opi::source_location &location,
-                     opi::scheme_translator &translator,
-                     Output output)
+generate_record_interface(opi::value recorddef,
+                          opi::value typesign,
+                          opi::value fieldtypes,
+                          opi::value ovctorname,
+                          const opi::source_location &location,
+                          opi::scheme_translator &translator,
+                          Output output)
 {
-  const opi::value recordname = issym(typesign) ? typesign : car(typesign);
+  const value constructor = record_ctor(recorddef);
+  const value fieldnames = record_fields(recorddef);
+  const value predicate = record_predicate(recorddef);
 
-  opi::value fieldnames = opi::nil;
-  opi::value fieldtypes = opi::nil;
-  for (const opi::value field : range(fields))
-  {
-    fieldnames = append(fieldnames, list(car(field)));
-    fieldtypes = append(fieldtypes, list(car(cdr(field))));
-  }
-
-  const opi::value mangledname = opi::sym(std::format("osl#ctor#{:r}", recordname));
-  const opi::value predname = opi::sym(std::format("{:r}?", mangledname));
-  const opi::value type_name = opi::sym(std::format("osl#{:r}", recordname));
-  set_location(mangledname, location);
-  set_location(predname, location);
-  set_location(type_name, location);
-  const opi::value recorddef =
-      generate_record_definition(typesign, type_name,
-                                 mangledname, fieldnames, fieldtypes, predname,
-                                 translator);
   translator.match_translation.add_rule(list(list("typename", typesign),"_"),
-                                        "_", predname, "identity");
+                                        "_", predicate, "identity");
+
+  value ctorargs = nil;
+  for (const auto [fieldname, fieldtype] : utl::zip(range(fieldnames), range(fieldtypes)))
+    append_mut(ctorargs, list(list(fieldname, fieldtype)));
 
   const opi::value define_overload = "define-overload";
   set_location(define_overload, location);
-  const opi::value ctordef = list(define_overload, cons(recordname, fieldnames),
-                                  cons(mangledname, fieldnames));
+  const opi::value ctordef =
+    list(define_overload, cons(ovctorname, ctorargs),
+      list(generate_inlinescm_lambda(constructor, fieldtypes, list(typesign)),
+           dot, fieldnames));
   *output++ = ctordef;
 
-  for (const opi::value fieldname : range(fieldnames))
+  for (const auto [fieldname, fieldtype] : opi::utl::zip(range(fieldnames), range(fieldtypes)))
   {
-    const auto [getter, setter] = field_accessors(recorddef, fieldname);
+    const auto [getter, setter] = record_field_accessors(recorddef, fieldname);
     const opi::value ovgetter = overloaded_getter_name(fieldname);
     const opi::value ovsetter = overloaded_setter_name(fieldname);
-    const opi::value getterdef = list(define_overload, list(ovgetter, list("x", typesign)), list(getter, "x"));
-    const opi::value setterdef = list(define_overload, list(ovsetter, list("x", typesign), "v"), list(setter, "x", "v"));
+    const opi::value getterdef =
+      list(define_overload, list(ovgetter, list("x", typesign)),
+        list(generate_inlinescm_lambda(getter, list(typesign), list(fieldtype)),
+             "x"));
+    const opi::value setterdef =
+      list(define_overload, list(ovsetter, list("x", typesign), list("v", fieldtype)),
+        list(generate_inlinescm_lambda(setter, list(typesign, fieldtype), list("void")),
+             "x", "v"));
     set_location(getterdef, location);
     set_location(setterdef, location);
     *output++ = getterdef;
     *output++ = setterdef;
   }
+}
+
+
+template <std::output_iterator<opi::value> Output>
+static void
+generate_variant(opi::value typesign, opi::value ctorsign,
+                 const opi::source_location &location,
+                 opi::scheme_translator &translator, Output output)
+{
+  // NOTE: Don't allow overloading constructors for now
+  //       (no particular reason, just a design decision; can change it later)
+  const opi::value enumname = issym(typesign) ? typesign : car(typesign);
+  const opi::value type_name = sym(std::format("{:r}.{:r}", enumname, car(ctorsign)));
+  const opi::value ctorname = car(ctorsign);
+  const opi::value scmtypename = opi::sym(std::format("osl#{:r}.{:r}", type_name, ctorname));
+  const opi::value scmctorname = opi::sym(std::format("osl#ctor#{:r}.{:r}", type_name, ctorname));
+  const opi::value scmpredname = opi::sym(std::format("{:r}?", scmtypename));
+  const opi::value unpackname = opi::sym(std::format("unpack-{:r}", scmtypename));
+  const opi::value fieldtypes = cdr(ctorsign);
+  opi::value fieldnames = opi::nil;
+  for (size_t i = 0; i < length(cdr(ctorsign)); ++i)
+  {
+    const opi::value fieldname {std::format("value{}", i).c_str()};
+    append_mut(fieldnames, list(fieldname));
+  }
+
+  // Generate record for this variant
+  const opi::value recorddef =
+    generate_record_definition(type_name, scmctorname, fieldnames, scmpredname,
+                               translator);
+
+  generate_record_interface(recorddef, typesign, fieldtypes, ctorname,
+                            location, translator, output);
+
+  // Matching rules
+  const value mctorname = mangle_type_constructor(ctorname);
+  const value mctorsign = cons(mctorname, cdr(ctorsign));
+  generate_unpack_definition(recorddef, unpackname, translator);
+  translator.match_translation.add_rule(mctorsign, typesign, scmpredname, unpackname);
+
+  // Generate Prolog predicates
+  translator.prolog << list("predicate", list("match-on", mctorsign, typesign));
+}
+
+
+template <std::output_iterator<opi::value> Output>
+static void
+generate_variant_type(opi::value typesign, opi::value variants,
+                      const opi::source_location &location,
+                      opi::scheme_translator &translator,
+                      Output output)
+{
+  for (const opi::value ctorsign : range(variants))
+    generate_variant(typesign, ctorsign, location, translator, output);
 }
 
 
@@ -613,10 +609,8 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %type Bind ListOfBinds
 %type Ctor Ctor_mangled
 %type TopLvlSeq TopLvlExpr
-%type TypeDef AtomTypeSign
-%type OrTypeSign_column OrTypeSign_or OrTypeSign
-%type AndTypeSign_ampersand AndTypeSign_and AndTypeSign
-%type TypeSign CtorSign ListOfCtorSigns TypeParam ListOfTypeParams
+%type TypeDef
+%type TypeSign CtorSign ListOfCtorSigns ListOfCtorSigns_ TypeParam ListOfTypeParams
 %type ListOfFields
 %type If
 %type Lambda
@@ -820,6 +814,16 @@ Stmt
       const value define = "define";
       bindloc(define, @$);
       $$ = list(define, $1, $3);
+    }
+    else if (ispair($1) and car($1) == "annotate-type")
+    { // move annotation to the LHS and use `define`-syntax
+      const value define = "define";
+      bindloc(define, @$);
+      const value ident = list_ref($1, 1);
+      const value type = list_ref($1, 2);
+      const value expr = $3;
+      assert(issym(ident));
+      $$ = list(define, ident, list("annotate-type", expr, type));
     }
     else
     {
@@ -1109,13 +1113,29 @@ TypeDef
     location.source = g_source;
     location.start = @$.left;
     location.end = @$.right;
-    generate_record_type($2, $5, location,
-                         g_current_program_parser->m_translator_config,
-                         std::back_inserter(tape));
+
+    const auto _car = [](value x) { return car(x); };
+    const auto _cadr = [](value x) { return car(cdr(x)); };
+
+    const value type_name = ispair($2) ? car($2) : $2;
+    const value scmtypename = opi::sym(std::format("osl#{:r}", type_name));
+    const value scmctorname = mangle_type_constructor(type_name);
+    const value fieldnames = list(std::views::transform(range($5), _car));
+    const value fieldtypes = list(std::views::transform(range($5), _cadr));
+    const value scmpredname = opi::sym(std::format("{:r}?", scmtypename));
+
+    assert(issym(type_name));
+
+    const value recorddef =
+      generate_record_definition(type_name, scmctorname, fieldnames, scmpredname,
+                                 g_current_program_parser->m_translator_config);
+    generate_record_interface(recorddef, $2, fieldtypes, type_name, location,
+                              g_current_program_parser->m_translator_config,
+                              std::back_inserter(tape));
     $$ = list(tape);
     bindloc($$, @$);
   }
-  | TYPE TypeSign '=' TypeSign {
+  | TYPE TypeSign '=' TypeParam {
     const value T = sym("Osl#alias#typevar");
     const value coercefrom = 
       list("predicate", list("coerce", $2, T),
@@ -1128,7 +1148,7 @@ TypeDef
   }
 ;
 
-AtomTypeSign
+TypeSign
   : IDENT %prec AFTER_APPLY
   | IDENT '(' ListOfTypeParams ')' %prec APPLY { $$ = cons($1, $3); bindloc($$, @$); }
   | FN '(' ListOfTypeParams ')' RIGHT_ARROW TypeParam {
@@ -1141,47 +1161,15 @@ AtomTypeSign
     bindloc(fn, @1);
     $$ = list(fn, $3, dot, $7);
   }
-  | AtomTypeSign '?' { $$ = list($2, $1); }
-  | '(' TypeSign ')'  { $$ = $2; }
-  | NOT AtomTypeSign { $$ = list("not", $2); }
 ;
 
-OrTypeSign_column
-  : AtomTypeSign { $$ = list($1); }
-  | OrTypeSign_column '|' AtomTypeSign %prec OR { $$ = cons($3, $1); }
-;
+ListOfCtorSigns: CtorSign '|' ListOfCtorSigns_ { $$ = cons($1, $3); };
 
-OrTypeSign_or
-  : AtomTypeSign { $$ = list($1); }
-  | OrTypeSign_or OR AtomTypeSign { $$ = cons($3, $1); }
-;
-
-OrTypeSign
-  : AtomTypeSign '|' OrTypeSign_column { $$ = cons("or", cons($1, $3)); }
-  | AtomTypeSign OR OrTypeSign_or { $$ = cons("or", cons($1, $3)); }
-;
-
-AndTypeSign_ampersand
-  : AtomTypeSign { $$ = list($1); }
-  | AndTypeSign_ampersand '&' AtomTypeSign { $$ = cons($3, $1); }
-;
-
-AndTypeSign_and
-  : AtomTypeSign { $$ = list($1); }
-  | AndTypeSign_and AND AtomTypeSign { $$ = cons($3, $1); }
-;
-
-AndTypeSign
-  : AtomTypeSign '&' AndTypeSign_ampersand { $$ = cons("and", cons($1, $3)); }
-  | AtomTypeSign AND AndTypeSign_and { $$ = cons("and", cons($1, $3)); }
-;
-
-TypeSign: AtomTypeSign | OrTypeSign | AndTypeSign;
-
-ListOfCtorSigns
+ListOfCtorSigns_
   : CtorSign { $$ = list($1); }
-  | CtorSign '|' ListOfCtorSigns { $$ = cons($1, $3); }
+  | CtorSign '|' ListOfCtorSigns_ { $$ = cons($1, $3); }
 ;
+
 
 CtorSign
   : CAPIDENT '(' ListOfTypeParams ')' %prec APPLY { $$ = cons($1, $3); }
@@ -1194,11 +1182,19 @@ ListOfTypeParams
   | TypeParam ',' ListOfTypeParams { $$ = cons($1, $3); }
 ;
 
-TypeParam
+AtomTypeParam
   : CAPIDENT
-  | CAPIDENT '?' { $$ = list($2, $1); }
+  | '_'
   | TypeSign
-  | '_' { $$ = "_"; }
+  | '(' TypeParam ')' { $$ = $2; }
+;
+
+TypeParam
+  : AtomTypeParam
+  | TypeParam '?' { $$ = list($2, $1); }
+  | TypeParam OR TypeParam { $$ = list("or", $1, $3); }
+  | TypeParam AND TypeParam { $$ = list("and", $1, $3); }
+  | NOT TypeParam { $$ = list("not", $2); }
 ;
 
 ListOfFields
@@ -1264,7 +1260,7 @@ AtomPattern
   | '(' ExprPattern ')' { $$ = $2; }
   | Ctor_mangled %prec AFTER_APPLY { $$ = list($1); }
   | Ctor_mangled '(' ListOfExprPatterns ')' %prec APPLY { $$ = cons($1, $3); }
-  | '[' ']' { $$= list("osl#list"); bindloc($$, @$); }
+  | '[' ']' { $$ = list("osl#ctor#EmptyList"); bindloc($$, @$); }
 ;
 
 
