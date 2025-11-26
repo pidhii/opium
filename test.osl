@@ -34,11 +34,15 @@ println(d["one"])
 
 require "json"
 println("JSON:")
-let j = open("test.json", "r").readjson() :: json in {
+let j = open("test.json", "r").readjson() in {
   println("j[one] = ", jsonref(j, "one"))
   println("j[two] = ", jsonref(j, "two"))
   println("j[two][2] = ", jsonref(j, "two").jsonref(2))
 }
+assert { 42 :: json }
+assert { array([1::json, "42"::json, 3::json]) :: json }
+let s = "whatever" :: (num or str) in
+assert { s :: json }
 
 
 println("testing regex")
@@ -47,7 +51,7 @@ let s =  "___adfasd12312" in
 if let Some(m) = s.find(re) then {
   for i in 0 : 3 do
     let start, end = unpack(*m.indices(i)) in
-    println("  match #", i, " = ", s.view(start, end))
+    println("  match #", i, " = ", s[start : end])
 }
 
 type foobar = Foo | Bar
@@ -84,12 +88,10 @@ let x = 1 in
 println("test unary: ", -x < 0)
 
 type one = One | Two
-{
-  tup = pack(1, "one", One)
-  println("tup: ", tup)
-  let t1, t2, t3 = unpack(tup) in
-  println(t1, " ", t2, " ", t3)
-}
+tup = pack(1, "one", One)
+println("tup: ", tup)
+let t1, t2, t3 = unpack(tup) in
+println(t1, " ", t2, " ", t3)
 
 
 test_null(x str?) =
@@ -107,3 +109,15 @@ test_inline_scm() = {
   println("after")
 }
 test_inline_scm()
+
+
+#pragma prolog {
+  (predicate (coerce T (fclass F))
+    (result-of (F T) . _))
+}
+iterator_F(x) = next(x)
+
+test_fclass(class_instance T, class_F F) = {
+  class_instance :: fclass(F)
+}
+test_fclass(range(0, 10).iter(), iterator_F)

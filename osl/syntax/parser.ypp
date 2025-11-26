@@ -850,12 +850,12 @@ Stmt
     bindloc(define, @$);
     $$ = list(define, idents, $5);
   }
-  | EXTERN IDENT DOUBLE_COLUMN TypeSign {
+  | EXTERN IDENT DOUBLE_COLUMN TypeParam {
     $$ =
       list("define", $2,
         list("annotate-type", list("pragma", "inline-scheme", $2), $4));
   }
-  | EXTERN IDENT AS IDENT DOUBLE_COLUMN TypeSign {
+  | EXTERN IDENT AS IDENT DOUBLE_COLUMN TypeParam {
     $$ =
       list("define", $4,
         list("annotate-type", list("pragma", "inline-scheme", $2), $6));

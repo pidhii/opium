@@ -99,7 +99,7 @@ type filter(Iter, T) = {
 
 next(it filter(_, _)) =
   match next(it#inner) in
-  | Some(x) -> if it#pred(x) :: bool then Some(x) else next(it)
+  | Some(x) -> if it#pred(x) then Some(x) else next(it)
   | Nothing -> Nothing
 
 

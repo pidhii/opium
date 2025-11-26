@@ -121,3 +121,11 @@
 (predicate (less-then-all* Less X (Y . Ys))
   (call Less X Y)
   (less-then-all* Less X Ys))
+
+(predicate (less-then-some* Less X (Y . Ys))
+  (if (call Less X Y) #t
+      (less-then-some* Less X Ys)))
+
+(predicate (some-less-then* Less (X . Xs) Y)
+  (if (call Less X Y) #t
+      (some-less-then* Less Xs Y)))

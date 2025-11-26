@@ -1,10 +1,26 @@
 
+// Any type T coerces into optional T?
+#pragma prolog {
+  (predicate (coerce T (? T)))
+}
+
+// Dereferencing and bool operator
+~~~
+(define (osl#?->bool x)
+  (and x (not (eq? x (void)))))
+
+(define (osl#?* x)
+  (if (osl#?->bool x) x (error osl#?* "dereferencing a nonvalue")))
+~~~
+extern identifier!(osl#?*) as (*) (T? and not T) -> T
+extern identifier!(osl#?->bool) as bool(T? and not T) -> bool
+
 // null
-#pragma prolog { (predicate (result-of (osl#null) (? _))) }
-extern identifier!(osl#null) :: identifier!(osl#null)
 ~~~
-(define-inline (osl#null) #f)
+(define (osl#null) #f)
 ~~~
+extern identifier!(osl#null)() -> _?
+
 macro null {[null] = [identifier!(osl#null)()]}
 
 // maybe-like matching on optionals
