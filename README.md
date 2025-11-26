@@ -3,11 +3,11 @@
 
 # Prelude
 
-I have a dream of creating some perfect kind of programming language, that is as
+I have a dream of creating some perfect kind of programming language that is as
 all-rounded as C++, as powerful as Scheme, and as simple as Python. This project
 is my yet-another-iteration towards this impossible goal.
 
-In the folder ./osl you can find the language built on top of the Opium-engine:
+In the folder ./osl, you can find the language built on top of the Opium-engine:
 **O**pium **S**cripting **L**anguage (OSL). Syntax highlighting for VS-Code is
 available in some of my other repos on GitHub. OSL "compiles" into scheme
 scripts meant to be run or compiled by [Chicken scheme](https://call-cc.org/).
@@ -18,7 +18,7 @@ running on some dialect of Lisp.
 This repository consists of two projects:
 
 - [Opium](#opium) - type-system engine;
-- [OSL](#OSL) - staticaly typed programing language that explores possibilities and limitations of Opium.
+- [OSL](#OSL) - statically typed programming language that explores possibilities and limitations of Opium.
 
 
 ## Building the Projects
@@ -41,19 +41,19 @@ make -C build -j            # ;]
 # Opium
 
 The subject of this project is developing an ultimate type system engine.
-Where *ultimate* stands for ability to solve a problem of assigning types for
-code units (expressions) of arbitrary code, infered from arbitrary programing
-language with whichever programing idioms it had chosen.
+Where *ultimate* stands for the ability to solve a problem of assigning types for
+code units (expressions) of arbitrary code, inferred from an arbitrary programming
+language with whichever programming idioms it had chosen.
 
-The inherent issue of solving the problem of type assignments is the raise of
-ambiguities. This is especially prevelent when the language exposes generic
-functions or alows for function name overloading.
+The inherent issue of solving the problem of type assignments is the rise of
+ambiguities. This is especially prevalent when the language exposes generic
+functions or allows for function name overloading.
 
 
 ## Implementation
 
 The typecheck is implemented over a symbolical computation system ([see below](#prolog-engine)),
-alowing to attack the problem in a strict logical/algebraic formalism.
+allowing to attack the problem in a strict logical/algebraic formalism.
 
 ### Prolog engine
 
@@ -66,5 +66,6 @@ choice-points of the Prolog interpreter.
 
 # OSL
 
+![random OSL snippet](random-osl-code.png)
 
 
