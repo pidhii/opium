@@ -49,6 +49,32 @@ The inherent issue of solving the problem of type assignments is the rise of
 ambiguities. This is especially prevalent when the language exposes generic
 functions or allows for function name overloading.
 
+In C++, with the introduction of concepts, it became possible to restrict template
+parameters to types that definitively satisfy some particular set of expressions.
+This allows disambiguation of templated overloads not only by the apparent signatures,
+but also by the code units (expressions) themself. In Opium, functions are, by
+construction, concepts of themselves. Rust language features some degree of automatic
+backwards-type-deduction; however, it also completely prohibits function overloading.
+Haskell features one of the most robust type systems to date. However, even Haskell
+has some weird limitations (besides the lack of name overloading).
+
+I don't like the presence of compromises in all the languages (all I'm familiar with)
+unless there are real reasons behind them. I respect the "for historical reasons"
+kind of arguments, but history goes on, and only C++ seems to be bold enough
+to be actually pushing the boundaries towards the absolute point of "do everything
+that is possible, because why not". But this point hasn't been reached just yet.
+And instead of waiting, I hope Opium can shed some light on the
+"...*that is possible*..."-part.
+
+What do I look at:
+- What are the permissible implicit operations on types that don't lead to ambiguities. 
+- The more job is put on the typecheck, the more computations it will be forced to do, the
+  longer compilation time it requires, and up to a point when it becomes impractical.
+  In this way, computation time happens to impose limits on a practical type system. <br/>
+  &Rightarrow; The type system has to be such that compilation times scale at most linearly
+  with the size of the program.
+- $$\color{red}{TODO}$$
+
 
 ## Implementation
 
