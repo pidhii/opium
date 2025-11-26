@@ -66,6 +66,7 @@ choice-points of the Prolog interpreter.
 
 # OSL
 
+Some completely arbitrary code in OSL:
 ![random OSL snippet](random-osl-code.png)
 
 
