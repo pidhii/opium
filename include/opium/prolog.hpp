@@ -224,6 +224,7 @@ class prolog {
     value signature_pattern;
     value signature_value;
     const call_frame *prev;
+    mutable bool cut {false};
   };
 
   void
@@ -263,13 +264,13 @@ class prolog {
 
   template <prolog_continuation Cont, prolog_guide Guide>
   void
-  _make_predicate_true(const call_frame &frame, const predicate &pred,
-                       value eargs, Cont cont, Guide guide) const;
+  _make_predicate_true(const call_frame &frame, bool &cut,
+                       const predicate &pred, value eargs, Cont cont,
+                       Guide guide) const;
 
   private:
   mutable size_t m_depth;
   mutable trace_node *m_trace;
-  mutable bool m_cut, m_cutpred;
   mutable void *m_stack_end;
   opi::stl::unordered_multimap<std::string, predicate> m_db; /**< Database of predicates */
 }; // class opi::prolog

@@ -32,6 +32,8 @@
  */
 #pragma once
 
+#include "opium/prolog_detail.inl"
+
 #include "opium/predicate_runtime.hpp"
 #include "opium/prolog.hpp"
 #include "opium/pretty_print.hpp"
@@ -117,6 +119,8 @@ prolog::make_true(value e, Cont cont, Guide guide) const
                  e, cont, guide));
   GC_enable();
 }
+
+
 
 
 template <prolog_continuation Cont, prolog_guide Guide>
@@ -277,13 +281,27 @@ prolog::_make_true(const call_frame &frame, value e, Cont cont,
         const std::string predname = sym_name(car(e)).data();
         const value eargs = cdr(e);
 
-        utl::state_saver _ {m_cut, m_cutpred};
-        m_cut = false;
+        // Wrap continuation to cut predicate-branches that lead to the same
+        // effects.
+        //
+        // NOTE:
+        //   This cut is a "green" cut: it does not remove possible
+        //   solutions, but only prevents arriving to the identical solutions
+        //   multiple times.
+        detail::effects_memoization effectmem;
+        const std::function contwcut = [&]() {
+          if (not effectmem.same_effect(eargs)) // cut on same predicate effects
+          {
+            effectmem.save_effect(eargs);
+            cont();
+          }
+        };
+
         for (const predicate &p : predicate_branches(predname))
         {
-          m_cutpred = false;
-          _make_predicate_true(frame, p, eargs, cont, guide);
-          if (m_cutpred or m_cut)
+          bool cut = false;
+          _make_predicate_true(frame, cut, p, eargs, contwcut, guide);
+          if (frame.cut or cut)
             break;
         }
         return;
@@ -300,13 +318,7 @@ prolog::_make_true(const call_frame &frame, value e, Cont cont,
       if (ISSYM(e, "!") or ISSYM(e, "cut-choice"))
       {
         cont();
-        m_cut = true;
-        return;
-      }
-      else if (ISSYM(e, "cut-predicate-choice"))
-      {
-        cont();
-        m_cutpred = true;
+        frame.cut = true;
         return;
       }
 
@@ -364,127 +376,17 @@ prolog::_make_or_true(const call_frame &frame, value clauses, Cont cont,
   for (const value clause : range(clauses))
   {
     _make_true(frame, clause, cont, guide);
-    if (m_cut)
+    if (frame.cut)
       break;
   }
 }
 
 
-// This has to be equivalent to result of composition of 
-// signature -> reconstruct[stringify_unbound_variables]
-//           -> _remove_dynamic_function_dispatch_body
-//           -> insert_cells
-// (unless i fucked it up)
-//
-// NOTE: Removal of dyn-dispatch bodies seems to be unnecessary (which is good);
-//       however, it has significant (positive) impact on performance.
-//
-// TODO: I think this function can be made tail-callable (and so do many other
-//       similar functions)
-static value
-_make_signature_snapshot(
-    value s, stl::unordered_map<const object *, value> &argmem,
-    stl::unordered_map<const cell *, value> &cellmem)
-{
-  const auto it = argmem.find(&*s);
-  if (it != argmem.end())
-    return it->second;
-
-  if (ispair(s))
-  {
-    if (car(s) == cell_tag)
-    {
-      cell *repr = find(static_cast<cell*>(ptr_val(cdr(s))));
-      value val;
-      if (get_value(repr, val))
-        return argmem[&*s] = _make_signature_snapshot(val, argmem, cellmem);
-      else
-      {
-        const auto it = cellmem.find(repr);
-        if (it != cellmem.end())
-          return it->second;
-        else
-          return cellmem[repr] = cons(cell_tag, ptr(make<cell>()));
-      }
-    }
-    else if (car(s) == "#dynamic-function-dispatch")
-    {
-      return argmem[&*s] = list(_make_signature_snapshot(list_ref(s, 0), argmem, cellmem),  // tag
-                                _make_signature_snapshot(list_ref(s, 1), argmem, cellmem),  // name
-                                _make_signature_snapshot(list_ref(s, 2), argmem, cellmem),  // args
-                                _make_signature_snapshot(list_ref(s, 3), argmem, cellmem)); // results
-    }
-    else
-    {
-      value &result = argmem.emplace(&*s, cons(nil, nil)).first->second;
-      set_car(result, _make_signature_snapshot(car(s), argmem, cellmem));
-      set_cdr(result, _make_signature_snapshot(cdr(s), argmem, cellmem));
-      return result;
-    }
-  }
-  else
-    return argmem[&*s] = s;
-}
-
-static value
-_make_signature_snapshot(value signature)
-{
-  stl::unordered_map<const object *, value> argmem;
-  stl::unordered_map<const cell *, value> cellmem;
-  return _make_signature_snapshot(signature, argmem, cellmem);
-}
-
-
-static value
-_remove_dynamic_function_dispatch_body(
-    value s, stl::unordered_map<const object *, value> &argmem)
-{
-  const auto it = argmem.find(&*s);
-  if (it != argmem.end())
-    return it->second;
-
-  if (ispair(s))
-  {
-    if (car(s) == cell_tag)
-    {
-      cell *repr = find(static_cast<cell*>(ptr_val(cdr(s))));
-      value val;
-      if (get_value(repr, val))
-        return argmem[&*s] = _remove_dynamic_function_dispatch_body(val, argmem);
-      else
-        return argmem[&*s] = s;
-    }
-    else if (car(s) == "#dynamic-function-dispatch")
-    {
-      return argmem[&*s] = list(_remove_dynamic_function_dispatch_body(list_ref(s, 0), argmem),  // tag
-                                _remove_dynamic_function_dispatch_body(list_ref(s, 1), argmem),  // name
-                                _remove_dynamic_function_dispatch_body(list_ref(s, 2), argmem),  // args
-                                _remove_dynamic_function_dispatch_body(list_ref(s, 3), argmem)); // results
-    }
-    else
-    {
-      value &result = argmem.emplace(&*s, cons(nil, nil)).first->second;
-      set_car(result, _remove_dynamic_function_dispatch_body(car(s), argmem));
-      set_cdr(result, _remove_dynamic_function_dispatch_body(cdr(s), argmem));
-      return result;
-    }
-  }
-  else
-    return argmem[&*s] = s;
-}
-
-static value
-_remove_dynamic_function_dispatch_body(value s)
-{
-  stl::unordered_map<const object *, value> mem;
-  return _remove_dynamic_function_dispatch_body(s, mem);
-}
-
-
 template <prolog_continuation Cont, prolog_guide Guide>
 void
-prolog::_make_predicate_true(const call_frame &frame, const predicate &pred,
-                             value eargs, Cont cont, Guide guide) const
+prolog::_make_predicate_true(const call_frame &frame, bool &cut,
+                             const predicate &pred, value eargs, Cont cont,
+                             Guide guide) const
 {
   predicate_runtime mprt;
   const value predicate_arguments = cdr(pred.signature());
@@ -498,13 +400,15 @@ prolog::_make_predicate_true(const call_frame &frame, const predicate &pred,
     // inside the _try_recursion_heuristic. However, until it is understood why
     // are these irrelevant, let the code be as it is.
     const value body = insert_cells(mprt, pred.body());
-    const value signature = _remove_dynamic_function_dispatch_body(eargs);
-    const value signature_pattern = _make_signature_snapshot(eargs);
+    const value signature = detail::remove_bodies(eargs);
+    const value signature_pattern =
+        detail::snapshot<detail::remove_body>(eargs);
     if (not _try_recursion_heuristic(frame, &pred, signature, cont))
     {
       call_frame newframe;
       _add_call_frame(&pred, signature_pattern, signature, frame, newframe);
       _make_true(newframe, body, cont, guide);
+      cut = newframe.cut;
     }
   }
 }

@@ -25,7 +25,7 @@
 
 
 opi::prolog::prolog()
-: m_depth {0}, m_trace {make<trace_node>()}, m_cut {false}, m_cutpred {false}
+: m_depth {0}, m_trace {make<trace_node>()}
 {
   // Define `=` as builtin
   add_predicate(list("=", "X", "X"), True);
