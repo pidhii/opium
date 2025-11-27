@@ -125,6 +125,10 @@ struct code_type_map {
   }
 
   bool
+  code_has_type(value code) const noexcept
+  { return m_data.find(&*code) != m_data.end(); }
+
+  bool
   code_type(value code, value &type) const noexcept
   {
     const auto it = m_data.find(&*code);

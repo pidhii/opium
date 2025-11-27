@@ -60,6 +60,9 @@ struct scheme_emitter {
   _find_code_type(value code) const;
 
   value
+  _unfold_types(opi::value x) const;
+
+  value
   _unfold_pattern_type(opi::value pattern) const;
 
   private:

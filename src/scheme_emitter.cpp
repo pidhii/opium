@@ -26,16 +26,37 @@
 
 
 opi::value
+opi::scheme_emitter::_unfold_types(opi::value x) const
+{
+  if (ispair(x))
+    return cons(_unfold_types(car(x)), _unfold_types(cdr(x)));
+  else
+  {
+    const auto it = m_type_bindings.find(x);
+    if (it != m_type_bindings.end())
+    {
+      assert(it->second.size() == 1);
+      return *it->second.begin();
+    }
+    else
+      return x;
+  }
+}
+
+
+opi::value
 opi::scheme_emitter::_unfold_pattern_type(opi::value pattern) const
 {
   if (ispair(pattern))
   {
     const opi::value ctor = car(pattern);
     const opi::value args = cdr(pattern);
+
+    const opi::value newctor = _unfold_types(ctor);
     opi::value newargs = opi::nil;
     for (const opi::value arg : range(args))
       newargs = append(newargs, list(_find_code_type(arg)));
-    return cons(ctor, newargs);
+    return cons(newctor, newargs);
   }
   else
     return pattern;
