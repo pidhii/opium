@@ -45,6 +45,8 @@ opi::osl::entry_token_for(std::string_view parameter_type)
     {"stmt", PARSE_STMT},
     {"atpat", PARSE_ATPAT},
     {"expat", PARSE_EXPAT},
+    {"attype", PARSE_ATTYPE},
+    {"extype", PARSE_EXTYPE},
   };
   return t.at(parameter_type);
 }
@@ -58,6 +60,8 @@ opi::osl::token_for(std::string_view parameter_type)
     {"stmt", STMT},
     {"atpat", ATPAT},
     {"expat", EXPAT},
+    {"attype", ATTYPE},
+    {"extype", EXTYPE},
   };
   return t.at(parameter_type);
 }

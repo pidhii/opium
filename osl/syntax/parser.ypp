@@ -552,7 +552,8 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 //                                Tokens
 // Trampolines to steer the parser
 %token PARSE_TOPLVL PARSE_IDENT PARSE_EXPR PARSE_STMT PARSE_ATPAT PARSE_EXPAT
-%token EXPR STMT ATPAT EXPAT
+%token PARSE_ATTYPE PARSE_EXTYPE
+%token EXPR STMT ATPAT EXPAT ATTYPE EXTYPE
 
 // General syntax tokens
 %token INLINE_TYPCHECK
@@ -607,7 +608,6 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %type AtomPattern ExprPattern ListOfExprPatterns
 %type String StringChunks
 %type Bind ListOfBinds
-%type Ctor Ctor_mangled
 %type TopLvlSeq TopLvlExpr
 %type TypeDef
 %type TypeSign CtorSign ListOfCtorSigns ListOfCtorSigns_ TypeParam ListOfTypeParams
@@ -632,6 +632,8 @@ Entry
   | PARSE_STMT Stmt { *g_result_ptr = $2; }
   | PARSE_ATPAT AtomPattern { *g_result_ptr = $2; }
   | PARSE_EXPAT ExprPattern { *g_result_ptr = $2; }
+  | PARSE_ATTYPE AtomTypeParam { *g_result_ptr = $2; }
+  | PARSE_EXTYPE TypeParam { *g_result_ptr = $2; }
 ;
 
 String
@@ -663,21 +665,26 @@ ApplExpr
     $$ = cons("osl#list", $2);
     bindloc($$, @$);
   }
-  | Ctor '(' ListOfExprs ')' %prec APPLY {
+  | CAPIDENT '(' ListOfExprs ')' %prec APPLY {
     $$ = cons($1, $3);
     bindloc($$, @$);
   }
-  | Ctor %prec AFTER_APPLY { $$ = list($1); }
-  | ApplExpr '(' ListOfArgs ')' %prec APPLY { $$ = cons($1, $3); bindloc($$, @$); }
+  | CAPIDENT %prec AFTER_APPLY { $$ = list($1); }
+  | ApplExpr '(' ListOfArgs ')' %prec APPLY {
+    opi::set_location($3, *$2->location + *$4->location);
+    $$ = cons($1, $3);
+    /*opi::set_location($$, *$1->location + *$4->location);*/
+  }
   | '(' Expr ')' %prec AFTER_APPLY { $$ = $2; }
   | ApplExpr '.' IDENT '(' ListOfExprs ')' {
+    opi::set_location($5, *$3->location + *$6->location);
     $$ = list($3, $1, dot, $5);
-    bindloc($$, @$);
+    opi::set_location($$, *$2->location + *$6->location);
   }
   | ApplExpr '#' IDENT { $$ = list(overloaded_getter_name($3), $1); }
   | ApplExpr '[' Expr ']' %prec APPLY {
     const value getter = random_access_getter();
-    bindloc(getter, @$);
+    opi::set_location(getter, *$2->location + *$4->location);
     $$ = list(getter, $1, $3);
   }
   | ApplExpr DOUBLE_COLUMN TypeParam { $$ = list("annotate-type", $1, $3); }
@@ -700,20 +707,20 @@ ApplExpr
 Expr
   : EXPR
   | ApplExpr
-  | SET IDENT '=' Expr { const value set = "set!"; bindloc(set, @1); $$ = list(set, $2, $4); }
+  | SET IDENT '=' Expr { const value set = "set!"; opi::copy_location($1, set); $$ = list(set, $2, $4); }
   | SET ApplExpr '[' Expr ']' '=' Expr {
     const value setter = random_access_setter();
-    bindloc(setter, @1);
+    opi::copy_location($1, setter);
     $$ = list(setter, $2, $4, $7);
   }
   | SET ApplExpr '#' IDENT '=' Expr {
     const value setter = overloaded_setter_name($4);
-    bindloc(setter, @1);
+    opi::copy_location($1, setter);
     $$ = list(setter, $2, $6);
   }
   | SET '*' ApplExpr '=' Expr {
     const value store = "osl#store";
-    bindloc(store, @1);
+    opi::copy_location($1, store);
     $$ = list(store, $3, $5);
   }
   | ':' ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
@@ -1087,8 +1094,7 @@ TopLvlExpr
       $$ = nil;
     }
     else
-      throw opi::bad_code {std::format("Unkown pragma, {}", $2),
-                           osl::make_location(@$)};
+      $$ = list(list("pragma", $2, dot, data));
   }
 ;
 
@@ -1183,14 +1189,16 @@ ListOfTypeParams
 ;
 
 AtomTypeParam
-  : CAPIDENT
+  : ATTYPE
+  | CAPIDENT
   | '_'
   | TypeSign
   | '(' TypeParam ')' { $$ = $2; }
 ;
 
 TypeParam
-  : AtomTypeParam
+  : EXTYPE
+  | AtomTypeParam
   | TypeParam '?' { $$ = list($2, $1); }
   | TypeParam OR TypeParam { $$ = list("or", $1, $3); }
   | TypeParam AND TypeParam { $$ = list("and", $1, $3); }
@@ -1245,8 +1253,6 @@ ListOfExprPatterns
 ExprPattern
   : EXPAT
   | AtomPattern
-  | IDENT IDENT { $$ = list(list("typename", $1), $2); }
-  | IDENT '(' ListOfTypeParams ')' IDENT { $$ = list(list("typename", cons($1, $3)), $5); }
   | ExprPattern ':' ExprPattern {
     const value Cons = mangle_type_constructor("Cons");
     bindloc(Cons, @2);
@@ -1258,8 +1264,13 @@ AtomPattern
   : ATPAT
   | IDENT
   | '(' ExprPattern ')' { $$ = $2; }
-  | Ctor_mangled %prec AFTER_APPLY { $$ = list($1); }
-  | Ctor_mangled '(' ListOfExprPatterns ')' %prec APPLY { $$ = cons($1, $3); }
+  // Typename patterns
+  | IDENT IDENT { $$ = list(list("typename", $1), $2); }
+  | IDENT '(' ListOfTypeParams ')' IDENT { $$ = list(list("typename", cons($1, $3)), $5); }
+  | TYPE TypeParam IDENT { $$ = list(list("typename", $2), $3); }
+  // Constructor patterns
+  | CAPIDENT %prec AFTER_APPLY { $$ = list(mangle_type_constructor($1)); }
+  | CAPIDENT '(' ListOfExprPatterns ')' %prec APPLY { $$ = cons(mangle_type_constructor($1), $3); }
   | '[' ']' { $$ = list("osl#ctor#EmptyList"); bindloc($$, @$); }
 ;
 
@@ -1287,13 +1298,6 @@ Bind
       lambdaexpr = list(lambda, $3, $6);
     $$ = list(list($1), lambdaexpr);
   }
-;
-
-Ctor_mangled
-  : CAPIDENT { $$ = mangle_type_constructor($1); }
-;
-Ctor
-  : CAPIDENT { $$ = $1; }
 ;
 
 ForeignType
