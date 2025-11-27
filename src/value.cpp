@@ -43,8 +43,8 @@ opi::cons(value car, value cdr)
     {
       source_location location;
       location.source = carlocation.source;
-      location.start = carlocation.start;
-      location.end = cdrlocation.end;
+      location.start = std::min(carlocation.start, cdrlocation.start);
+      location.end = std::max(carlocation.end, cdrlocation.end);
       if (location.start > location.end)
         std::swap(location.start, location.end);
       set_location(result, location);

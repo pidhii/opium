@@ -89,6 +89,7 @@ struct debugger {
     m_cmdparser.bind("p", {"print", "p"});
     m_cmdparser.bind("spd", {"set-print-depth", "spd"});
     m_cmdparser.bind("s", {"skip", "s"});
+    m_cmdparser.bind("v", {"verbose", "v"});
   }
 
   void
@@ -166,6 +167,12 @@ struct debugger {
       catch (const std::exception &exn) { opi::error("{}", exn.what()); }
       return _interact(curexpr, t);
     }
+    else if (cmd == "v")
+    {
+      try { std::tie(m_verbose) = read_values<bool>(cmdargs); }
+      catch (const std::exception &exn) { opi::error("{}", exn.what()); }
+      return _interact(curexpr, t);
+    }
     else
     {
       opi::warning("invalid command: '{}'", cmd);
@@ -238,14 +245,21 @@ struct debugger {
         {
           m_last_cmd = "";
           std::cout << "break point reached" << std::endl;
+          m_break_point = std::nullopt;
         }
       }
-      else
+      else if (m_verbose)
       {
         opi::print(std::cout,
                    opi::reconstruct(expr, opi::stringify_unbound_variables),
                    m_print_depth);
         std::cout << std::endl;
+      }
+      else
+      {
+        if (m_trace_point != m_trace_end)
+          m_trace_point += 1;
+        return true;
       }
     }
 
@@ -256,6 +270,7 @@ struct debugger {
 
   private:
   command_parser m_cmdparser;
+  bool m_verbose = false;
   int m_print_depth = 4;
   std::string m_last_cmd;
   const opi::scheme_type_location_map &m_tlm;

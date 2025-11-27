@@ -16,7 +16,7 @@ resolve_path(const std::filesystem::path &filename, BeginIter begin,
     const std::filesystem::path fullpath =
         prefix == "" ? filename : prefix / filename;
     if (std::filesystem::exists(fullpath))
-      return std::filesystem::absolute(fullpath);
+      return std::filesystem::canonical(fullpath);
   }
 
   throw std::runtime_error {"Failed to resolve path: " + filename.string()};

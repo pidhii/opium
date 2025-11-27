@@ -146,12 +146,12 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
 
       // Momorize the pair so we dont print it multiple times in case of
       // self-referencing structures
-      // if (memq(val, mem))
-      // {
-      //   os << "...";
-      //   return;
-      // }
-      // mem = cons(val, mem);
+      if (memq(val, mem))
+      {
+        os << "...";
+        return;
+      }
+      mem = cons(val, mem);
 
       // Print opening parenthesis with color
       os << pcolor << '(' << RESET_COLOR(pcolor);
@@ -161,12 +161,12 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
       for (elt = cdr(val); ispair(elt) and car(elt) != cell_tag; elt = cdr(elt))
       {
          // Similar trick about self-referencing
-        // if (memq(elt, mem))
-        // {
-        //   os << " ..." << pcolor << ")" << RESET_COLOR(pcolor);
-        //   return;
-        // }
-        // mem = cons(elt, mem);
+        if (memq(elt, mem))
+        {
+          os << " ..." << pcolor << ")" << RESET_COLOR(pcolor);
+          return;
+        }
+        mem = cons(elt, mem);
 
         // Normal printing
         os << ' ';

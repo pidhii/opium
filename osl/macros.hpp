@@ -181,8 +181,8 @@ macro_pattern_parser<ParamDict>::parse_syntax(generic_lexer &lex)
             break;
           default:
             throw bad_code {std::format(
-                "invalid macro parameter (expected '*' or '+', got '{}'/{})",
-                reptag.value, reptag.type)};
+                "Invalid macro parameter (expected '*' or '+', got '{}'/{})",
+                reptag.value, reptag.type), reptag.location};
         }
         lex.put(token);
         const auto [_, name] = detail::parse_pattern_parameter(lex, detail::name);
@@ -473,8 +473,8 @@ detail::parse_pattern_parameter(generic_lexer &lex, unsigned flags)
   // Leading dollar
   if ((toktype = lex.read(dolar)) != '$')
     throw bad_code {
-        std::format("invalid macro parameter (expected '$', got '{}'/{})",
-                      dolar.value, toktype)};
+        std::format("Invalid macro parameter (expected '$', got '{}'/{})",
+                      dolar.value, toktype), dolar.location};
 
   // parameter type
   if ((flags & parse_param_flags::type))
@@ -482,18 +482,19 @@ detail::parse_pattern_parameter(generic_lexer &lex, unsigned flags)
     if (lex.read(type) != IDENT)
     {
       throw bad_code {std::format(
-          "invalid macro parameter (expected macrotype, got '{}'/{})",
-          type.value, type.type)};
+          "Invalid macro parameter (expected macrotype, got '{}'/{})",
+          type.value, type.type), type.location};
     }
   }
 
   // colon
   if ((flags == parse_param_flags::all) and lex.read(colon) != ':')
-    throw bad_code {"invalid macro parameter (expected ':')"};
+    throw bad_code {"Invalid macro parameter (expected ':')", colon.location};
 
   // parameter name
   if ((flags & parse_param_flags::name) and lex.read(name) != IDENT)
-    throw bad_code {"invalid macro parameter (expected name identifier)"};
+    throw bad_code {"Invalid macro parameter (expected name identifier)",
+                    name.location};
 
   return {type.value, name.value};
 }

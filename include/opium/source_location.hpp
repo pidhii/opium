@@ -53,6 +53,8 @@ struct source_location {
     end {end}
   {
     assert(strlen(source.c_str()) == source.size());
+    if (this->start > this->end)
+      std::swap(this->start, this->end);
   }
 
   bool
@@ -65,6 +67,10 @@ struct source_location {
   bool
   operator == (const source_location &other)
   { return source == other.source and start == other.start and end == other.end; }
+
+  source_location
+  operator + (const source_location &rhs) const noexcept
+  { return {source, std::min(start, rhs.start), std::max(end, rhs.end)}; }
 
   bool
   contains(const source_location &other) const noexcept

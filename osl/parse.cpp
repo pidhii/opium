@@ -50,6 +50,7 @@ opi::osl::lexer::read(token &result)
   range_location yyloc {m_location.start, m_location.end};
   result.type = yylex(&result.value, &yyloc, m_yyscanner);
   m_location = result.location = {m_location.source, yyloc.left, yyloc.right};
+  opi::set_location(result.value, result.location);
   return result.type;
 }
 
@@ -153,7 +154,7 @@ opi::osl::program_parser::program_parser(program_sources &target,
 void
 opi::osl::program_parser::load_file(const std::string &pathstr)
 {
-  const std::filesystem::path path = std::filesystem::absolute(pathstr);
+  const std::filesystem::path path = std::filesystem::canonical(pathstr);
   const std::filesystem::path dirpath = path.parent_path();
 
   if (FILE *file = fopen(path.c_str(), "r"))

@@ -14,6 +14,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <set>
 
 #include <dlfcn.h>
 #include <string>
@@ -48,16 +49,35 @@ load_plugin(const std::fs::path &path)
 
 
 static void
-tracedump(const opi::prolog &pl, size_t tracelen)
+tracedump(const opi::prolog &pl, size_t tracelen,
+          std::set<std::string_view> focus)
 {
   // Get longest trace
   opi::stl::vector<opi::source_location> maxtrace;
   opi::scan_traces(pl.query_trace(), [&maxtrace](const auto &tcand) {
-    if (tcand.size() > maxtrace.size())
-      maxtrace = tcand;
+    opi::stl::vector<opi::source_location> tcopy = tcand;
+    // Erase entries with non-file locations
+    // const auto newend = std::remove_if(
+    //     tcopy.begin(), tcopy.end(),
+    //     [](const opi::source_location &l) { return not l.is_file_location(); });
+    // tcopy.erase(newend, tcopy.end());
+
+    if (tcopy.size() > maxtrace.size())
+      maxtrace = std::move(tcopy);
   });
 
-  opi::stl::vector<opi::source_location> trace = maxtrace;
+  opi::stl::vector<opi::source_location> trace;
+  // Filter out entries from from files outside the focus
+  std::copy_if(
+      maxtrace.begin(), maxtrace.end(), std::back_inserter(trace),
+      [&](const opi::source_location &l) { return focus.contains(l.source); });
+  // Or, if focused trace turns out empty, ignore the focus
+  if (trace.empty())
+    trace = maxtrace;
+
+  // Erase consequitive duplicate locations
+  trace.erase(std::unique(trace.begin(), trace.end()), trace.end());
+
   const size_t tstart = trace.size() < tracelen ? 0 : trace.size() - tracelen;
   for (size_t t = tstart; t < trace.size(); ++t)
     opi::error("[{:3}] {}", t, display_location(trace[t], 1, "\e[1m", "\e[2m"));
@@ -241,7 +261,8 @@ main(int argc, char **argv)
   {
     opi::error("{}", exn.what());
 
-    tracedump(translator.prolog, tracelen);
+    tracedump(translator.prolog, tracelen,
+              {std::filesystem::canonical(inputpath).string()});
     if (isatty(STDIN_FILENO))
       interactive_debugger(translator, scmprogram);
 
@@ -250,7 +271,6 @@ main(int argc, char **argv)
   catch (const opi::bad_code &exn)
   {
     opi::error("{}", exn.display());
-    tracedump(translator.prolog, tracelen);
     return EXIT_FAILURE;
   }
 

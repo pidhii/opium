@@ -56,6 +56,7 @@ std::optional<int> start_token;
 "//".*($|[\r\n])?
 [[:space:]]
 
+<*>"\\"\n
 
 require return REQUIRE;
 
@@ -70,12 +71,10 @@ require return REQUIRE;
 }
 <FOREIGN_INLINE>^\n {
   yylval = str("\n");
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return STRING_CHUNK;
 }
 <FOREIGN_INLINE>^.+$ {
   yylval = str(yytext);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return STRING_CHUNK;
 }
 <FOREIGN_INLINE>\n
@@ -91,7 +90,6 @@ require return REQUIRE;
 }
 <SCHEME_INLINE>^.+$ {
   yylval = str(yytext);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return STRING_CHUNK;
 }
 <SCHEME_INLINE>\n
@@ -123,15 +121,15 @@ and return AND;
 or return OR;
 not return NOT;
 
-let return LET;
-letrec return LETREC;
-where return WHERE;
+let { yylval = "let"; return LET; }
+letrec { yylval = "letrec"; return LETREC; }
+where { yylval = "where"; return WHERE; }
 
-set return SET;
+set { yylval = "set"; return SET; }
 
 type return TYPE;
 
-fn return FN;
+fn { yylval = "fn"; return FN; }
 
 extern return EXTERN;
 as return AS;
@@ -148,7 +146,6 @@ identifier"!("[^)]+")" {
     text.pop_back();
 
   yylval = sym(text);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return IDENT;
 }
 
@@ -159,7 +156,6 @@ identifier"!("[^)]+")" {
   while (std::isspace(ident.back()))
     ident.pop_back();
   yylval = sym(ident);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return IDENT;
 }
 
@@ -170,7 +166,6 @@ identifier"!("[^)]+")" {
 }
 <STRING>[^\\"]+ {
   yylval = str(yytext);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return STRING_CHUNK;
 }
 <STRING>\\['\"\\\nabfnrtve] {
@@ -189,12 +184,10 @@ identifier"!("[^)]+")" {
     case 'v': yylval = str("\v"); break;
     case 'e': yylval = str("\e"); break;
   }
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return STRING_CHUNK;
 }
 <STRING>\\. {
   yylval = str(yytext+1);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return STRING_CHUNK;
 }
 <STRING>\" {
@@ -208,7 +201,6 @@ r\" {
 }
 <RAWSTRING>[^"]+ {
   yylval = str(yytext);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return STRING_CHUNK;
 }
 <RAWSTRING>\" {
@@ -226,14 +218,12 @@ r\" {
 
 <PRAGMA>[-_a-zA-Z0-9]+ {
   yylval = sym(yytext);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return IDENT;
 }
 
 <PRAGMA>\{[^\}]*\} {
   const std::string text {yytext+1, (size_t)yyleng-2};
   yylval = str(text);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   BEGIN(INITIAL);
   return STRING_CHUNK;
 }
@@ -241,26 +231,22 @@ r\" {
 
 true {
   yylval = True;
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return BOOLEAN;
 }
 false {
   yylval = False;
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return BOOLEAN;
 }
 
 0[xX][0-9a-fA-F_]+ {
   std::string cleaned = remove_underscores(yytext);
   yylval = num(std::stoll(cleaned, nullptr, 16));
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return INTEGER;
 }
 
 0[0-7_]+ {
   std::string cleaned = remove_underscores(yytext);
   yylval = num(std::stoll(cleaned, nullptr, 8));
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return INTEGER;
 }
 
@@ -275,28 +261,24 @@ false {
   }
   std::string cleaned = remove_underscores(yytext);
   yylval = num(std::stoll(cleaned));
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return INTEGER;
 }
 
 \.[0-9][0-9_]*([eE][+-]?[0-9][0-9_]*)? {
   std::string cleaned = remove_underscores(yytext);
   yylval = num(std::stod(cleaned));
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return FLOAT;
 }
 
 [0-9][0-9_]*\.[0-9_]*([eE][+-]?[0-9][0-9_]*)? {
   std::string cleaned = remove_underscores(yytext);
   yylval = num(std::stod(cleaned));
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return FLOAT;
 }
 
 [0-9][0-9_]*[eE][+-]?[0-9][0-9_]* {
   std::string cleaned = remove_underscores(yytext);
   yylval = num(std::stod(cleaned));
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return FLOAT;
 }
 
@@ -310,60 +292,49 @@ false {
     REJECT;
   }
   yylval = opi::sym(yytext);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return IDENT;
 }
 
 
 [A-Z][_a-zA-Z0-9]* {
   yylval = opi::sym(yytext);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return CAPIDENT;
 }
 
 "->" {
   yylval = opi::sym(yytext);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return RIGHT_ARROW;
 }
 "=>" {
   yylval = opi::sym(yytext);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return  FAT_RIGHT_ARROW;
 }
 "==" {
   yylval = opi::sym(yytext);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return EQ;
 }
 "!=" {
   yylval = opi::sym(yytext);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return NE;
 }
 "<"  {
   yylval = opi::sym(yytext);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return LT;
 }
 "<=" {
   yylval = opi::sym(yytext);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return LE;
 }
 ">"  {
   yylval = opi::sym(yytext);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return GT;
 }
 ">=" {
   yylval = opi::sym(yytext);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return GE;
 }
 "::" {
   yylval = opi::sym(yytext);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return DOUBLE_COLUMN;
 }
 "=" |
@@ -383,9 +354,9 @@ false {
 "_" |
 "$" |
 "?" |
+"\\" |
 "("|")" {
   yylval = opi::sym(yytext);
-  opi::set_location(yylval, opi::osl::make_location(*loc_p));
   return yytext[0];
 }
 

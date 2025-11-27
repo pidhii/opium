@@ -59,5 +59,6 @@ opi::match_translation_rules::find_rule(value match_case, value type) const
     return *it;
 
   throw bad_code {
-      std::format("No handler for case {} with type {}", match_case, type)};
+      std::format("No handler for case {} with type {}", match_case, type),
+      match_case};
 }
