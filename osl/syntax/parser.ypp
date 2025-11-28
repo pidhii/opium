@@ -134,11 +134,10 @@ generate_record_definition(opi::value name, opi::value ctorname,
   }
 
   // Write define-record-type expression
-  const opi::value fixname = opi::sym(std::format("%{:r}", name));
-  const opi::value recorddef = list("define-record-type", fixname,
+  const opi::value recorddef = list("define-record-type", name,
                                     cons(ctorname, fields), predname,
                                     opi::dot, accessors);
-  const opi::value fastrecorddef = list("define-record-type-variant", fixname,
+  const opi::value fastrecorddef = list("define-record-type-variant", name,
                                         opi::list("unsafe", "unchecked", "inline"),
                                         cons(ctorname, fields), predname,
                                         opi::dot, accessors);
@@ -273,7 +272,7 @@ generate_variant(opi::value typesign, opi::value ctorsign,
   const opi::value enumname = issym(typesign) ? typesign : car(typesign);
   const opi::value type_name = sym(std::format("{:r}.{:r}", enumname, car(ctorsign)));
   const opi::value ctorname = car(ctorsign);
-  const opi::value scmtypename = opi::sym(std::format("osl#{:r}.{:r}", type_name, ctorname));
+  const opi::value scmtypename = opi::sym(std::format("osl#{:r}", type_name));
   const opi::value scmctorname = opi::sym(std::format("osl#ctor#{:r}.{:r}", type_name, ctorname));
   const opi::value scmpredname = opi::sym(std::format("{:r}?", scmtypename));
   const opi::value unpackname = opi::sym(std::format("unpack-{:r}", scmtypename));
@@ -287,7 +286,7 @@ generate_variant(opi::value typesign, opi::value ctorsign,
 
   // Generate record for this variant
   const opi::value recorddef =
-    generate_record_definition(type_name, scmctorname, fieldnames, scmpredname,
+    generate_record_definition(scmtypename, scmctorname, fieldnames, scmpredname,
                                translator);
 
   generate_record_interface(recorddef, typesign, fieldtypes, ctorname,
@@ -610,7 +609,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %type Bind ListOfBinds
 %type TopLvlSeq TopLvlExpr
 %type TypeDef
-%type TypeSign CtorSign ListOfCtorSigns ListOfCtorSigns_ TypeParam ListOfTypeParams
+%type TypeSign CtorSign ListOfCtorSigns TypeParam ListOfTypeParams
 %type ListOfFields
 %type If
 %type Lambda
@@ -687,7 +686,7 @@ ApplExpr
     opi::set_location(getter, *$2->location + *$4->location);
     $$ = list(getter, $1, $3);
   }
-  | ApplExpr DOUBLE_COLUMN TypeParam { $$ = list("annotate-type", $1, $3); }
+  | ApplExpr DOUBLE_COLUMN AtomTypeParam { $$ = list("annotate-type", $1, $3); }
   | INLINE_SCHEME {
     opi::lisp_parser parser;
     try {
@@ -857,12 +856,12 @@ Stmt
     bindloc(define, @$);
     $$ = list(define, idents, $5);
   }
-  | EXTERN IDENT DOUBLE_COLUMN TypeParam {
+  | EXTERN IDENT DOUBLE_COLUMN AtomTypeParam {
     $$ =
       list("define", $2,
         list("annotate-type", list("pragma", "inline-scheme", $2), $4));
   }
-  | EXTERN IDENT AS IDENT DOUBLE_COLUMN TypeParam {
+  | EXTERN IDENT AS IDENT DOUBLE_COLUMN AtomTypeParam {
     $$ =
       list("define", $4,
         list("annotate-type", list("pragma", "inline-scheme", $2), $6));
@@ -1133,7 +1132,7 @@ TypeDef
     assert(issym(type_name));
 
     const value recorddef =
-      generate_record_definition(type_name, scmctorname, fieldnames, scmpredname,
+      generate_record_definition(scmtypename, scmctorname, fieldnames, scmpredname,
                                  g_current_program_parser->m_translator_config);
     generate_record_interface(recorddef, $2, fieldtypes, type_name, location,
                               g_current_program_parser->m_translator_config,
@@ -1157,7 +1156,7 @@ TypeDef
 TypeSign
   : IDENT %prec AFTER_APPLY
   | IDENT '(' ListOfTypeParams ')' %prec APPLY { $$ = cons($1, $3); bindloc($$, @$); }
-  | FN '(' ListOfTypeParams ')' RIGHT_ARROW TypeParam {
+  | FN '(' ListOfTypeParams ')' RIGHT_ARROW AtomTypeParam {
     const value fn = "fn";
     bindloc(fn, @1);
     $$ = list(fn, $3, $6);
@@ -1193,16 +1192,16 @@ AtomTypeParam
   | CAPIDENT
   | '_'
   | TypeSign
+  | AtomTypeParam '?' { $$ = list($2, $1); }
+  | NOT AtomTypeParam { $$ = list("not", $2); }
   | '(' TypeParam ')' { $$ = $2; }
 ;
 
 TypeParam
   : EXTYPE
   | AtomTypeParam
-  | TypeParam '?' { $$ = list($2, $1); }
   | TypeParam OR TypeParam { $$ = list("or", $1, $3); }
   | TypeParam AND TypeParam { $$ = list("and", $1, $3); }
-  | NOT TypeParam { $$ = list("not", $2); }
 ;
 
 ListOfFields
