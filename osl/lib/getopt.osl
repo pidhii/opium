@@ -21,7 +21,7 @@ getoptarg()
 ```
 
 
-getopt(argv, optstring str) = generator {
+getopt(argv, optstring str) = {
   // int getopt(int argc, char *argv[], const char *optstring);
   extern foreign getopt as c_getopt(int, char**, cstr) -> int
   extern foreign setoptind(int) -> void
@@ -39,15 +39,16 @@ getopt(argv, optstring str) = generator {
   setoptind(0)
 
   // Run getopt()
+  opts = dict()
   while true do {
     opt = c_getopt(argc, argvp, optstring)
     if opt < 0 then
       break
-    yield pack(Some(opt), getoptarg())
+    set opts[opt] = getoptarg()
   }
 
-  for i in getoptind() : argc do
-    yield pack(Nothing, argv[i] :: str?)
+  // Collect remaining elements of argv as positional arguments
+  args = list(argv.iter().drop(getoptind()))
 
   // NOTE: Releasing memory results in subsequent calls to (c_)getopt to produce
   // garbage. Resetting `optind` does not help. As the observed behaviour is 
@@ -55,8 +56,9 @@ getopt(argv, optstring str) = generator {
   // dealocations and let the memory leak. Noramlly, `getopt` is only called a
   // finite number of times per program (usually once), thus the introduced
   // memory leak should not matter.
-  //
   // for i in 0 : argc do
   //   free(argvp[i])
   // free(argvp)
+
+  return opts, args
 }

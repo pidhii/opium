@@ -24,7 +24,7 @@ type process = {
         (osl#ctor#process pstdout pstderr pstdin pid)))))
 ~~~
 
-extern exit(num) -> void
+extern exit(num) -> _
 
 // system(COMMANDLINE) -> num
 //

@@ -18,6 +18,13 @@ require "coroutines"
 //
 extern identifier!(make-hash-table) as dict(fn(K, K) -> bool, fn(K, num) -> num, num) -> dict(K, V)
 dict() = dict((==), (x, bound) => hash(x) % bound, 4)
+dict(iter) = {
+  assert { next(iter) }
+  result = dict()
+  for key, val in iter do
+    set dict[key] = val
+  return result
+}
 
 extern identifier!(hash-table-copy) as copy(dict(K, V)) -> dict(K, V)
 

@@ -85,7 +85,7 @@ next(it take(_)) =
 //                                 drop
 //
 drop(it, n num) =
-  if n <= 0 then { next(it) drop(it, n - 1) }
+  if n > 0 then { next(it) drop(it, n - 1) }
   else it
 
 

@@ -14,8 +14,6 @@ verbose = false    // Default verbosity (silent)
 gdb = false
 tracelen = 20
 compile_target = ""
-inputpath = ""
-runargs = vector()
 
 
 print_help() =
@@ -35,23 +33,24 @@ print_help() =
   println(" --objc  compile via an Objective C source file")
 }
 
-for mopt, marg in getopt(argv, "hvrc:Rt:-:") do
+opts, args = getopt(argv, "hvrc:Rt:-:")
+
+for opt, optarg in opts do
 {
-  if let Some(opt) = mopt then
-    case str([char(opt)]) in
-    | "h" -> { print_help() exit(0) }
-    | "v" -> set verbose = true
-    | "r" -> set mode = Run
-    | "c" -> set mode = Compile(*marg)
-    | "R" -> set mode = RunCompiled
-    | "t" -> set tracelen = num(*marg)
-    | "-" -> set compile_target = "-" + *marg
-    | otherwize -> error("Invalid command-line option", char(opt), marg)
-  else if inputpath == "" then
-    set inputpath = *marg
-  else
-    runargs.push(*marg)
+  case str([char(opt)]) in
+  | "h" -> { print_help() exit(0) }
+  | "v" -> set verbose = true
+  | "r" -> set mode = Run
+  | "c" -> set mode = Compile(*optarg)
+  | "R" -> set mode = RunCompiled
+  | "t" -> set tracelen = num(*optarg)
+  | "-" -> set compile_target = "-" + *optarg
+  | otherwize -> error("Invalid command-line option", char(opt), optarg)
 }
+
+inputpath, arguments = match args in
+| path : args -> values(path, args)
+| otherwize -> error("Input file not provided")
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -94,7 +93,7 @@ translate_opium_script(osl_filename, scm_filename) =
 run_scheme(scm_filename) =
 {
   info("evaluating Scheme script with Chicken interpreter")
-  cmdline_args_string = runargs.iter().join(" ", "")
+  cmdline_args_string = arguments.iter().join(" ", "")
   command = "chicken-csi -s " + scm_filename + " " + cmdline_args_string
   info("csi command: " + command)
   return system(command)
@@ -124,5 +123,5 @@ match mode in
 | RunCompiled -> {
   exec_filename = run("mktemp")#stdout.read().unpack().chomp() // temporary file for executable
   compile_scheme(scm_filename, exec_filename)
-  system(exec_filename + " " + runargs.iter().join(" ", ""))
+  system(exec_filename + " " + arguments.iter().join(" ", ""))
 }

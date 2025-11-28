@@ -23,9 +23,9 @@ extern identifier!(make-vector) as array(num, T) -> array(T)
 extern identifier!(make-vector) as uninitialized_array(num) -> array(T)
 extern identifier!(list->vector) as array(list(T)) -> array(T)
 
-array(it) = {
-  assert { next(it) :: maybe(T) }
-  return array(list(it))
+array(iter) = {
+  assert { next(iter) }
+  return array(list(iter))
 }
 
 extern identifier!(vector-length) as length(array(T)) -> num
