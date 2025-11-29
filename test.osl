@@ -121,3 +121,7 @@ test_fclass(class_instance T, class_F F) = {
   class_instance :: fclass(F)
 }
 test_fclass(range(0, 10).iter(), iterator_F)
+
+
+for x, y in [1, 2, 3], [3, 2, 1] do
+  println("- ", x, " ", y)
