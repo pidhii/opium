@@ -1,0 +1,43 @@
+
+~~~
+(import srfi-12)
+~~~
+
+// Convert try- and catch- clauses into a call to `with-exception-handler`,
+// wrapped into a `call/cc` (in order to jump off the failed program thread).
+//
+// NOTE:
+//   Result of call/cc will be a function that has to be imediately executed
+//   (within the dynamic context from where the `try-catch` was used). In case
+//   when exception was indeed raised, this function will execute the exception
+//   handler. This way the exception handler can raise an exception on its own
+//   without causing a non-terminal cycle of exception handling.
+extern identifier!(with-exception-handler)(fn(exception) -> _, fn() -> T) -> T
+macro try {
+  [
+    try
+      $expr:tryexpr
+    catch $ident:exnvar ->
+      $expr:catchexpr
+  ] = [
+    let fin = callcc(__TryCont => 
+      let handler($exnvar) = __TryCont({() => $catchexpr} :: fn() -> T),
+          thunk() = let result = $tryexpr in {() => result} :: fn() -> T
+      in 
+      identifier!(with-exception-handler)(handler, thunk))
+    in fin()
+  ]
+  [
+    try
+      $expr:tryexpr
+    catch
+      $expr:catchexpr
+  ] = [
+    let fin = callcc(__TryCont => 
+      let handler(_) = __TryCont({() => $catchexpr} :: fn() -> T),
+          thunk() = let result = $tryexpr in {() => result} :: fn() -> T
+      in 
+      identifier!(with-exception-handler)(handler, thunk))
+    in fin()
+  ]
+}
