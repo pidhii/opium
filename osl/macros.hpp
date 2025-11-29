@@ -23,12 +23,13 @@ namespace detail {
 }
 
 struct syntax {
-  enum class kind { token, sequence, group, parameter } kind;
+  enum class kind { token, sequence, group, parameter, op } kind;
   union {
     lexer::token token;
     detail::syntax_group sequence;
     struct { detail::syntax_group sequence; value name; } group;
     value parameter;
+    struct { value name; const syntax *arg; } op;
   };
 };
 
@@ -98,6 +99,17 @@ make_parameter(value name)
   new (&result->parameter) value {name};
   return result;
 }
+
+static inline syntax *
+make_op(value opname, const syntax *oparg)
+{
+  syntax *result =
+      reinterpret_cast<syntax *>(allocate(sizeof(syntax)));
+  result->kind = syntax::kind::op;
+  new (&result->op) decltype(syntax::op) {opname, oparg};
+  return result;
+}
+
 
 
 namespace detail {
@@ -259,6 +271,13 @@ macro_rule_parser::parse_syntax(generic_lexer &lex)
         const auto [_, name] = parse_pattern_parameter(lex, detail::name);
         return make_group(name, seq.begin(), seq.end());
       }
+      else if (lex.peek(nexttoken) == '#')
+      {
+        lex.read(nexttoken); // readout the '#'
+        lex.put(token);
+        const auto [_, name] = detail::parse_pattern_parameter(lex, detail::name);
+        return make_op(nexttoken.value, make_parameter(name));
+      }
       else
       {
         lex.put(token);
@@ -383,6 +402,12 @@ macro_pattern_matcher<ParamTypeDict, ParamValDict>::match_syntax(
         match_syntax(lex, prs, s);
       break;
     }
+
+    case syntax::kind::op:
+    {
+      error("Did not expect macro operator during syntax match");
+      std::terminate();
+    }
   }
 }
 
@@ -459,6 +484,25 @@ macro_expander<ParamTypeDict, ParamValDict>::_expand(
       for (const syntax *s : rule->sequence)
         _expand(s, result);
       break;
+    }
+
+    case syntax::kind::op:
+    {
+      if (rule->op.name == "#")
+      {
+        assert(rule->op.arg->kind == syntax::kind::parameter);
+        const value pname = rule->op.arg->parameter;
+        assert(m_parameter_types.at(pname) == "ident");
+        const value pval = m_parameter_vals.at(pname);
+        const std::string identstr {sym_name(pval)};
+        result.emplace_back(*pval->location, opi::str(identstr), EXPR);
+        break;
+      }
+      else
+      {
+        error("Unknown macro operator: {}", rule->op.name);
+        std::terminate();
+      }
     }
   }
 }

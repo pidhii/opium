@@ -32,6 +32,12 @@ opi::osl::dump_syntax(std::ostream &os, const syntax *syn)
     case syntax::kind::parameter:
       os << "[prm " << syn->parameter << "]";
       break;
+
+    case syntax::kind::op:
+      os << "[op " << syn->op.name << " ";
+      dump_syntax(os, syn->op.arg);
+      os << "]";
+      break;
   }
 }
 
