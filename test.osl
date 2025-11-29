@@ -13,7 +13,7 @@ for x in vec do
 
 
 require "subprocess"
-for line in run("ls -lrth")#stdout.lines() do
+for line in run("ls -lrth")#out.lines() do
   println(line)
 
 

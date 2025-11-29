@@ -75,7 +75,7 @@ translate_opium_script(osl_filename, scm_filename) =
   p = run(command)
 
   outputbuf = openstring()
-  while let Some(line) = p#stderr.readline() do
+  while let Some(line) = p#err.readline() do
     outputbuf.writeln(line)
 
   _, _, status = p.wait()
@@ -115,13 +115,13 @@ compile_scheme(scm_filename, output_filename) =
 ////////////////////////////////////////////////////////////////////////////////
 //                                Main
 //
-scm_filename = run("mktemp")#stdout.read().unpack().chomp() // temporary file to store Scheme script
+scm_filename = run("mktemp")#out.read().unpack().chomp() // temporary file to store Scheme script
 translate_opium_script(inputpath, scm_filename)
 match mode in
 | Run -> run_scheme(scm_filename)
 | Compile(output_filename) -> compile_scheme(scm_filename, output_filename)
 | RunCompiled -> {
-  exec_filename = run("mktemp")#stdout.read().unpack().chomp() // temporary file for executable
+  exec_filename = run("mktemp")#out.read().unpack().chomp() // temporary file for executable
   compile_scheme(scm_filename, exec_filename)
   system(exec_filename + " " + arguments.iter().join(" ", ""))
 }

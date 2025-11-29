@@ -5,8 +5,8 @@ require "base"
 
 // Interface to the child process
 type process = {
-  stdout port,
-  stderr port,
+  out port,
+  err port,
   stdin port,
   pid num,
 }

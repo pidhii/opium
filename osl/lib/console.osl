@@ -36,3 +36,9 @@ macro print {[print] = [identifier!(osl#print)]}
 macro println {[println] = [identifier!(osl#println)]}
 macro eprint {[eprint] = [identifier!(osl#eprint)]}
 macro eprintln {[eprintln] = [identifier!(osl#eprintln)]}
+
+extern identifier!(current-output-port)() -> port
+extern identifier!(current-error-port)() -> port
+macro stdout {[output] = [identifier!(current-output-port)()]}
+macro stderr {[stderr] = [identifier!(current-error-port)()]}
+
