@@ -1,0 +1,30 @@
+BUGS:
+[ ] Explicit prohibition of multiple types with identical name and arity.
+[ ] Assertions must not produce evaluatable code: ambiguous specializations with
+    unambiguous type inference must be alowed.
+[ ] Fix negative assertion.
+[✓] Union types have to be put in parenthes when putting ::-type annotation.
+[✓] Weird code locations spanning ridiculous number of lines.
+[✓] Incorrect placement of defintions for template instantiations when emitting
+    scheme.
+[ ] Random failures to detect stack limit.
+
+FEATURES:
+[ ] Variadic (template) arguments.
+[ ] Lift functions (as types) into domain of type definitions / coercions. May
+    require possibility to add predicates in (compiler) runtime.
+[✓] Stringify macro-operator.
+[ ] Generation of unique identifiers in macros. And, if possible, make it
+    possible to share them between multiple macros.
+[ ] Add character type.
+[ ] User-defined operators.
+[ ] Type-annotation for multiple return values.
+[ ] (?) Automatic generation of equality tests for user types
+
+TEST-FEATURES;
+[ ] Automatic detection of inclusion of identical files.
+[ ] Forced inlines.
+[ ] Format-strings.
+[ ] Externaly visible objects to enable creation of shared libraries.
+[ ] Syntax to enable/disable select macros.
+
