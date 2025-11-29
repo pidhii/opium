@@ -1,0 +1,58 @@
+#!/usr/bin/env -S ./install/bin/opium-osl -r
+
+require "unittest"
+
+unit_test range = {
+  test_equal_seqs iter(0 : 3) = [0, 1, 2]
+}
+
+unit_test map = {
+  test_equal_seqs iter(0 : 10).map(x => x + 1) = 1 : 11
+}
+
+unit_test drop = {
+  test_equal_seqs iter(0 : 10).drop(5) = 5 : 10
+  test_equal list(iter(0 : 5).drop(10)) = []
+}
+
+unit_test take = {
+  test_equal_seqs iter(0 : 10).take(5) = 0 : 5
+  test_equal_seqs iter(0 : 5).take(10) = 0 : 5
+}
+
+unit_test takewhile = {
+  test_equal_seqs iter(0 : 10).take(x => x < 5) = 0 : 5
+  test_equal_seqs iter(0 : 5).take(x => x < 10) = 0 : 5
+}
+
+unit_test filter = {
+  test_equal_seqs iter(0 : 10).filter(x => (x % 2 == 0)) = [0, 2, 4, 6, 8]
+}
+
+unit_test enumerate = {
+  test_equal_seqs iter(1 : 4).enumerate() = [pack(0, 1), pack(1, 2), pack(2, 3)]
+  test_equal_seqs iter(1 : 4).enumerate(1) = [pack(1, 1), pack(2, 2), pack(3, 3)]
+}
+
+unit_test find = {
+  test_equal iter(1 : 5).find(x => x % 2 == 0).unpack_or(11) = 2
+  test_false iter(1 : 5).find(x => x > 5)
+}
+
+unit_test foldl = {
+  test_equal iter(0 : 4).foldl(0, (-)) = -6
+  test_equal iter([]).foldl(42, (*)) = 42
+}
+
+unit_test foreach = {
+  cnt = 0
+  iter(0 : 4).foreach(x => set cnt = cnt + 1)
+  test_equal cnt = 4
+}
+
+unit_test join = {
+  test_equal [1, 2, 3].iter().join(1) = 8
+  test_equal ["a", "b"].iter().join(",", "-") = "a,b"
+  test_equal ["a"].iter().join(",", "-") = "a"
+  test_equal [].iter().join(",", "-") = "-"
+}
