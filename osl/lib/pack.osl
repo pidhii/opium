@@ -8,6 +8,8 @@
 
   (predicate (result-of (osl#unpack-pack (pack . Ts)) . Results)
     (coerce-list Ts Results))
+
+  (predicate (result-of (osl#pack=? (pack . Ts) (pack . Ts)) bool))
 }
 extern identifier!(pack) :: identifier!(pack)
 extern identifier!(osl#unpack-pack) :: identifier!(osl#unpack-pack)
@@ -15,6 +17,7 @@ extern identifier!(osl#unpack-pack) :: identifier!(osl#unpack-pack)
 ~~~
 (define (pack . args) args)
 (define (osl#unpack-pack pack) (apply values pack))
+(define osl#pack=? equal?)
 
 (define-compiler-syntax pack
   (syntax-rules ()
@@ -30,3 +33,8 @@ extern identifier!(osl#unpack-pack) :: identifier!(osl#unpack-pack)
 ~~~
 
 unpack(p) = identifier!(osl#unpack-pack)(p)
+
+// FIXME: use overloaded operator `==` (requires variadic arguments)
+extern identifier!(osl#pack=?) :: identifier!(osl#pack=?)
+(==)(a, b) = identifier!(osl#pack=?)(a, b)
+(!=)(a, b) = not identifier!(osl#pack=?)(a, b)
