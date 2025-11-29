@@ -86,6 +86,8 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
   m_transformer.prepend_rule(asstypematch, [this](const auto &ms) {
     const value expr = ms.at("expr");
 
+    // TODO:
+    // o handle non-nop type coercions
     // Just forward the `expr`
     return m_transformer(expr);
   });
@@ -162,7 +164,7 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
                                                    : cons("and", conditions);
 
       // Build brnach body wirapping initial expression into let-values (if needed)
-      value newbranch = transform_list(branch);
+      value newbranch = transform_block(branch);
       if (valuesbindings != nil)
         newbranch = list(list("let-values", valuesbindings, dot, newbranch));
 
@@ -227,6 +229,7 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
   const match beginmatch {list("begin"), list("begin", dot, "body")};
   m_transformer.prepend_rule(beginmatch, [this](const auto &ms) {
     const value body = ms.at("body");
+    // FIXME: maybe have to involve `transform_block()` here
     return transform_inner_block_into_expression(body);
   });
 
@@ -253,8 +256,8 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
     }
 
     // Transform the body
-    const value newbody =
-        list(range(body) | std::views::transform(std::ref(m_transformer)));
+    const value newbody = transform_block(body);
+        // list(range(body) | std::views::transform(std::ref(m_transformer)));
 
     return list(car(fm), newbinds, dot, newbody);
   };
@@ -274,6 +277,8 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
     const value f = ms.at("f");
     const value xs = ms.at("xs");
     const value form = cons(f, xs);
+    // TODO:
+    // o handle non-nop type coercions
     return list(range(form) | std::views::transform(std::ref(m_transformer)));
   });
 
@@ -324,12 +329,13 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
       type = *possibilities.begin();
     }
 
-    // instantiate
+    // Instantiate function template
     if (m_ctx.identifier_refers_to_function_template(x))
       return instantiate_function_template(m_ctx, type);
-    else
-      return x;
 
+    // TODO:
+    // o plug in externally-suplied coder for literals
+    // Just return the identifier or literal as is
     return x;
   });
 }

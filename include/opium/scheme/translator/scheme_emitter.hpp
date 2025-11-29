@@ -53,6 +53,18 @@ struct scheme_emitter {
   }
 
   value
+  transform_block(value l)
+  {
+    stl::vector<value> blockhead, blockbody;
+    scheme_emitter_context blockctx {m_ctx, blockhead};
+    scheme_emitter blockemitter {blockctx, m_type_bindings};
+    for (const value expr : range(l))
+      blockemitter.emit(expr, std::back_inserter(blockbody));
+    std::copy(blockbody.begin(), blockbody.end(), std::back_inserter(blockhead));
+    return list(blockhead);
+  }
+
+  value
   transform_inner_block_into_expression(value block);
 
   protected:
