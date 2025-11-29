@@ -1,0 +1,112 @@
+require "vector"
+require "loops"
+require "exceptions"
+
+
+type unit_test_fixtures = { }
+
+
+type unit_tests_t = {
+  tests dict(str, fn() -> void)
+}
+
+add(self unit_tests_t, testname str, test fn() -> void) = {
+  set self#tests[testname] = test
+}
+
+run(self unit_tests_t) = {
+  println("\e[38;5;5;1munit tests\e[0m")
+  for testname, test in self#tests do {
+    printstatus(statustext) = {
+      print("\r[", statustext, "] ", testname)
+      flush(stdout)
+    }
+
+    printstatus(" ")
+    try {
+      test()
+      printstatus("\e[38;5;2;1m✓\e[0m")
+      println()
+    }
+    catch exn -> {
+      printstatus("\e[38;5;1;1m✗\e[0m")
+      println(" \e[2m-> ", exn, "\e[0m")
+    }
+  }
+}
+
+
+macro unit_test_fixture {
+  [unit_test_fixture $ident:fixture_name = $expr:init_expr] = [
+    fixtures#$fixture_name = $init_expr
+  ]
+}
+
+macro unit_test {
+  [unit_test $ident:test_name ($[fixture_name]*fixtures) = $expr:test_body] = [
+    unit_tests.add($#test_name, () => {
+      $[let $fixture_name = fixtures#$fixture_name in]fixtures
+      $test_body
+      void()
+    })
+  ]
+  [unit_test $ident:test_name = $expr:test_body] = [
+    unit_tests.add($#test_name, () => { $test_body void() })
+  ]
+}
+
+// FIXME
+// infinity = reinterpret_cast(scm { (/ 1. (* 1.1 0)) }) :: num
+macro test_equal_seqs {
+  [test_equal_seqs $expr:lhs = $expr:rhs] = [
+    for i, lhs, rhs in range(0, 9999), $lhs, $rhs do
+      if lhs != rhs then
+      {
+        // TODO
+        // println("Sequences are not equal from index #", i, ": ", lhs, " != ", rhs)
+        error("Test failed")
+      }
+  ]
+}
+
+macro test_equal {
+  [test_equal $expr:lhs = $expr:rhs] = [
+    let lhs = $lhs, rhs = $rhs in
+    if lhs != rhs then
+    {
+      // TODO
+      // println("Values are not equal: ", lhs, " != ", rhs)
+      error("Test failed")
+    }
+  ]
+}
+
+macro test_true {
+  [test_true $expr:expr] = [
+    let res = $expr in
+    if not res then
+    {
+      // TODO
+      // println("Not true: ", res)
+      error("Test failed")
+    }
+  ]
+}
+
+macro test_false {
+  [test_true $expr:expr] = [
+    let res = $expr in
+    if res then
+    {
+      // TODO
+      // println("Not false: ", res)
+      error("Test failed")
+    }
+  ]
+}
+
+
+unit_tests = unit_tests_t(dict())
+
+scm { on-exit }(run_tests :: fn() -> void)
+where run_tests = () => unit_tests.run()
