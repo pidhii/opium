@@ -8,6 +8,8 @@ BUGS:
 [✓] Incorrect placement of defintions for template instantiations when emitting
     scheme.
 [ ] Random failures to detect stack limit.
+[ ] Match-translation predicates must account for type parameters.
+[✓] Access to top-level macro parameters during expansions of sub-patterns.
 
 FEATURES:
 [ ] Variadic (template) arguments.

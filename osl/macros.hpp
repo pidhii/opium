@@ -471,9 +471,20 @@ macro_expander<ParamTypeDict, ParamValDict>::_expand(
                                                  rule->group.sequence.end());
       const group_type *type = ptr_val<const group_type*>(m_parameter_types.at(name));
       const group_value *value = ptr_val<const group_value*>(m_parameter_vals.at(name));
+
+      // Inject types from parent scope
+      ParamValDict modsubtypes = type->types;
+      for (const auto &[k, v] : m_parameter_types)
+        modsubtypes[k] = v;
+
       for (const auto &subvals : value->values)
       {
-        macro_expander subexp {type->types, subvals};
+        // Inject values from parent scope
+        ParamValDict modsubvals = subvals;
+        for (const auto &[k, v] : m_parameter_vals)
+          modsubvals[k] = v;
+
+        macro_expander subexp {modsubtypes, modsubvals};
         subexp._expand(grule, result);
       }
       break;
