@@ -37,15 +37,20 @@ run(self unit_tests_t) = {
 
 
 macro unit_test_fixture {
+  [unit_test_fixture $ident:fixture_name($ident:fixture $[, $ident:f]*fixrest) = $expr:init_expr] = [
+    fixtures#$fixture_name =
+        let $fixture = fixtures#$fixture $[, $f = fixtures#$f]fixrest in
+        $init_expr
+  ]
   [unit_test_fixture $ident:fixture_name = $expr:init_expr] = [
     fixtures#$fixture_name = $init_expr
   ]
 }
 
 macro unit_test {
-  [unit_test $ident:test_name ($[fixture_name]*fixtures) = $expr:test_body] = [
+  [unit_test $ident:test_name ($ident:fixture $[, $ident:f]*fixrest) = $expr:test_body] = [
     unit_tests.add($#test_name, () => {
-      $[let $fixture_name = fixtures#$fixture_name in]fixtures
+      let $fixture = fixtures#$fixture $[, $f = fixtures#$f]fixrest in
       $test_body
       void()
     })
@@ -106,6 +111,7 @@ macro test_false {
 }
 
 
+fixtures = unit_test_fixtures()
 unit_tests = unit_tests_t(dict())
 
 scm { on-exit }(run_tests :: fn() -> void)

@@ -1,0 +1,38 @@
+#!/usr/bin/env -S ./install/bin/opium-osl -r
+
+require "unittest"
+
+
+unit_test_fixture oport = openstring()
+
+unit_test_fixture ilines = ["first line", "second line"]
+unit_test_fixture itext(ilines) = ilines.iter().join("\n")
+unit_test_fixture iport(itext) = openstring(itext)
+
+
+unit_test write(oport) = {
+  oport.write("qwerty")
+  test_equal str(oport) = "qwerty"
+}
+
+unit_test writeln(oport) = {
+  oport.writeln("qwerty")
+  test_equal str(oport) = "qwerty\n"
+}
+
+unit_test read(iport, itext) = {
+  test_equal iport.read(5).unpack_or("-") = itext[0:5]
+  test_equal iport.read().unpack_or("-") = itext[5:-1]
+  test_false iport.read(1)
+  test_false iport.read()
+}
+
+unit_test readline(iport, ilines) = {
+  test_equal iport.readline().unpack_or("-") = ilines[0]
+  test_equal iport.readline().unpack_or("-") = ilines[1]
+  test_false iport.readline()
+}
+
+unit_test lines(iport, ilines) = {
+  test_equal_seqs iport.lines() = ilines
+}

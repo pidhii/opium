@@ -36,9 +36,9 @@ substr(s str, start num, end num) = {
   extern substring(str, num, num) -> str
 
   if start < 0 then
-    set start = length(s) + start
+    set start = length(s) + start + 1
   if end < 0 then
-    set end = length(s) + end
+    set end = length(s) + end + 1
   return substring(s, start, end)
 }
 s::str[r::range(num)] = substr(s, r#start, r#end)
