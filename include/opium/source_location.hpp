@@ -97,7 +97,7 @@ set_location(value val, const source_location &loc);
  * \param[out] location Source location if available
  * \return True if location for \p val is available
  */
-[[nodiscard]] bool
+bool
 get_location(value val, source_location &location);
 
 /**

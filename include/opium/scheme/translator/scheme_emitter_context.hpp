@@ -18,7 +18,6 @@
 
 #pragma once
 
-#include "opium/prolog.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
 #include "opium/scheme/translator/match_translation_rules.hpp"
 #include "opium/stl/deque.hpp"

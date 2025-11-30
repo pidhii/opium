@@ -166,7 +166,15 @@ prolog::_make_true(const call_frame &frame, value e, Cont cont,
   switch (tag(e))
   {
     case tag::pair: {
-      if (ISSYM(car(e), "if"))
+      if (is(car(e), cell_tag))
+      {
+        cell *c = find(ptr_val<cell*>(cdr(e)));
+        if (c->kind == cell::kind::value)
+          return _make_true(frame, c->val, cont, guide);
+        else
+          throw bad_code {std::format("Invalid expression: {}", e)};
+      }
+      else if (ISSYM(car(e), "if"))
       {
         const value cond = car(cdr(e));
         const value thenbr = car(cdr(cdr(e)));
@@ -183,14 +191,10 @@ prolog::_make_true(const call_frame &frame, value e, Cont cont,
         const value expr = car(cdr(e));
         const value result = car(cdr(cdr(e)));
 
-        // Reconstruct expr before inserting cells because `insert_cells()` does
-        // not follow cell-binds itself
-        const value recoexpr = reconstruct(expr, ignore_unbound_variables);
-
         // Insert cells
         // NOTE: use separate runtime to separate variable names scope
         predicate_runtime tempns;
-        const value resultexpr = insert_cells(tempns, recoexpr);
+        const value resultexpr = insert_cells(tempns, expr);
 
         // Bind result and continue
         _make_true(frame, list("=", resultexpr, result), cont, guide);
@@ -244,20 +248,15 @@ prolog::_make_true(const call_frame &frame, value e, Cont cont,
       else if (ISSYM(car(e), "call"))
       {
         value goal = car(cdr(e));
-        if (prolog_impl::var(goal))
-        {
-          throw error {
-              std::format("Can't use unbound variable as a Goal\nin {}",
-                          pprint_pl(reconstruct(e, ignore_unbound_variables))),
-              e};
-        }
 
-        // Reconstruct "Goal" as much as possible
-        goal = reconstruct(goal, ignore_unbound_variables);
-        #ifndef OPIUM_RELEASE_BUILD
-        if (global_flags.contains("DebugCall"))
-          debug("call Goal: {}", goal);
-        #endif
+        if (ispair(goal) and is(car(goal), cell_tag))
+        {
+          cell *c = find(ptr_val<cell*>(cdr(goal)));
+          if (c->kind == cell::kind::value)
+            goal = c->val;
+          else
+            throw bad_code {"Can't use unbound variable as a Goal", e};
+        }
 
         if (ispair(goal))
           e = append(goal, cdr(cdr(e)));

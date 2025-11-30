@@ -85,6 +85,23 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
 
   if (opi::ispair(expr))
   {
+    if (is(car(expr), opi::cell_tag))
+    {
+      opi::cell *c = prt.find(ptr_val<opi::cell*>(cdr(expr)));
+      if (c->kind == opi::cell::kind::value)
+      {
+        const opi::value result =
+            _insert_cells(prt, c->val, mem, quasiquote_level);
+        mem.emplace(&*expr, result);
+        return result;
+      }
+      else
+      {
+        mem.emplace(&*expr, expr);
+        return expr;
+      }
+    }
+
     if (_is_quotation_form(expr, "quasiquote"))
     {
       // Validate expression

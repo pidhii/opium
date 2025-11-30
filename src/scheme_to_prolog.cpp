@@ -241,6 +241,9 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
     // wildcard target (NOT ANYMORE)
     if (m_targets != "_")
     {
+      source_location location;
+      get_location(fm, location) or get_location(cond, location) or
+          get_location(thenbr, location);
       throw bad_code {
           std::format(
               "Can't evaluate else-less if-expression with exact target ({})",

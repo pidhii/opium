@@ -51,7 +51,13 @@ opi::generate_function_template_body(scheme_emitter_context &ctx,
   type_bindings results;
   OPI_BLOCK_BENCHMARK("reconstruct function instantiation types", {
     for (const value varname : prt.variables())
-      results[varname].emplace(reconstruct(prt[varname], ignore_unbound_variables));
+    {
+      cell *c = prt.find(prt[varname]);
+      if (c->kind == cell::kind::value)
+        results[varname].emplace(c->val);
+      else
+        results[varname].emplace(cons(cell_tag, ptr(c)));
+    }
   })
 
   stl::deque<value> tape;
