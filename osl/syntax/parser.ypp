@@ -677,6 +677,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %left '*' '/'
 %right NOT UNARY_OPERATOR
 %nonassoc DOUBLE_COLUMN
+%left '[' ']'
 %left '.' '#'
 %left '?'
 
@@ -1342,6 +1343,7 @@ ExprPattern
 AtomPattern
   : ATPAT
   | IDENT
+  | '_' { $$ = $1; }
   | '(' ExprPattern ')' { $$ = $2; }
   // Typename patterns
   | IDENT IDENT { $$ = list(list("typename", $1), $2); }
