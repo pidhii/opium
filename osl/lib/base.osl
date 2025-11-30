@@ -271,3 +271,7 @@ unpack(r range(T)) = values(r#start, r#end)
 (define (cuttypecheck x) x)
 ~~~
 
+// any: unique type that anything coerces to
+#pragma prolog {
+  (predicate (coerce T any))
+}
