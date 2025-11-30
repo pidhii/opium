@@ -148,10 +148,10 @@ extern free(ptr(_)) -> void
 bloblike(_ blob or str or i8array or u8array or i16array or u16array or
            i32array or u32array or i64array or u64array or f32array or
            f64array or ptr(_) or locative(_, ptr(_)))
-  = { }
+  = { true }
 
-compatible_storage(a locative(_, Layout), b locative(_, Layout)) = { }
-compatible_storage(a A, b B) = { assert { bloblike(a) bloblike(b) } }
+compatible_storage(a locative(_, Layout), b locative(_, Layout)) = { true }
+compatible_storage(a A, b B) = { assert { bloblike(a) bloblike(b) } true }
 
 copy(src, dst, bytes num, srcoffs num, dstoffs num) = {
   extern identifier!(move-memory!)(Src, Dst, num, num, num) -> void

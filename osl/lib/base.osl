@@ -114,8 +114,8 @@ extern identity as coerce :: coerce
 
 // Return expression (Bison misunderstands my intentions)
 macro return {
-  [return $expr:hd $[, $expr:e]*tl] = [__RETURN values($hd $[, $e]tl)]
-  [return] = [__RETURN void()]
+  [return $expr:hd $[, $expr:e]*tl] = [__RETURN($hd $[, $e]tl)]
+  [return] = [__RETURN()]
 }
 
 // Inline Scheme:
@@ -209,6 +209,7 @@ extern cons as (:) (T, list(T)) -> list(T)
 //                              call/cc
 //
 extern identifier!(call-with-current-continuation) as callcc(fn(fn(T) -> U) -> T) -> T
+extern identifier!(call-with-current-continuation) as __callcc(fn(fn(T) -> _) -> _) -> T
 
 
 ////////////////////////////////////////////////////////////////////////////////

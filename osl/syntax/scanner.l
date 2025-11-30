@@ -106,8 +106,6 @@ assert return ASSERT;
 
 macro return MACRO;
 
-__RETURN return RETURN;
-
 match return MATCH;
 in    return IN;
 

@@ -336,6 +336,90 @@ struct function_unroller: public opi::osl::flow_unroller {
 };
 
 
+template <typename Out>
+static void
+find_return_exprs(opi::value returnident, opi::value x, Out out)
+{
+  if (ispair(x))
+  {
+    if (car(x) == returnident)
+      *out++ = x;
+    else
+    {
+      find_return_exprs(returnident, car(x), out);
+      find_return_exprs(returnident, cdr(x), out);
+    }
+  }
+}
+
+
+static opi::value
+make_body_with_return(opi::value body)
+{
+  opi::stl::vector<opi::value> origreturns;
+  find_return_exprs("__RETURN", body, std::back_inserter(origreturns));
+
+  // NOP if there are no return expressions
+  if (origreturns.empty())
+    return body;
+
+  // Try unrolling the body by following simple control flow
+  // NOTE: may fail to detect return expression in some cases, but when it works
+  //       we take it
+  function_unroller unroller {"__RETURN"};
+  const value fastbody = append(body, list(list("void")));
+  const value unrolledbody = unroller.unroll_block(fastbody, nil, nil).second;
+  opi::stl::vector<opi::value> unrolledreturns;
+  find_return_exprs("__RETURN", unrolledbody, std::back_inserter(unrolledreturns));
+  if (unrolledreturns.empty())
+    // No return expressions left, means fast approach worked out
+    return unrolledbody;
+  
+  // For complicated cases, wrap the body into a `call/cc` and use the exitation
+  // to implement return expressions.
+  // TODO: handle missing return statement at the end of the non-void body
+  size_t nreturns = length(cdr(origreturns.front()));
+  for (const opi::value rexpr : origreturns)
+  {
+    if (length(cdr(rexpr)) != nreturns)
+      throw opi::bad_code {"Inconsistent number of return values", body};
+  }
+  switch (nreturns)
+  {
+    case 0:
+      for (opi::value rexpr : origreturns)
+      {
+        set_car(rexpr, "__Return");
+        set_cdr(rexpr, list(list("void")));
+      }
+      return
+        list(
+          list("__callcc",
+            list("lambda", list("__Return"), dot, body)));
+      
+    case 1:
+      for (opi::value rexpr : origreturns)
+        set_car(rexpr, "__Return");
+      return
+        list(
+          list("__callcc",
+            list("lambda", list("__Return"), dot, body)));
+
+    default:
+      for (opi::value rexpr : origreturns)
+      {
+        set_car(rexpr, "__Return");
+        set_cdr(rexpr, list(cons("pack", cdr(rexpr))));
+      }
+      return
+        list(
+          list("unpack",
+            list("__callcc",
+              list("lambda", list("__Return"), dot, body))));
+  }
+}
+
+
 static opi::value
 fix_type_annotations_in_arguments(opi::value l)
 {
@@ -571,7 +655,6 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %token TYPE
 %token SET
 %token FN
-%token RETURN
 %token EXTERN AS
 
 %right '|' '&'
@@ -800,7 +883,6 @@ Expr
     else
       $$ = list("letrec", list(letbinds), $1);
   }
-  | RETURN Expr { $$ = list("return", $2); bindloc($$, @$); }
   | ASSERT '{' SeqOfStmts '}' {
     $$ = list("if", False, cons("begin", $3));
   }
@@ -839,10 +921,8 @@ Stmt
       bindloc(define, @$);
       if (opi::ispair($3) and car($3) == "begin")
       {
-        function_unroller unroller {"return"};
-        const value body = append(cdr($3), list(list("void")));
-        const value unrolledbody = unroller.unroll_block(body, nil, nil).second;
-        $$ = list(define, fixed_signature, dot, unrolledbody);
+        const value body = make_body_with_return(cdr($3));
+        $$ = list(define, fixed_signature, dot, body);
       }
       else
       {
@@ -1288,10 +1368,8 @@ Bind
     value lambdaexpr;
     if (ispair($6) and car($6) == "begin")
     {
-      function_unroller unroller {"return"};
-      const value body = append(cdr($6), list(list("void")));
-      const value unrolledbody = unroller.unroll_block(body, nil, nil).second;
-      lambdaexpr = list(lambda, $3, dot, unrolledbody);
+      const value body = make_body_with_return(cdr($6));
+      lambdaexpr = list(lambda, $3, dot, body);
     }
     else
       lambdaexpr = list(lambda, $3, $6);
