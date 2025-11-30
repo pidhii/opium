@@ -1,7 +1,4 @@
 BUGS:
-[ ] Explicit prohibition of multiple types with identical name and arity.
-[ ] Assertions must not produce evaluatable code: ambiguous specializations with
-    unambiguous type inference must be alowed.
 [ ] Fix negative assertion.
 [✓] Union types have to be put in parenthes when putting ::-type annotation.
 [✓] Weird code locations spanning ridiculous number of lines.
@@ -9,7 +6,7 @@ BUGS:
     scheme.
 [ ] Random failures to detect stack limit.
 [ ] Match-translation predicates must account for type parameters.
-[✓] Access to top-level macro parameters during expansions of sub-patterns.
+[ ] Proper error reporting on invalid macro-parameter references.
 
 FEATURES:
 [ ] Variadic (template) arguments.
@@ -18,10 +15,14 @@ FEATURES:
 [✓] Stringify macro-operator.
 [ ] Generation of unique identifiers in macros. And, if possible, make it
     possible to share them between multiple macros.
-[ ] Add character type.
+[ ] Add character literals.
 [ ] User-defined operators.
 [ ] Type-annotation for multiple return values.
 [ ] (?) Automatic generation of equality tests for user types
+[✓] Access to top-level macro parameters during expansions of sub-patterns.
+[ ] Explicit prohibition of multiple types with identical name and arity.
+[ ] Assertions must not produce evaluatable code: ambiguous specializations with
+    unambiguous type inference must be alowed.
 
 TEST-FEATURES;
 [ ] Automatic detection of inclusion of identical files.
