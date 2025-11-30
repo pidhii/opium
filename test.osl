@@ -111,17 +111,33 @@ test_inline_scm() = {
 test_inline_scm()
 
 
-#pragma prolog {
-  (predicate (coerce T (fclass F))
-    (result-of (F T) . _))
-}
-iterator_F(x) = next(x)
-
-test_fclass(class_instance T, class_F F) = {
-  class_instance :: fclass(F)
-}
-test_fclass(range(0, 10).iter(), iterator_F)
-
-
 for x, y in [1, 2, 3], [3, 2, 1] do
   println("- ", x, " ", y)
+
+
+propcond1 = condition("propcond1", "p1", 1, "p2", 2)
+println("propcond1: ", propcond1)
+
+propcond2 = condition("propcond2", "p3", 3)
+compcond1 = propcond1 + propcond2
+println("compcond1: ", compcond1)
+
+propcond3 = condition("propcond3", "p4", 4)
+compcond2 = compcond1 + propcond3
+println("compcond2: ", compcond2)
+
+println("test condpredicate: ", condpredicate("propcond2")(compcond2) :: bool)
+
+try 1 / 0 catch exn
+| net_error, arithmetic_error -> { println("network arithmetics error!?: ", exn) 0 }
+| system_error, arithmetic_error -> { println("arithmetic error: ", exn) 0 }
+| system_error -> { println("system error: ", exn) 0 }
+
+
+test_return_from_loop() = {
+  for i in 0 : 10 do
+    if i > 5 then
+      return "yey", 1
+  return "ney", 2
+}
+println("test_return_from_loop", test_return_from_loop())

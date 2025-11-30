@@ -1,7 +1,40 @@
+require "base"
 
 ~~~
 (import srfi-12)
 ~~~
+
+extern identifier!(with-exception-handler)(fn(any) -> _, fn() -> T) -> T
+extern abort(any) -> _
+extern signal(any) -> any
+
+
+// Scheme condition objects and their interface
+#pragma prolog {
+  (predicate (coerce property_condition condition))
+  (predicate (coerce composite_condition condition))
+
+  (predicate (result-of (make-property-condition _ . Properties) property_condition)
+    (even-list Properties))
+
+  (predicate (even-list ()))
+  (predicate (even-list (_ _ . Xs))
+    (even-list Xs))
+
+  (predicate (result-of (make-composite-condition . Conditions) composite_condition)
+    (all-less-then* fast-coerce Conditions condition))
+
+  (predicate (result-of (condition-predicate _) (fn (any) bool)))
+}
+
+// Declare conditions and interface
+extern identifier!(make-property-condition) as condition :: identifier!(make-property-condition)
+c1::condition + c2::condition = {
+  extern identifier!(make-composite-condition) :: identifier!(make-composite-condition)
+  return identifier!(make-composite-condition)(c1, c2)
+}
+extern identifier!(condition-predicate) as condpredicate :: identifier!(condition-predicate)
+
 
 // Convert try- and catch- clauses into a call to `with-exception-handler`,
 // wrapped into a `call/cc` (in order to jump off the failed program thread).
@@ -12,8 +45,29 @@
 //   when exception was indeed raised, this function will execute the exception
 //   handler. This way the exception handler can raise an exception on its own
 //   without causing a non-terminal cycle of exception handling.
-extern identifier!(with-exception-handler)(fn(exception) -> _, fn() -> T) -> T
 macro try {
+  [
+    try
+      $expr:tryexpr
+    catch $ident:exnvar
+    $[| $expr:exnkind $[, $expr:k]*morekinds -> $expr:catchexpr]+catches
+  ] = [
+    let fin = callcc(__TryCont => 
+      let handler($exnvar) =
+            let dohandle() =
+              $[
+              if condpredicate($exnkind)($exnvar) $[and condpredicate($k)($exnvar)]morekinds then
+                let $exnvar = reinterpret_cast($exnvar) :: condition in
+                $catchexpr
+              else
+              ]catches
+                abort($exnvar)
+            in __TryCont(dohandle :: fn() -> T),
+          thunk() = let result = $tryexpr in {() => result} :: fn() -> T
+      in 
+      identifier!(with-exception-handler)(handler, thunk))
+    in fin()
+  ]
   [
     try
       $expr:tryexpr
@@ -41,3 +95,16 @@ macro try {
     in fin()
   ]
 }
+
+
+system_error = sym("exn")
+type_error = sym("type")
+arithmetic_error = sym("arithmetic")
+io_error = sym("i/o")
+file_error = sym("file")
+net_error = sym("net")
+bounds_error = sym("bounds")
+runtime_error = sym("runtime")
+limit_error = sym("limit")
+match_error = sym("match")
+syntax_error = sym("syntax")
