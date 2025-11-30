@@ -28,13 +28,18 @@ run(self unit_tests_t) = {
       printstatus("\e[38;5;2;1m✓\e[0m")
       println()
     }
-    catch exn -> {
+    catch exn
+    | test_failure -> {
       printstatus("\e[38;5;1;1m✗\e[0m")
-      println(" \e[2m-> ", exn, "\e[0m")
+      println("")
+      for _kind, prop, val in exn.properties() do
+        println("  \e[2m", prop, ": ", val, "\e[0m")
     }
+    | system_error -> println(" \e[2m-> ", exn, "\e[0m")
   }
 }
 
+test_failure = sym("test-failure")
 
 macro unit_test_fixture {
   [unit_test_fixture $ident:fixture_name($ident:fixture $[, $ident:f]*fixrest) = $expr:init_expr] = [
@@ -61,28 +66,50 @@ macro unit_test {
 }
 
 // FIXME
-// infinity = reinterpret_cast(scm { (/ 1. (* 1.1 0)) }) :: num
+infinity = reinterpret_cast(scm { +inf.0 }) :: num
 macro test_equal_seqs {
   [test_equal_seqs $expr:lhs = $expr:rhs] = [
-    for i, lhs, rhs in range(0, 9999), $lhs, $rhs do
-      if lhs != rhs then
-      {
-        // TODO
-        // println("Sequences are not equal from index #", i, ": ", lhs, " != ", rhs)
-        error("Test failed")
-      }
+    let __cntiter = iter(0 : infinity),
+        __lhsiter = iter($lhs),
+        __rhsiter = iter($rhs)
+    in
+    {
+      // Check equality element by element
+      letrec loop() = match next(__cntiter), next(__lhsiter), next(__rhsiter) in
+      | Some(i), Some(lhs), Some(rhs) ->
+        if not equal(lhs, rhs) then
+            let exn = condition(test_failure,
+                                error_message, "Sequences are not equal",
+                                "index", i,
+                                "lhs", lhs,
+                                "rhs", rhs)
+            in abort(exn)
+        else loop()
+      | Some(i), Some(lhs), _ ->
+        let exn = condition(test_failure,
+                            error_message, "Sequences differ in length",
+                            "lhs-tail", lhs : list(__lhsiter))
+        in abort(exn)
+      | Some(i), _, Some(rhs) ->
+        let exn = condition(test_failure,
+                            error_message, "Sequences differ in length",
+                            "rhs-tail", rhs : list(__rhsiter))
+        in abort(exn)
+      | otherwize -> void()
+      in loop()
+    }
   ]
 }
 
 macro test_equal {
   [test_equal $expr:lhs = $expr:rhs] = [
     let lhs = $lhs, rhs = $rhs in
-    if lhs != rhs then
-    {
-      // TODO
-      // println("Values are not equal: ", lhs, " != ", rhs)
-      error("Test failed")
-    }
+    if not equal(lhs, rhs) then
+      let exn = condition(test_failure,
+                          error_message, "Values not equal",
+                          "lhs", lhs,
+                          "rhs", rhs)
+      in abort(exn)
   ]
 }
 
@@ -90,11 +117,10 @@ macro test_true {
   [test_true $expr:expr] = [
     let res = $expr in
     if not res then
-    {
-      // TODO
-      // println("Not true: ", res)
-      error("Test failed")
-    }
+      let exn = condition(test_failure,
+                          error_message, "Not true",
+                          "value", res)
+      in abort(exn)
   ]
 }
 
@@ -102,11 +128,10 @@ macro test_false {
   [test_true $expr:expr] = [
     let res = $expr in
     if res then
-    {
-      // TODO
-      // println("Not false: ", res)
-      error("Test failed")
-    }
+      let exn = condition(test_failure,
+                          error_message, "Not false",
+                          "value", res)
+      in abort(exn)
   ]
 }
 

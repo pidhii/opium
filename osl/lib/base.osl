@@ -275,3 +275,5 @@ unpack(r range(T)) = values(r#start, r#end)
 #pragma prolog {
   (predicate (coerce T any))
 }
+extern identifier!(equal?) as equal(any, any) -> bool
+extern identifier!(->string) as stringify(any) -> str

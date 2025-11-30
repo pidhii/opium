@@ -1,7 +1,8 @@
 require "base"
+require "coroutines"
 
 ~~~
-(import srfi-12)
+(import srfi-12 (chicken condition))
 ~~~
 
 extern identifier!(with-exception-handler)(fn(any) -> _, fn() -> T) -> T
@@ -108,3 +109,41 @@ runtime_error = sym("runtime")
 limit_error = sym("limit")
 match_error = sym("match")
 syntax_error = sym("syntax")
+
+get(x condition, kind, property, default) = {
+  extern identifier!(condition-property-accessor)(any, any, any) -> any
+  return identifier!(condition-property-accessor)(kind, property, default)(x)
+}
+
+get(x condition, kind, property) = {
+  extern identifier!(condition-property-accessor)(any, any) -> any
+  return identifier!(condition-property-accessor)(kind, property)(x)
+}
+
+properties(x condition) = generator {
+  extern identifier!(condition->list)(condition) -> list(list(any))
+  for cond in identifier!(condition->list)(x) do
+  {
+    if let condkind : properties = cond then
+    {
+      letrec yield_properties(properties) =
+        if let propname : propval : properties = properties then
+        {
+          yield pack(condkind, propname, propval)
+          yield_properties(properties)
+        }
+        else void()
+      in yield_properties(properties)
+    }
+  }
+}
+
+error_message = sym("message")
+
+what(cond condition, sep str) =
+  cond.properties()
+      .filter(x => let kind, prop, val = unpack(x) in equal(prop, error_message))
+      .map(x => let kind, prop, val = unpack(x) in stringify(val))
+      .join(sep, "")
+
+what(cond condition) = what(cond, "; ")

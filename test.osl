@@ -130,7 +130,7 @@ println("test condpredicate: ", condpredicate("propcond2")(compcond2) :: bool)
 
 try 1 / 0 catch exn
 | net_error, arithmetic_error -> { println("network arithmetics error!?: ", exn) 0 }
-| system_error, arithmetic_error -> { println("arithmetic error: ", exn) 0 }
+| system_error, arithmetic_error -> { println("arithmetic error: ", what(exn)) 0 }
 | system_error -> { println("system error: ", exn) 0 }
 
 
