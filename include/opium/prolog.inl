@@ -168,9 +168,8 @@ prolog::_make_true(const call_frame &frame, value e, Cont cont,
     case tag::pair: {
       if (is(car(e), cell_tag))
       {
-        cell *c = find(ptr_val<cell*>(cdr(e)));
-        if (c->kind == cell::kind::value)
-          return _make_true(frame, c->val, cont, guide);
+        if (get_value(ptr_val<cell*>(cdr(e)), e))
+          return _make_true(frame, e, cont, guide);
         else
           throw bad_code {std::format("Invalid expression: {}", e)};
       }
@@ -180,6 +179,27 @@ prolog::_make_true(const call_frame &frame, value e, Cont cont,
         const value thenbr = car(cdr(cdr(e)));
         const value elsebr = car(cdr(cdr(cdr(e))));
         return _make_if_true(frame, cond, thenbr, elsebr, cont, guide);
+      }
+      else if (ISSYM(car(e), "unique"))
+      {
+        int cnt = 0;
+        value snapshot;
+        std::function newcont = [&]() {
+          if (cnt++ == 0)
+            snapshot = detail::snapshot<detail::keep_body>(cdr(e));
+        };
+        _make_true(frame, cons("and", cdr(e)), newcont, guide);
+
+        if (cnt == 1)
+        {
+          predicate_runtime prt;
+          if (not match_arguments(prt, cdr(e), snapshot))
+            throw bad_code {"(unique ...) - failed to match on snapshot", e};
+          cont();
+        }
+        else if (cnt > 1)
+          warning("non-unique");
+        return;
       }
       else if (ISSYM(car(e), "insert-cells"))
       {
@@ -251,10 +271,7 @@ prolog::_make_true(const call_frame &frame, value e, Cont cont,
 
         if (ispair(goal) and is(car(goal), cell_tag))
         {
-          cell *c = find(ptr_val<cell*>(cdr(goal)));
-          if (c->kind == cell::kind::value)
-            goal = c->val;
-          else
+          if (not get_value(ptr_val<cell*>(cdr(goal)), goal))
             throw bad_code {"Can't use unbound variable as a Goal", e};
         }
 
