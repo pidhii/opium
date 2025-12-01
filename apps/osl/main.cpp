@@ -14,6 +14,7 @@
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <set>
 
 #include <dlfcn.h>
@@ -52,25 +53,38 @@ static void
 tracedump(const opi::prolog &pl, size_t tracelen,
           std::set<std::string_view> focus)
 {
+  const auto infocus = [&](const opi::source_location &l) {
+    return focus.contains(l.source);
+  };
+
   // Get longest trace
   opi::stl::vector<opi::source_location> maxtrace;
-  opi::scan_traces(pl.query_trace(), [&maxtrace](const auto &tcand) {
+  size_t maxtrace_focuslen = 0;
+  opi::scan_traces(pl.query_trace(), [&](const auto &tcand) {
     opi::stl::vector<opi::source_location> tcopy = tcand;
     // Erase entries with non-file locations
-    // const auto newend = std::remove_if(
-    //     tcopy.begin(), tcopy.end(),
-    //     [](const opi::source_location &l) { return not l.is_file_location(); });
-    // tcopy.erase(newend, tcopy.end());
+    const auto newend = std::remove_if(
+        tcopy.begin(), tcopy.end(),
+        [](const opi::source_location &l) { return not l.is_file_location(); });
+    tcopy.erase(newend, tcopy.end());
 
-    if (tcopy.size() > maxtrace.size())
+    const size_t focuslen = std::count_if(tcopy.begin(), tcopy.end(), infocus);
+
+    // if (tcopy.size() > maxtrace.size())
+    if (focuslen > maxtrace_focuslen)
+    {
       maxtrace = std::move(tcopy);
+      maxtrace_focuslen = focuslen;
+    }
   });
 
   opi::stl::vector<opi::source_location> trace;
-  // Filter out entries from from files outside the focus
-  std::copy_if(
-      maxtrace.begin(), maxtrace.end(), std::back_inserter(trace),
-      [&](const opi::source_location &l) { return focus.contains(l.source); });
+  // Filter out entries from outside the focus unless after the last point in focus
+  const auto rlastfp =
+      std::find_if(maxtrace.rbegin(), maxtrace.rend(), infocus);
+  const auto lastfp = maxtrace.end() - 1 - (rlastfp - maxtrace.rbegin());
+  std::copy_if(maxtrace.begin(), lastfp, std::back_inserter(trace), infocus);
+  std::copy(lastfp, maxtrace.end(), std::back_inserter(trace));
   // Or, if focused trace turns out empty, ignore the focus
   if (trace.empty())
     trace = maxtrace;
