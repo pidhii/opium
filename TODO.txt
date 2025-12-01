@@ -7,6 +7,7 @@ BUGS:
 [ ] Random failures to detect stack limit.
 [ ] Match-translation predicates must account for type parameters.
 [ ] Proper error reporting on invalid macro-parameter references.
+[✓] Allow wildcard identifier, `_`, in local bindings
 
 FEATURES:
 [ ] Variadic (template) arguments.
@@ -15,7 +16,7 @@ FEATURES:
 [✓] Stringify macro-operator.
 [ ] Generation of unique identifiers in macros. And, if possible, make it
     possible to share them between multiple macros.
-[ ] Add character literals.
+[✓] Add character literals.
 [ ] User-defined operators.
 [ ] Type-annotation for multiple return values.
 [ ] (?) Automatic generation of equality tests for user types
