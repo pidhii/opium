@@ -18,6 +18,11 @@ require "number"
 extern concat :: concat
 
 extern identifier!(list->string) as str(list(char)) -> str
+str(iter) = {
+  assert { next(iter) }
+  list(iter).str()
+}
+
 extern identifier!(string-copy) as copy(str) -> str
 extern identifier!(string-copy) as copy(str, num, num) -> str
 
@@ -84,3 +89,20 @@ extern identifier!(char->integer) as num(char) -> num
 // SUFFIX defaults to "\n".
 extern identifier!(string-chomp) as chomp(str) -> str
 extern identifier!(string-chomp) as chomp(str, str) -> str
+
+
+// String iterators
+type strIterator = { s str, i num }
+next(it strIterator) = {
+  if it#i < length(it#s) then
+  {
+    c = it#s[it#i]
+    set it#i = it#i + 1
+    return Some(c)
+  }
+  else
+    return Nothing
+}
+iter(s str, from num, to num) = strIterator(view(s, from, to), 0)
+iter(s str, from num) = strIterator(s, from)
+iter(s str) = strIterator(s, 0)

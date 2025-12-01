@@ -7,6 +7,14 @@ unit_test_fixture s = "qwerty"
 
 unit_test str = {
   test_equal str(['q', 'w', 'e']) = "qwe"
+  test_equal str(['q', 'w', 'e'].iter()) = "qwe"
+}
+
+unit_test iter = {
+  test_equal_seqs iter("qwe") = ['q', 'w', 'e']
+  test_equal_seqs iter("qwe", 1) = ['w', 'e']
+  test_equal_seqs iter("qwe", 1, 2) = ['w']
+  test_equal_seqs iter("qwe", 1, -1) = ['w', 'e']
 }
 
 unit_test copy(s) = {
