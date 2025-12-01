@@ -276,4 +276,5 @@ unpack(r range(T)) = values(r#start, r#end)
   (predicate (coerce T any))
 }
 extern identifier!(equal?) as equal(any, any) -> bool
+extern identifier!(eq?) as eq(any, any) -> bool
 extern identifier!(->string) as stringify(any) -> str

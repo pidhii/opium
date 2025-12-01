@@ -35,7 +35,10 @@ run(self unit_tests_t) = {
       for _kind, prop, val in exn.properties() do
         println("  \e[2m", prop, ": ", val, "\e[0m")
     }
-    | system_error -> println(" \e[2m-> ", exn, "\e[0m")
+    | system_error -> {
+      printstatus("\e[38;5;1;1m✗\e[0m")
+      println(" \e[2m-> ", exn, ": ", what(exn), "\e[0m")
+    }
   }
 }
 
@@ -112,6 +115,44 @@ macro test_equal {
       in abort(exn)
   ]
 }
+
+macro test_note_equal {
+  [test_note_equal $expr:lhs = $expr:rhs] = [
+    let lhs = $lhs, rhs = $rhs in
+    if equal(lhs, rhs) then
+      let exn = condition(test_failure,
+                          error_message, "Values equal",
+                          "lhs", lhs,
+                          "rhs", rhs)
+      in abort(exn)
+  ]
+}
+
+macro test_eq {
+  [test_eq $expr:lhs = $expr:rhs] = [
+    let lhs = $lhs, rhs = $rhs in
+    if not eq(lhs, rhs) then
+      let exn = condition(test_failure,
+                          error_message, "Values not eq",
+                          "lhs", lhs,
+                          "rhs", rhs)
+      in abort(exn)
+  ]
+}
+
+macro test_not_eq {
+  [test_not_eq $expr:lhs = $expr:rhs] = [
+    let lhs = $lhs, rhs = $rhs in
+    if eq(lhs, rhs) then
+      let exn = condition(test_failure,
+                          error_message, "Values eq",
+                          "lhs", lhs,
+                          "rhs", rhs)
+      in abort(exn)
+  ]
+}
+
+
 
 macro test_true {
   [test_true $expr:expr] = [
