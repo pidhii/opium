@@ -36,7 +36,7 @@
 ;(predicate (member X (_ . List))
   ;(member X List))
 (predicate (member X (Y . Ys))
-  (if (= X Y) #t (member X Ys)))
+  (or (= X Y) (member X Ys)))
 
 ;;;;
 ;; member@ Elt List

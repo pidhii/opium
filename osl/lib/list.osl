@@ -5,13 +5,6 @@ require "base"
 (import srfi-1)
 ~~~
 
-#pragma prolog {
-  (predicate (match-on ((typename (list U)) (list U)) T)
-    (if (= T (list U)) #t
-        ;; Similar to dict(..)
-        (unique (coerce (list _) T))))
-}
-
 #pragma match-translation-rule {
   (match-pattern . ((typename (list _)) _))
   (type-pattern . _)

@@ -67,12 +67,27 @@ extern identity as coerce :: coerce
   ;;;;
   ;; pattern-matching
   ;;;;
+
+  ;; Composite types (types with type parameters) are represented in OSL by
+  ;; Scheme objects that are ignorant to the types OSL attribute to them. For
+  ;; this reason it is not possible (normally) to distinguish between, e.g.,
+  ;; `list(num)` and `list(str)`, i.e. runtime predicates for match-translation
+  ;; can't handle type parameters. To accommodate this fact, we require that
+  ;; the match of type T on a composite type U stripped of type parameters has
+  ;; to be unique:
+  ;;
+  ;;    match T on U(_, _, ...)  <=>  ∃! (u1, u2, ...): U(u1, u2, ...) ≤ T
+  ;;
+  ;; Although, it is, formally, not correct to apply this rule to all composite
+  ;; types as this detail depends on runtime implementation details; for now,
+  ;; for the sake of simplicity, and until the case arises, we apply this to
+  ;; ALL composite types.
   (predicate (match-on ((typename T) T) U)
-    (if (= T (_ . _)) #f ;; Matching on composite types has to be implemented
-                         ;; explicitly for each concrete type as some may not
-                         ;; be able to supply a predicate that handles type
-                         ;; parameters.
-        (fast-cerce T U)))
+    (if (= T U) #t
+        (and (coerce T U)
+             (if (= T (TypeName . TypeParams))
+                 (unique (coerce (TypeName . _) U))
+                 #t))))
 
   ;;;;;
   ;; (coerce T (or U1 U2 ...))

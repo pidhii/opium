@@ -12,13 +12,6 @@ require "list"
 (import vector-lib)
 ~~~
 
-#pragma prolog {
-  (predicate (match-on ((typename (array U)) (array U)) T)
-    (if (= T (array U)) #t
-        ;; Similar to dict(..)
-        (unique (coerce (array _) T))))
-}
-
 #pragma match-translation-rule {
   (match-pattern . ((typename (array _)) _))
   (type-pattern . _)
