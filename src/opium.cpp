@@ -22,6 +22,7 @@
 #include "opium/scheme/scheme_transformations.hpp"
 #include "opium/scheme/translator/match_translation_rules.hpp"
 #include "opium/scheme/translator/scheme_emitter.hpp"
+#include "opium/scheme/translator/scheme_emitter_context.hpp"
 #include "opium/utilities/execution_timer.hpp"
 #include "opium/scheme/translator/exceptions.hpp"
 
@@ -111,7 +112,8 @@ opi::typecheck(program &program, const prolog &prolog,
 
 bool
 opi::generate_scheme(scheme_program &scmprogram,
-                     const match_translation_rules &mtrs)
+                     const match_translation_rules &mtrs,
+                     const scheme_emitter_context::literal_coder &lc)
 {
   OPI_FUNCTION_BENCHMARK
 
@@ -127,7 +129,7 @@ opi::generate_scheme(scheme_program &scmprogram,
   const code_type_map &ctm = _access(scmprogram.code_types, no_ctm_msg);
   const type_bindings &tbinds = _access(scmprogram.type_bindings, no_tbinds_msg);
 
-  scheme_emitter_context ctx {ctm, mtrs, headertape};
+  scheme_emitter_context ctx {ctm, mtrs, lc, headertape};
 
   // Translate `program` into Scheme
   info("\e[1mgenerating Scheme\e[0m");
@@ -154,7 +156,8 @@ opi::translate_to_scheme(const scheme_translator &config, value opicode,
   generate_typecheck_script(scmprogram, config.type_coder);
   if (not typecheck(scmprogram, config.prolog, guide))
     throw typecheck_failure {"TypeCheck failed"};
-  if (not generate_scheme(scmprogram, config.match_translation))
+  if (not generate_scheme(scmprogram, config.match_translation,
+                          config.literal_coder))
     throw typecheck_failure {"Scheme generation failed"};
   scmprogram.scheme_script = append(config.prologue, *scmprogram.scheme_script);
 }

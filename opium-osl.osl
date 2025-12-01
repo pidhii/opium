@@ -37,14 +37,14 @@ opts, args = getopt(argv, "hvrc:Rt:-:")
 
 for opt, optarg in opts do
 {
-  case str([char(opt)]) in
-  | "h" -> { print_help() exit(0) }
-  | "v" -> set verbose = true
-  | "r" -> set mode = Run
-  | "c" -> set mode = Compile(*optarg)
-  | "R" -> set mode = RunCompiled
-  | "t" -> set tracelen = num(*optarg)
-  | "-" -> set compile_target = "-" + *optarg
+  case char(opt) in
+  | 'h' -> { print_help() exit(0) }
+  | 'v' -> set verbose = true
+  | 'r' -> set mode = Run
+  | 'c' -> set mode = Compile(*optarg)
+  | 'R' -> set mode = RunCompiled
+  | 't' -> set tracelen = num(*optarg)
+  | '-' -> set compile_target = "-" + *optarg
   | otherwize -> error("Invalid command-line option", char(opt), optarg)
 }
 

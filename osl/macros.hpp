@@ -506,7 +506,7 @@ macro_expander<ParamTypeDict, ParamValDict>::_expand(
         assert(m_parameter_types.at(pname) == "ident");
         const value pval = m_parameter_vals.at(pname);
         const std::string identstr {sym_name(pval)};
-        result.emplace_back(*pval->location, opi::str(identstr), EXPR);
+        result.emplace_back(*pval->location, opi::str("s:" + identstr), EXPR);
         break;
       }
       else

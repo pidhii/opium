@@ -20,6 +20,7 @@
 
 #include "opium/prolog_repl.hpp"
 #include "opium/scheme/scheme_type_location_map.hpp"
+#include "opium/scheme/translator/scheme_emitter_context.hpp"
 #include "opium/scheme/translator/match_translation_rules.hpp"
 #include "opium/value.hpp"
 
@@ -69,7 +70,8 @@ typecheck(program &program, const prolog &prolog,
 
 bool
 generate_scheme(scheme_program &scmprogram,
-                const match_translation_rules &match_translation);
+                const match_translation_rules &match_translation,
+                const scheme_emitter_context::literal_coder &literal_coder);
 
 
 struct default_type_coder {
@@ -78,7 +80,6 @@ struct default_type_coder {
   {
     switch (tag(x))
     {
-      case tag::nil: return "nil";
       case tag::num: return "num";
       case tag::str: return "str";
       case tag::boolean: return "bool";
@@ -88,14 +89,44 @@ struct default_type_coder {
 };
 
 
+struct default_literal_coder {
+  value
+  operator () (value literal, value type) const
+  {
+    switch (tag(literal))
+    {
+      case tag::num:
+        assert(type == "num");
+        return literal;
+
+      case tag::str:
+        assert(type == "str");
+        return literal;
+
+      case tag::boolean:
+        assert(type == "bool");
+        return literal;
+
+      default:
+        throw bad_code {
+            std::format("default_literal_coder - unsupported literal ({})",
+                        literal),
+            literal};
+    }
+  }
+};
+
+
 struct scheme_translator {
   scheme_translator()
-  : type_coder {default_type_coder()}
+  : type_coder {default_type_coder()},
+    literal_coder {default_literal_coder()}
   { prolog_emitter::setup_prolog(prolog); }
 
   opium_preprocessor preprocessor;
   prolog_repl prolog;
   prolog_emitter::type_coder type_coder;
+  scheme_emitter_context::literal_coder literal_coder;
   match_translation_rules match_translation;
   value prologue;
 

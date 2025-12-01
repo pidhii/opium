@@ -334,9 +334,11 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
       return instantiate_function_template(m_ctx, type);
 
     // TODO:
-    // o plug in externally-suplied coder for literals
-    // Just return the identifier or literal as is
-    return x;
+    // o handle non-trivial coercions
+    if (issym(x))
+      return x;
+    else
+      return m_ctx.lc()(x, type);
   });
 }
 

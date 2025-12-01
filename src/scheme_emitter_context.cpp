@@ -23,10 +23,11 @@
 
 opi::scheme_emitter_context::scheme_emitter_context(
     const code_type_map &ctm, const match_translation_rules &mtr,
-    code_tape &output)
+    const literal_coder &literal_coder, code_tape &output)
 : m_output {std::back_inserter(output)},
   m_code_types {ctm},
   m_match_translation {mtr},
+  m_literal_coder {literal_coder},
   m_parent {*this}
 { }
 
@@ -36,6 +37,7 @@ opi::scheme_emitter_context::scheme_emitter_context(
 : m_output {std::back_inserter(output)},
   m_code_types {parent.ctm()},
   m_match_translation {parent.mtr()},
+  m_literal_coder {parent.m_literal_coder},
   m_parent {parent}
 { }
 

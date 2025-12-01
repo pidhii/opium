@@ -41,8 +41,11 @@ struct function_template {
 
 
 struct scheme_emitter_context {
+  using literal_coder = std::function<value(value, value)>;
+
   scheme_emitter_context(const code_type_map &ctm,
-                         const match_translation_rules &mtr, code_tape &output);
+                         const match_translation_rules &mtr,
+                         const literal_coder &literal_coder, code_tape &output);
 
   scheme_emitter_context(scheme_emitter_context &parent, code_tape &output);
 
@@ -59,7 +62,6 @@ struct scheme_emitter_context {
   void
   register_template(value tag, const function_template &functemplate);
   
-
   /**
    * Reigster specialization of a function template for future reuse
    *
@@ -89,12 +91,16 @@ struct scheme_emitter_context {
   { return m_output; }
 
   const code_type_map &
-  ctm() const
+  ctm() const noexcept
   { return m_code_types; }
 
   const match_translation_rules&
-  mtr() const
+  mtr() const noexcept
   { return m_match_translation; }
+
+  const literal_coder&
+  lc() const noexcept
+  { return m_literal_coder; }
 
 private:
   code_tape_output m_output; /**< Output tape for supplementary code */
@@ -111,6 +117,7 @@ private:
 
   const code_type_map &m_code_types;
   const match_translation_rules &m_match_translation;
+  const literal_coder &m_literal_coder;
 
   scheme_emitter_context &m_parent;
 }; // struct opi::scheme_emitter_context

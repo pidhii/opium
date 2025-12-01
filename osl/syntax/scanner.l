@@ -206,6 +206,29 @@ r\" {
   return END_STRING;
 }
 
+'[^\\']' {
+  yylval = opi::str("c:#\\" + std::string(yytext + 1, yyleng - 2) + " ");
+  return CHAR;
+}
+
+'\\.' {
+  switch (yytext[2])
+  {
+    case '\'': yylval = str("c:#\\'"); break;
+    case '\\': yylval = str("c:#\\\\"); break;
+    case 'a': yylval = str("c:#\\x0007"); break;
+    case 'b': yylval = str("c:#\\x0008"); break;
+    case 't': yylval = str("c:#\\x0009"); break;
+    case 'n': yylval = str("c:#\\x000a"); break;
+    case 'v': yylval = str("c:#\\x000b"); break;
+    case 'f': yylval = str("c:#\\x000c"); break;
+    case 'r': yylval = str("c:#\\x000d"); break;
+    case 'e': yylval = str("c:#\\x001b"); break;
+    default:
+      throw opi::bad_code {std::format("Invalid character literal ({})", yytext)};
+  }
+  return CHAR;
+}
 
 #pragma {
   BEGIN(PRAGMA);

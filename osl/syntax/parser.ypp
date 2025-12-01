@@ -650,7 +650,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %token CAPIDENT
 %right MATCH IN RIGHT_ARROW OTHERWIZE
 %token BEGIN_STRING STRING_CHUNK END_STRING
-%token INTEGER FLOAT BOOLEAN
+%token INTEGER FLOAT BOOLEAN CHAR
 %token PRAGMA_
 %token TYPE
 %token SET
@@ -724,7 +724,7 @@ String
     std::string result;
     for (const value chunk : range($2))
       std::ranges::copy(str_view(chunk), std::back_inserter(result));
-    $$ = str(result);
+    $$ = str("s:" + result);
     bindloc($$, @$);
   }
 ;
@@ -739,6 +739,7 @@ ApplExpr
   | INTEGER
   | FLOAT
   | BOOLEAN
+  | CHAR
   | '_' {
     $$ = sym(std::format("osl#unanimous#{}", g_counter++));
   }
@@ -1088,7 +1089,8 @@ TopLvlExpr
   : Stmt { $$ = list($1); }
   | TypeDef
   | REQUIRE String {
-    std::filesystem::path filename {str_view($2)};
+    assert(str_view($2).starts_with("s:"));
+    std::filesystem::path filename {str_view($2).data() + 2};
     if (filename.extension() == "")
       filename += ".osl";
 

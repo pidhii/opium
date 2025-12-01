@@ -145,11 +145,88 @@ opi::osl::stateful_lexer::recover_state(state target_state)
 }
 
 
+static opi::value
+_literal_type_coder(opi::value literal)
+{
+  switch (tag(literal))
+  {
+    case tag::str:
+    {
+      const std::string_view str = str_view(literal);
+      assert(str.length() > 0);
+      if (str.starts_with("s:"))
+        return "str";
+        // return opi::str(std::string{str.data() + 2, str.size() -2});
+      else if (str.starts_with("c:"))
+        return "char";
+      else
+        throw opi::bad_code {std::format("Invalid str-coded literal ({})", literal),
+                             literal};
+    }
+
+    case tag::boolean:
+      return "bool";
+
+    case tag::num:
+      return "num";
+
+    default:
+      throw opi::bad_code {std::format("Invalid literal ({})", literal),
+                            literal};
+  }
+}
+
+static opi::value
+_literal_value_coder(opi::value literal, opi::value type)
+{
+  switch (tag(literal))
+  {
+    case tag::str:
+    {
+      const std::string_view str = str_view(literal);
+      assert(str.length() > 0);
+      if (str.starts_with("s:"))
+      {
+        assert(type == "str");
+        return opi::str({str.data() + 2, str.size() - 2});
+      }
+      else if (str.starts_with("c:"))
+      {
+        assert(type == "char");
+        return opi::sym({str.data() + 2, str.size() - 2});
+      }
+      else
+        throw opi::bad_code {std::format("Invalid str-coded literal ({})", literal),
+                             literal};
+    }
+
+    case tag::boolean:
+    {
+      assert(type == "bool");
+      return literal;
+    }
+
+    case tag::num:
+    {
+      assert(type == "num");
+      return literal;
+    }
+
+    default:
+      throw opi::bad_code {std::format("Invalid literal ({})", literal),
+                            literal};
+  }
+}
+
+
 opi::osl::program_parser::program_parser(program_sources &target,
                                          scheme_translator &translator_config)
 : m_target {target},
   m_translator_config {translator_config}
-{ }
+{
+  m_translator_config.type_coder = _literal_type_coder;
+  m_translator_config.literal_coder = _literal_value_coder;
+}
 
 void
 opi::osl::program_parser::load_file(const std::string &pathstr)
