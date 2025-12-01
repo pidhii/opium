@@ -45,8 +45,8 @@ s::str[r::range(num)] = substr(s, r#start, r#end)
 
 view(s str, start num, end num) = {
   extern identifier!(substring/shared)(str, num, num) -> str
-  let start = if start < 0 then length(s) + start else start in
-  let end = if end < 0 then length(s) + end else end in
+  let start = if start < 0 then length(s) + start + 1 else start in
+  let end = if end < 0 then length(s) + end + 1 else end in
   return identifier!(substring/shared)(s, start, end)
 }
 
@@ -57,6 +57,14 @@ extern identifier!(string<?) as (<) (str, str) -> bool
 extern identifier!(string>?) as (>) (str, str) -> bool
 extern identifier!(string<=?) as (<=) (str, str) -> bool
 extern identifier!(string>=?) as (>=) (str, str) -> bool
+
+extern identifier!(char=?) as (==) (char, char) -> bool
+s1::char != s2::char = not (s1 == s2)
+extern identifier!(char<?) as (<) (char, char) -> bool
+extern identifier!(char>?) as (>) (char, char) -> bool
+extern identifier!(char<=?) as (<=) (char, char) -> bool
+extern identifier!(char>=?) as (>=) (char, char) -> bool
+
 
 // String length
 extern identifier!(string-length) as length(str) -> num
