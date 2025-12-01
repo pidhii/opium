@@ -5,7 +5,7 @@ BUGS:
 [✓] Incorrect placement of defintions for template instantiations when emitting
     scheme.
 [ ] Random failures to detect stack limit.
-[ ] Match-translation predicates must account for type parameters.
+[✓] Match-translation predicates must account for type parameters.
 [ ] Proper error reporting on invalid macro-parameter references.
 [✓] Allow wildcard identifier, `_`, in local bindings
 

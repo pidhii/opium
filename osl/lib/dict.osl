@@ -5,6 +5,15 @@ require "coroutines"
 (import srfi-69)
 ~~~
 
+#pragma prolog {
+  (predicate (match-on ((typename (dict K V)) (dict K V)) T)
+    (if (= T (dict K V)) #t
+        ;; Require unique coercion to type-ambiguous dict(_, _) type-constructor
+        ;; as the match-predicate is ignorant to the dict's type parameters and
+        ;; won't be able to distinguish between the different parameterizations.
+        (unique (coerce (dict _ _) T))))
+}
+
 #pragma match-translation-rule {
   (match-pattern . ((typename (dict K V)) _))
   (type-pattern . _)

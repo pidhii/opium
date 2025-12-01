@@ -68,7 +68,11 @@ extern identity as coerce :: coerce
   ;; pattern-matching
   ;;;;
   (predicate (match-on ((typename T) T) U)
-    (fast-coerce T U))
+    (if (= T (_ . _)) #f ;; Matching on composite types has to be implemented
+                         ;; explicitly for each concrete type as some may not
+                         ;; be able to supply a predicate that handles type
+                         ;; parameters.
+        (fast-cerce T U)))
 
   ;;;;;
   ;; (coerce T (or U1 U2 ...))
