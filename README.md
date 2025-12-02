@@ -18,7 +18,8 @@ running on some dialect of Lisp.
 This repository consists of two projects:
 
 - [Opium](#opium) - type-system engine;
-- [OSL](#OSL) - statically typed programming language that explores possibilities and limitations of Opium.
+- [OSL](#OSL) - statically typed programming language that explores possibilities
+  and limitations of the symbolic logical type system.
 
 
 ## Building the Projects
@@ -73,7 +74,7 @@ What do I look at:
   In this way, computation time happens to impose limits on a practical type system. <br/>
   &Rightarrow; The type system has to be such that compilation times scale at most linearly
   with the size of the program.
-- $$\color{red}{TODO}$$
+- $$\textcolor{red}{\textnormal{\textbf{TODO}}}$$
 
 
 ## Implementation
@@ -91,8 +92,53 @@ to equivalent results. These are implemented by automatic
 choice-points of the Prolog interpreter.
 
 # OSL
+## Rationale
 
-Some completely arbitrary code in OSL:
+- Scheme language is, by construction, among the most powerful systems for programming, period.
+  The only competitors that would argue about this title are procedural dialects of Lisp, like
+  Common Lisp. However, I believe it is important to remember the old saying: "With great power
+  comes great responsibility". And so, unlike the procedural Lisp, Scheme respects the order
+  and the value of limits. After all, one of the tasks of a programming language is to drive
+  away the programmer from writing inanities.
+
+- Then why don't we see Scheme or other Lisps in wide use nowadays?
+  Scripting: 
+  1. difficult to read syntax;
+  2. outdated legacy paradigms.
+    
+  Consequently, a smaller community and thus fewer libraries.
+
+  General programming:
+  1. dynamic typing;
+  2. dynamic variables;
+  3. ubiquitous macros and trickery with execution flow.
+    
+  Combine these, and you get a ticking time bomb that won't even know itself
+  it's about to implode.
+
+  With this being said, it would be worth a try to revive the Scheme in a more digestible
+  package.
+
+- Type system is essential to bring order to the program. But I don't believe it has to be
+  putting constraints in such amounts that a programmer can't even achieve a SEGFAULT. After
+  all, the true logic and intentions of the program are not for the compiler to comprehend.
+  It only has to be strong enough to make the programmer confident that whatever logic he
+  put in the code will indeed be the one he observes when running the program. Only the
+  objective typos and ambiguities need to be reported to the programmer.
+
+- Metaprogramming, in the sense of exploiting a type system for code generation, is nowadays a
+  well-known and widely accepted tool. Thus, a type system has to be designed such that it will
+  assist with metaprogramming in making it
+  1. easy to use/implement (make as many things available out-of-the-box as possible);
+  2. easy to read (in the sense of code expressiveness).
+ 
+  In short, if we are programming with types, let us then use a type system that is
+  designed to be programmed. 
+
+## Features
+- $$\textcolor{red}{\\textnormal{\textbf{TODO}}}$$
+
+Some completely arbitrary and even not advertorial code in OSL:
 ![random OSL snippet](random-osl-code.png)
 
 
