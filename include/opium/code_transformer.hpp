@@ -211,15 +211,15 @@ struct prolog_cleaner: public code_transformer {
 inline value
 clean_prolog(value plexpr)
 {
-  OPI_FUNCTION_BENCHMARK
+  // OPI_FUNCTION_BENCHMARK
 
-  prolog_cleaner cleaner;
-  int i;
-  for (i = 0; i < 10 and not cleaner.nop; ++i)
-  {
-    cleaner.nop = true;
-    plexpr = cleaner(plexpr);
-  }
+  // prolog_cleaner cleaner;
+  // int i;
+  // for (i = 0; i < 10 and not cleaner.nop; ++i)
+  // {
+  //   cleaner.nop = true;
+  //   plexpr = cleaner(plexpr);
+  // }
   return plexpr;
 }
 
