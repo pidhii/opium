@@ -56,7 +56,7 @@ opi::generate_function_template_body(scheme_emitter_context &ctx,
       if (c->kind == cell::kind::value)
         results[varname].emplace(c->val);
       else
-        results[varname].emplace(cons(cell_tag, ptr(c)));
+        results[varname].emplace(make_cell(c));
     }
   })
 

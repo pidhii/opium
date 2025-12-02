@@ -75,6 +75,12 @@ inline opi::cell*
 make_variable()
 { return make<cell>(); }
 
+inline value
+make_cell(cell *c)
+{
+  assert(c != nullptr);
+  return cons(cell_tag, ptr(c));
+}
 
 /**
  * Find the representative cell
@@ -137,7 +143,7 @@ constexpr stringify_unbound_variables_t stringify_unbound_variables;
 struct ignore_unbound_variables_t {
   value
   operator () (cell *x) const
-  { return cons(cell_tag, ptr(x)); }
+  { return make_cell(x); }
 }; // struct opi::throw_on_unbound_variable
 static_assert(unbound_variable_handler<ignore_unbound_variables_t>);
 constexpr ignore_unbound_variables_t ignore_unbound_variables;
@@ -152,10 +158,10 @@ struct clone_unbound_variables_t {
     {
       cell *xref = make_variable();
       m_mem[xrepr] = xref;
-      return cons(cell_tag, ptr(xref));
+      return make_cell(xref);
     }
     else
-      return cons(cell_tag, ptr(it->second));
+      return make_cell(it->second);
   }
 
   private:

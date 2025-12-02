@@ -32,7 +32,7 @@ snapshot(value s, stl::unordered_map<const object *, value> &argmem,
 
   if (ispair(s))
   {
-    if (car(s) == cell_tag)
+    if (is(car(s), cell_tag))
     {
       cell *repr = find(static_cast<cell*>(ptr_val(cdr(s))));
       value val;
@@ -44,7 +44,7 @@ snapshot(value s, stl::unordered_map<const object *, value> &argmem,
         if (it != cellmem.end())
           return it->second;
         else
-          return cellmem[repr] = cons(cell_tag, ptr(make<cell>()));
+          return cellmem[repr] = make_cell(make<cell>());
       }
     }
     else if (Mode == snapshot_mode::remove_body and
@@ -87,7 +87,7 @@ remove_bodies(value s, stl::unordered_map<const object *, value> &argmem)
 
   if (ispair(s))
   {
-    if (car(s) == cell_tag)
+    if (is(car(s), cell_tag))
     {
       cell *repr = find(static_cast<cell*>(ptr_val(cdr(s))));
       value val;

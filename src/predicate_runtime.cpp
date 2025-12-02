@@ -166,7 +166,7 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
   bool iswild;
   if (quasiquote_level == 0 and _is_variable(expr, iswild))
   {
-    result = cons(opi::cell_tag, ptr(iswild ? opi::make_variable() : prt[expr]));
+    result = make_cell(iswild ? opi::make_variable() : prt[expr]);
     mem.emplace(&*expr, result);
     copy_location(expr, result);
     return result;
@@ -355,12 +355,18 @@ struct _match_arguments_impl {
     })
 
     // Expand variables whenever possible
-    OPI_BLOCK_BENCHMARK("variable expansion", {
+    // OPI_BLOCK_BENCHMARK("variable expansion", {
       if (_is_cell(pexpr, c1))
-        opi::get_value(prt.find(c1), pexpr);
+      {
+        assert(c1 != nullptr);
+        opi::get_value(find(c1), pexpr);
+      }
       if (_is_cell(eexpr, c2))
-        opi::get_value(prt.find(c2), eexpr);
-    })
+      {
+        assert(c2 != nullptr);
+        opi::get_value(find(c2), eexpr);
+      }
+    // })
 
     // Unify or assign variables
     OPI_BLOCK_BENCHMARK("unification and assignment", {
@@ -384,6 +390,7 @@ struct _match_arguments_impl {
       {
         case opi::tag::pair:
           OPI_END_BENCHMARK();
+          assert(not is(car(pexpr), opi::cell_tag));
           return match(prt, opi::car(pexpr), opi::car(eexpr)) and
                  match(prt, opi::cdr(pexpr), opi::cdr(eexpr));
 

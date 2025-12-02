@@ -125,7 +125,7 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
       break;
 
     case tag::pair: {
-      if (car(val) == cell_tag)
+      if (is(car(val), cell_tag))
       {
         os << "<cell:" << cdr(val) << ">";
         return;
@@ -158,7 +158,8 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
       
       _print(mode, os, car(val), mem, maxdepth, depth + 1, cp);
       value elt;
-      for (elt = cdr(val); ispair(elt) and car(elt) != cell_tag; elt = cdr(elt))
+      for (elt = cdr(val); ispair(elt) and not is(car(elt), cell_tag);
+           elt = cdr(elt))
       {
          // Similar trick about self-referencing
         if (memq(elt, mem))
