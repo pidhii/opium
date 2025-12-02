@@ -635,8 +635,8 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 //                                Tokens
 // Trampolines to steer the parser
 %token PARSE_TOPLVL PARSE_IDENT PARSE_EXPR PARSE_STMT PARSE_ATPAT PARSE_EXPAT
-%token PARSE_ATTYPE PARSE_EXTYPE
-%token EXPR STMT ATPAT EXPAT ATTYPE EXTYPE
+%token PARSE_ATTYPE PARSE_EXTYPE PARSE_APPL
+%token APPL EXPR STMT ATPAT EXPAT ATTYPE EXTYPE
 
 // General syntax tokens
 %token INLINE_TYPCHECK
@@ -711,6 +711,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 Entry
   : PARSE_TOPLVL TopLvlSeq { *g_result_ptr = $2; }
   | PARSE_IDENT IDENT { *g_result_ptr = $2; }
+  | PARSE_APPL ApplExpr { *g_result_ptr = $2; }
   | PARSE_EXPR Expr { *g_result_ptr = $2; }
   | PARSE_STMT Stmt { *g_result_ptr = $2; }
   | PARSE_ATPAT AtomPattern { *g_result_ptr = $2; }
@@ -735,7 +736,8 @@ StringChunks
 ;
 
 ApplExpr
-  : IDENT
+  : APPL
+  | IDENT
   | INTEGER
   | FLOAT
   | BOOLEAN

@@ -47,6 +47,7 @@ opi::osl::entry_token_for(std::string_view parameter_type)
 {
   static const std::unordered_map<std::string_view, int> t {
     {"ident", PARSE_IDENT},
+    {"appl", PARSE_APPL},
     {"expr", PARSE_EXPR},
     {"stmt", PARSE_STMT},
     {"atpat", PARSE_ATPAT},
@@ -62,6 +63,7 @@ opi::osl::token_for(std::string_view parameter_type)
 {
   static const std::unordered_map<std::string_view, int> t {
     {"ident", IDENT},
+    {"appl", APPL},
     {"expr", EXPR},
     {"stmt", STMT},
     {"atpat", ATPAT},
