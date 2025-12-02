@@ -141,3 +141,12 @@ test_return_from_loop() = {
   return "ney", 2
 }
 println("test_return_from_loop", test_return_from_loop())
+
+
+println("test dict {...}")
+let d = dict {"crack": "yey", "hack": "ney"} in
+d.foreach((k, v) => println("d[", k, "] = ", v))
+
+
+let a = array [1, 2, 3, 4, 5] in
+println("array literal: ", a)

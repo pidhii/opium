@@ -71,3 +71,21 @@ iter(arr array(T), from num, to num) = {
 
 iter(arr array(T), from num) = iter(arr, from, length(arr))
 iter(arr array(T)) = arrayIterator(arr, 0, length(arr))
+
+
+////
+//
+// Literal constructor
+//
+////
+#pragma prolog {
+  (predicate (result-of (osl#array . Ts) (array T))
+    (all T Ts))
+}
+extern vector as identifier!(osl#array) :: identifier!(osl#array)
+macro array {
+  {array []} = {uninitialized_array(0)}
+  {array [$expr:val $[, $expr:v]*rest]} = {
+    identifier!(osl#array)($val $[, $v]rest)
+  }
+}

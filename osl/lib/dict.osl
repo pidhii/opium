@@ -18,11 +18,11 @@ require "coroutines"
 //
 extern identifier!(make-hash-table) as dict(fn(K, K) -> bool, fn(K, num) -> num, num) -> dict(K, V)
 dict() = dict((==), (x, bound) => hash(x) % bound, 4)
-dict(iter) = {
-  assert { next(iter) }
+dict(it) = {
+  assert { next(it) }
   result = dict()
-  for key, val in iter do
-    set dict[key] = val
+  for key, val in it do
+    set result[key] = val
   return result
 }
 
@@ -79,3 +79,15 @@ extern identifier!(hash-table-merge) as (+) (dict(K, V), dict(K, V)) -> dict(K, 
 extern identifier!(number-hash) as hash(num) -> num
 extern identifier!(string-hash) as hash(str) -> num
 extern identifier!(symbol-hash) as hash(sym) -> num
+
+////
+//
+// Literal constructor
+//
+////
+macro dict {
+  [dict { }] = [dict()]
+  [dict { $appl:key : $expr:val $[, $appl:k : $expr:v ]*rest }] = {
+    dict([pack($key, $val) $[, pack($k, $v)]rest].iter())
+  }
+}
