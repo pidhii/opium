@@ -136,7 +136,23 @@ choice-points of the Prolog interpreter.
   designed to be programmed. 
 
 ## Features
-- $$\textcolor{red}{\\textnormal{\textbf{TODO}}}$$
+General:
+- Powerful macros similar to [`syntax-case`](https://www.gnu.org/software/guile/manual/html_node/Syntax-Case.html)
+  with matching on syntax tokens and expressions (*majority of syntactic forms in OSL are
+  implemented as macros*).
+- Support of inline Scheme and C/C++/ObjC code (*thank you [Chicken](https://call-cc.org/)*).
+- Provided the flexibility of grammar and typing, the implementation of seamless FFI for
+  other languages is possible as well.
+- The power of [`call/cc`](https://en.wikipedia.org/wiki/Call-with-current-continuation)
+  (*thank you [Chicken](https://call-cc.org/)*).
+
+Type System:
+- Automatic type deduction
+- Function overloading
+- Parametric polymorphism
+- Subtype polymorphism
+
+$\textcolor{red}{\\textnormal{\textbf{TODO}}}$
 
 Some completely arbitrary and even not advertorial code in OSL:
 ![random OSL snippet](random-osl-code.png)
