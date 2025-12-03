@@ -46,12 +46,12 @@ test_failure = sym("test-failure")
 
 macro unit_test_fixture {
   [unit_test_fixture $ident:fixture_name($ident:fixture $[, $ident:f]*fixrest) = $expr:init_expr] = [
-    fixtures#$fixture_name =
+    _::unit_test_fixtures#$fixture_name =
         let $fixture = fixtures#$fixture $[, $f = fixtures#$f]fixrest in
         $init_expr
   ]
   [unit_test_fixture $ident:fixture_name = $expr:init_expr] = [
-    fixtures#$fixture_name = $init_expr
+    _::unit_test_fixtures#$fixture_name = $init_expr
   ]
 }
 
