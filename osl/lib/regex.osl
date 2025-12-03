@@ -4,22 +4,76 @@ require "typeutils"
 (import (chicken irregex))
 ~~~
 
+
+#pragma match-translation-rule {
+  (match-pattern . ((typename regexp) _))
+  (type-pattern . regexp)
+  (predicate . irregex?)
+  (unpack . identity)
+}
+
+#pragma match-translation-rule {
+  (match-pattern . ((typename regexpmatch) _))
+  (type-pattern . regexpmatch)
+  (predicate . irregex-match-data?)
+  (unpack . identity)
+}
+
+
 extern identifier!(string->irregex) as regexp(str) -> regexp
+
+names(re regexp) = {
+  extern identifier!(irregex-names)(regexp) -> list(name_and_index)
+  extern car as getname(name_and_index) -> sym
+  return identifier!(irregex-names)(re).iter().foldl([], (acc, pair) =>
+    let name = pair.getname().str() in
+    if acc.contains(name) then acc
+    else name : acc
+  )
+}
+
+names(m regexpmatch) = {
+  extern identifier!(irregex-match-names)(regexpmatch) -> list(name_and_index)
+  extern car as getname(name_and_index) -> sym
+  return identifier!(irregex-match-names)(m).iter().foldl([], (acc, pair) =>
+    let name = pair.getname().str() in
+    if acc.contains(name) then acc
+    else name : acc
+  )
+}
+
+groups(re regexp) = {
+  extern identifier!(irregex-num-submatches)(regexp) -> num
+  return 0 : identifier!(irregex-num-submatches)(re) + 1
+}
+
+groups(m regexpmatch) = {
+  extern identifier!(irregex-match-num-submatches)(regexpmatch) -> num
+  return 0 : identifier!(irregex-match-num-submatches)(m) + 1
+}
 
 // extern identifier!(string-match)(str or regexp, str) -> list(str?)?
 // TODO: expose via `=~`-operator
 
 find(string str, pattern str or regexp) = {
-  extern identifier!(irregex-search)(_, str) -> regexp_match?
+  extern identifier!(irregex-search)(_, str) -> regexpmatch?
   return identifier!(irregex-search)(pattern, string)
 }
 
-extern identifier!(irregex-match-substring) as identifier!(osl#ref)(regexp_match, num) -> str?
-extern identifier!(irregex-match-substring) as identifier!(osl#ref)(regexp_match, str) -> str?
-indices(matchobj regexp_match, groupid) = {
-  assert { typein(groupid, 0, "") }
-  extern identifier!(irregex-match-start-index) as getstart(regexp_match, _) -> num?
-  extern identifier!(irregex-match-end-index) as getend(regexp_match, _) -> num?
+extern identifier!(irregex-match-substring) as identifier!(osl#ref)(regexpmatch, num) -> str?
+m::regexpmatch[gname::str] = {
+  extern identifier!(irregex-match-substring)(regexpmatch, sym) -> str?
+  return identifier!(irregex-match-substring)(m, sym(gname))
+}
+
+indices(matchobj regexpmatch, groupid num or str) = {
+  extern identifier!(irregex-match-start-index) as getstart(regexpmatch, num or sym) -> num?
+  extern identifier!(irregex-match-end-index) as getend(regexpmatch, num or sym) -> num?
+  let groupid = match groupid in
+  // TODO: make this typing implicit
+  | num n -> n::(num or sym)
+  | str s -> sym(s)::(num or sym)
+  in
   match matchobj.getstart(groupid), matchobj.getend(groupid) in
   | Some(start), Some(end) -> { return (start : end) :: range(num)? }
   | otherwize -> return null

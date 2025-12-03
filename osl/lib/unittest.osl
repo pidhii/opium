@@ -176,6 +176,18 @@ macro test_false {
   ]
 }
 
+macro test_match {
+  [test_match $expr:expr = $expat:pat] = [
+    match $expr in
+    | $pat -> void()
+    | value ->
+      let exn = condition(test_failure,
+                          error_message, "Does not match",
+                          "value", value)
+      in abort(exn)
+  ]
+}
+
 
 fixtures = unit_test_fixtures()
 unit_tests = unit_tests_t(dict())

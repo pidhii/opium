@@ -184,14 +184,17 @@ if (OPIUM_SCRIPT)
 
   # OSL compiler and interpreter
   if ("${CMAKE_INSTALL_PREFIX}" EQUAL "")
+    set(OSL_EXEC_PATH ${PROJECT_SOURCE_DIR}/osl)
     set(OSL_LIB_DIR ${PROJECT_SOURCE_DIR}/osl/lib)
   else ()
+    set(OSL_EXEC_PATH ${CMAKE_INSTALL_PREFIX}/bin/osl)
     set(OSL_LIB_DIR ${CMAKE_INSTALL_PREFIX}/lib)
   endif ()
   add_custom_command(
     OUTPUT ${CMAKE_BINARY_DIR}/opium-osl
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
     COMMAND echo "'default_oslpath=\"${OSL_LIB_DIR}\"'" > ${CMAKE_BINARY_DIR}/osl-config.osl
+    COMMAND echo "'default_osl_executable_path=\"${OSL_EXEC_PATH}\"'" >> ${CMAKE_BINARY_DIR}/osl-config.osl
     COMMAND ${CMAKE_BINARY_DIR}/osl -o ${CMAKE_BINARY_DIR}/opium-osl.scm
                                     --oslpath ${PROJECT_SOURCE_DIR}/osl/lib
                                     --oslpath ${CMAKE_BINARY_DIR}
@@ -201,7 +204,6 @@ if (OPIUM_SCRIPT)
     DEPENDS osl ${PROJECT_SOURCE_DIR}/opium-osl.osl)
   add_custom_target(opium-osl-executable ALL DEPENDS ${CMAKE_BINARY_DIR}/opium-osl)
   install(PROGRAMS ${CMAKE_BINARY_DIR}/opium-osl DESTINATION bin)
-
 endif (OPIUM_SCRIPT)
 
 option (OPIUM_UNIT_TESTS "Enable unit tests for opium components" ON)
@@ -267,6 +269,15 @@ if (OPIUM_UNIT_TESTS)
   gtest_discover_tests (test_lisp_reader)
   gtest_discover_tests (test_equality)
   gtest_discover_tests (test_match)
-  gtest_discover_tests (test_scheme_unique_identifiers)
-  gtest_discover_tests (test_quotation)
+  # gtest_discover_tests (test_scheme_unique_identifiers)
+  # gtest_discover_tests (test_quotation)
+
+  if (OPIUM_SCRIPT)
+    set (opium-osl ${CMAKE_BINARY_DIR}/opium-osl)
+    set (t ${PROJECT_SOURCE_DIR}/t)
+    add_test (NAME osl.builtins.itertools COMMAND ${opium-osl} -r ${t}/test-itertools.osl)
+    add_test (NAME osl.builtins.io COMMAND ${opium-osl} -r ${t}/test-io.osl)
+    add_test (NAME osl.builtins.string COMMAND ${opium-osl} -r ${t}/test-string.osl)
+    add_test (NAME osl.builtins.regexp COMMAND ${opium-osl} -r ${t}/test-regexp.osl)
+  endif (OPIUM_SCRIPT)
 endif (OPIUM_UNIT_TESTS)

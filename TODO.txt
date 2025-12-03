@@ -7,9 +7,11 @@ BUGS:
 [ ] Random failures to detect stack limit.
 [✓] Match-translation predicates must account for type parameters.
 [ ] Proper error reporting on invalid macro-parameter references.
-[✓] Allow wildcard identifier, `_`, in local bindings
+[✓] Allow wildcard identifier, `_`, in local bindings.
+[ ] Typecheck ignores ambiguities in function bodies.
 
 FEATURES:
+[ ] Implicit union-typing in result of match expression.
 [ ] Variadic (template) arguments.
 [ ] Lift functions (as types) into domain of type definitions / coercions. May
     require possibility to add predicates in (compiler) runtime.
@@ -24,6 +26,7 @@ FEATURES:
 [ ] Explicit prohibition of multiple types with identical name and arity.
 [ ] Assertions must not produce evaluatable code: ambiguous specializations with
     unambiguous type inference must be alowed.
+[ ] Type [co]variance.
 
 TEST-FEATURES;
 [ ] Automatic detection of inclusion of identical files.

@@ -62,7 +62,7 @@ struct range_location;
 
 namespace opi::osl {
 
-std::vector<std::string> pathes = {""};
+std::vector<std::string> pathes = {"."};
 
 opi::source_location
 make_location(const range_location &loc);
@@ -1320,13 +1320,18 @@ ExprWithOptTypeParam
 
 
 MatchClauses
+  : '|' MatchClauses_ { $$ = $2; }
+  | MatchClauses_
+;
+
+MatchClauses_
   : MatchClause { $$ = list($1); }
-  | MatchClause MatchClauses { $$ = cons($1, $2); }
+  | MatchClause '|' MatchClauses_ { $$ = cons($1, $3); }
 ;
 
 MatchClause
-  : '|' ListOfExprPatterns RIGHT_ARROW Expr { $$ = cons($2, list($4)); }
-  | '|' OTHERWIZE RIGHT_ARROW Expr { $$ = cons(list("otherwize"), list($4)); }
+  : ListOfExprPatterns RIGHT_ARROW Expr { $$ = cons($1, list($3)); }
+  | OTHERWIZE RIGHT_ARROW Expr { $$ = cons(list("otherwize"), list($3)); }
 ;
 
 ListOfExprPatterns

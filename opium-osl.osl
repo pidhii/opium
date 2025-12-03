@@ -1,4 +1,5 @@
-require "osl-config" // generated during build; contains `default_oslpath`
+require "osl-config" // generated during build; contains `default_oslpath` and
+                     // `default_osl_executable_path`
 require "getopt"
 
 
@@ -68,8 +69,9 @@ translate_opium_script(osl_filename, scm_filename) =
 {
   // Resolve path for OSL modules
   info("translating OSL into Scheme")
-  command = format("./install/bin/osl -o ~A --oslpath ~A --trace-length ~A ~A",
-                   scm_filename, default_oslpath, tracelen, osl_filename)
+  command = format("~A -o ~A --oslpath ~A --trace-length ~A ~A",
+                   default_osl_executable_path, scm_filename, default_oslpath,
+                   tracelen, osl_filename)
 
   info("osl command: " + command)
   p = run(command)

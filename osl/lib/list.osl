@@ -28,10 +28,17 @@ extern append as (+) (list(T), list(T)) -> list(T)
 
 extern reverse(list(T)) -> list(T)
 
+contains(l list(T), v T) = {
+  extern identifier!(find-tail) as _find(fn(T) -> bool, list(T)) -> list(T)?
+  return _find(x => x == v, l)
+}
+
+
 map(l list(T), f fn(T) -> U) = {
   extern map as builtin_map(fn(T) -> U, list(T)) -> list(U)
-  return builtin_map(f)
+  return builtin_map(f, l)
 }
+
 
 foreach(l list(T), f fn(T) -> _) = {
   extern identifier!(for-each) as builtin_foreach(fn(T) -> _, list(T)) -> void

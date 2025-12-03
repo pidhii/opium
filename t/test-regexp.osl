@@ -1,0 +1,60 @@
+#!/usr/bin/env -S ./install/bin/opium-osl -r
+
+require "unittest"
+
+
+unit_test regexp = {
+  test_match regexp("qwe") = regexp x
+}
+
+unit_test names = {
+  let names = regexp("(a)(?<b>b)(?<c>c)").names() in
+  for n in ["b", "c"] do
+    test_true names.contains(n)
+
+  let names = (*find("abc", "(a)(?<b>b)(?<c>c)")).names() in
+  for n in ["b", "c"] do
+    test_true names.contains(n)
+}
+
+unit_test groups = {
+  test_equal regexp("(a)(?<b>b)(?<c>c)").groups() = 0 : 4
+  test_equal (*find("abc", "(a)(?<b>b)(?<c>c)")).groups() = 0 : 4
+}
+
+unit_test find = {
+  test_true find("qwe", "w")
+  test_false find("qwe", "r")
+  test_match *find("qwe", "w") = regexpmatch x
+  test_true find("qwe", regexp("w"))
+  test_false find("qwe", regexp("r"))
+  test_match *find("qwe", regexp("w")) = regexpmatch x
+}
+
+unit_test ref = {
+  test_true (*find("qwe", "w"))[0]
+  test_true (*find("qwe", regexp("(?<subgroup>w)")))["subgroup"]
+  test_true (*find("qwe", "(w)|(r)"))[1]
+  test_false (*find("qwe", "(w)|(r)"))[2]
+  test_equal (*find("qwe", "w"))[0] = "w"
+  test_equal (*find("qwe", "(?<subgroup>w)"))["subgroup"] = "w"
+}
+
+unit_test indices = {
+  test_true (*find("qwe", "w")).indices(0)
+  test_true (*find("qwe", regexp("(?<subgroup>w)"))).indices("subgroup")
+  test_true (*find("qwe", "(w)|(r)")).indices(1)
+  test_false (*find("qwe", "(w)|(r)")).indices(2)
+  test_equal (*find("qwe", "w")).indices(0) = 1:2
+  test_equal (*find("qwe", "(?<subgroup>w)")).indices("subgroup") = 1:2
+}
+
+unit_test split = {
+  test_equal_seqs "q,w,e".split(",") = ["q", "w", "e"]
+  test_equal_seqs "q,w,e".split(regexp(",")) = ["q", "w", "e"]
+}
+
+unit_test extract = {
+  test_equal_seqs "q,w,e".extract(r"\w") = ["q", "w", "e"]
+  test_equal_seqs "q,w,e".extract(regexp(r"\w")) = ["q", "w", "e"]
+}
