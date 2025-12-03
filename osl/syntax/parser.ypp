@@ -82,10 +82,37 @@ static
 opi::osl::program_parser *g_current_program_parser;
 
 
-static std::string g_source;
+static stl::string g_source;
 
-static void
-bindloc(opi::value val, const range_location &loc);
+inline void
+_derloc(opi::value val, opi::value start, opi::value end)
+{
+  if (start->location == nullptr and end->location == nullptr)
+    return;
+  else if (start->location == nullptr)
+  {
+    copy_location(end, val);
+    return;
+  }
+  else if (end->location == nullptr)
+  {
+    copy_location(start, val);
+    return;
+  }
+
+  if (start->location->source == end->location->source)
+    opi::set_location(val, *start->location + *end->location);
+  else if (start->location->source == g_source)
+    opi::copy_location(start, val);
+  else if (end->location->source == g_source)
+    opi::copy_location(end, val);
+}
+
+inline void
+_derloc(opi::value val, opi::value src)
+{ opi::copy_location(src, val); }
+
+
 
 static opi::value
 mangle_type_constructor(opi::value ctor)
@@ -726,7 +753,7 @@ String
     for (const value chunk : range($2))
       std::ranges::copy(str_view(chunk), std::back_inserter(result));
     $$ = str("s:" + result);
-    bindloc($$, @$);
+    _derloc($$, $1, $3);
   }
 ;
 
@@ -744,33 +771,36 @@ ApplExpr
   | CHAR
   | '_' {
     $$ = sym(std::format("osl#unanimous#{}", g_counter++));
+    _derloc($$, $1);
   }
-  | String { $$ = $1; bindloc($$, @$); }
-  | '{' SeqOfStmts '}' { $$ = cons("begin", $2); bindloc($$, @$); }
+  | String
+  | '{' SeqOfStmts '}' {
+    $$ = cons("begin", $2);
+    _derloc($$, $1, $3);
+  }
   | '[' ListOfExprs ']' %prec AFTER_APPLY {
     $$ = cons("osl#list", $2);
-    bindloc($$, @$);
+    _derloc($$, $1, $3);
   }
   | CAPIDENT '(' ListOfExprs ')' %prec APPLY {
+    _derloc($3, $2, $4);
     $$ = cons($1, $3);
-    bindloc($$, @$);
   }
   | CAPIDENT %prec AFTER_APPLY { $$ = list($1); }
   | ApplExpr '(' ListOfArgs ')' %prec APPLY {
-    opi::set_location($3, *$2->location + *$4->location);
+    _derloc($3, $2, $4);
     $$ = cons($1, $3);
-    /*opi::set_location($$, *$1->location + *$4->location);*/
   }
   | '(' Expr ')' %prec AFTER_APPLY { $$ = $2; }
   | ApplExpr '.' IDENT '(' ListOfExprs ')' {
-    opi::set_location($5, *$3->location + *$6->location);
+    _derloc($5, $3, $6);
     $$ = list($3, $1, dot, $5);
-    opi::set_location($$, *$2->location + *$6->location);
+    _derloc($$, $2, $6);
   }
   | ApplExpr '#' IDENT { $$ = list(overloaded_getter_name($3), $1); }
   | ApplExpr '[' Expr ']' %prec APPLY {
     const value getter = random_access_getter();
-    opi::set_location(getter, *$2->location + *$4->location);
+    _derloc(getter, $2, $4);
     $$ = list(getter, $1, $3);
   }
   | ApplExpr DOUBLE_COLUMN AtomTypeParam { $$ = list("annotate-type", $1, $3); }
@@ -796,17 +826,17 @@ Expr
   | SET IDENT '=' Expr { const value set = "set!"; opi::copy_location($1, set); $$ = list(set, $2, $4); }
   | SET ApplExpr '[' Expr ']' '=' Expr {
     const value setter = random_access_setter();
-    opi::copy_location($1, setter);
+    _derloc(setter, $4, $7);
     $$ = list(setter, $2, $4, $7);
   }
   | SET ApplExpr '#' IDENT '=' Expr {
     const value setter = overloaded_setter_name($4);
-    opi::copy_location($1, setter);
+    _derloc(setter, $3, $5);
     $$ = list(setter, $2, $6);
   }
   | SET '*' ApplExpr '=' Expr {
     const value store = "osl#store";
-    opi::copy_location($1, store);
+    _derloc(store, $2, $4);
     $$ = list(store, $3, $5);
   }
   | ':' ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
@@ -834,9 +864,9 @@ Expr
   | Expr LT Expr { $$ = list($2, $1, $3); }
   | Expr GE Expr { $$ = list($2, $1, $3); }
   | Expr LE Expr { $$ = list($2, $1, $3); }
-  | Expr AND Expr { const value op = "and"; bindloc(op, @$); $$ = list(op, list("bool", $1), list("bool", $3)); }
-  | Expr OR Expr { const value op = "or"; bindloc(op, @$); $$ = list(op, list("bool", $1), list("bool", $3)); }
-  | NOT Expr { $$ = list("not", list("bool", $2)); bindloc(car($$), @1); }
+  | Expr AND Expr { $$ = list($2, list("bool", $1), list("bool", $3)); }
+  | Expr OR Expr { $$ = list($2, list("bool", $1), list("bool", $3)); }
+  | NOT Expr { $$ = list($1, list("bool", $2)); }
   | Lambda
   | If
   | Match
@@ -904,13 +934,13 @@ Stmt
     if (issym($1))
     { // define variable
       const value define = "define";
-      bindloc(define, @$);
+      _derloc(define, $2);
       $$ = list(define, $1, $3);
     }
     else if (ispair($1) and car($1) == "annotate-type")
     { // move annotation to the LHS and use `define`-syntax
       const value define = "define";
-      bindloc(define, @$);
+      _derloc(define, $2);
       const value ident = list_ref($1, 1);
       const value type = list_ref($1, 2);
       const value expr = $3;
@@ -922,7 +952,7 @@ Stmt
       const value define = "define-overload";
       const value fixed_signature =
           cons(car($1), fix_type_annotations_in_arguments(cdr($1)));
-      bindloc(define, @$);
+      _derloc(define, $2);
       if (opi::ispair($3) and car($3) == "begin")
       {
         const value body = make_body_with_return(cdr($3));
@@ -937,7 +967,7 @@ Stmt
   | Expr ',' ListOfExprs '=' Expr {
     const value idents = cons($1, $3);
     const value define = "define-values";
-    bindloc(define, @$);
+    _derloc(define, $4);
     $$ = list(define, idents, $5);
   }
   | EXTERN IDENT DOUBLE_COLUMN AtomTypeParam {
@@ -1061,18 +1091,21 @@ Match
     {
       if (car(car(clause)) == "otherwize")
       {
-        const auto makewild = []() { return sym("_"); };
+        const opi::value wild = "_";
+        copy_location(car(car(clause)), wild);
+        const auto makewild = [&]() { return wild; };
         opi::stl::vector<value> newpat;
         std::ranges::generate_n(std::back_inserter(newpat), ncols, makewild);
         const value newclause = cons(list(newpat), cdr(clause));
+        _derloc(newclause, clause);
         newclauses = append(newclauses, list(newclause));
       }
       else
         newclauses = append(newclauses, list(clause));
     }
-    bindloc(newclauses, @4);
+    _derloc(newclauses, $4);
     const value cases = "cases";
-    bindloc(cases, @1);
+    _derloc(cases, $1);
     $$ = list(cases, $2, dot, newclauses);
   }
 ;
@@ -1186,23 +1219,33 @@ TopLvlExpr
 TypeDef
   : TYPE TypeSign '=' ListOfCtorSigns {
     opi::stl::vector<value> tape;
+
     source_location location;
-    location.source = g_source;
-    location.start = @$.left;
-    location.end = @$.right;
+    value loc = "<loc>";
+    _derloc(loc, $1, $4);
+    if (not get_location(loc, location))
+    {
+      warning("failed to access location of type-definition");
+      location = *$1->location;
+    }
+
     generate_variant_type($2, $4, location,
                           g_current_program_parser->m_translator_config,
                           std::back_inserter(tape));
     $$ = list(tape);
-    bindloc($$, @$);
+    _derloc($$, $1, $4);
   }
   | TYPE TypeSign '=' '{' ListOfFields '}' {
     opi::stl::vector<value> tape;
     
     opi::source_location location;
-    location.source = g_source;
-    location.start = @$.left;
-    location.end = @$.right;
+    value loc = "<loc>";
+    _derloc(loc, $1, $6);
+    if (not get_location(loc, location))
+    {
+      warning("failed to access location of type-definition");
+      location = *$1->location;
+    }
 
     const auto _car = [](value x) { return car(x); };
     const auto _cadr = [](value x) { return car(cdr(x)); };
@@ -1223,7 +1266,7 @@ TypeDef
                               g_current_program_parser->m_translator_config,
                               std::back_inserter(tape));
     $$ = list(tape);
-    bindloc($$, @$);
+    _derloc($$, $1, $5);
   }
   | TYPE TypeSign '=' TypeParam {
     const value T = sym("Osl#alias#typevar");
@@ -1240,16 +1283,17 @@ TypeDef
 
 TypeSign
   : IDENT %prec AFTER_APPLY
-  | IDENT '(' ListOfTypeParams ')' %prec APPLY { $$ = cons($1, $3); bindloc($$, @$); }
+  | IDENT '(' ListOfTypeParams ')' %prec APPLY {
+    _derloc($3, $2, $4);
+    $$ = cons($1, $3);
+  }
   | FN '(' ListOfTypeParams ')' RIGHT_ARROW AtomTypeParam {
-    const value fn = "fn";
-    bindloc(fn, @1);
-    $$ = list(fn, $3, $6);
+    _derloc($3, $2, $4);
+    $$ = list($1, $3, $6);
   }
   | FN '(' ListOfTypeParams ')' RIGHT_ARROW '(' ListOfTypeParams ')' {
-    const value fn = "fn";
-    bindloc(fn, @1);
-    $$ = list(fn, $3, dot, $7);
+    _derloc($3, $2, $4);
+    $$ = list($1, $3, dot, $7);
   }
 ;
 
@@ -1320,7 +1364,7 @@ ExprWithOptTypeParam
 
 
 MatchClauses
-  : '|' MatchClauses_ { $$ = $2; }
+  : '|' MatchClauses_ { $$ = $2; _derloc($$, $1, $2); }
   | MatchClauses_
 ;
 
@@ -1345,7 +1389,7 @@ ExprPattern
   | AtomPattern
   | ExprPattern ':' ExprPattern {
     const value Cons = mangle_type_constructor("Cons");
-    bindloc(Cons, @2);
+    _derloc(Cons, $2);
     $$ = list(Cons, $1, $3);
   }
 ;
@@ -1362,7 +1406,7 @@ AtomPattern
   // Constructor patterns
   | CAPIDENT %prec AFTER_APPLY { $$ = list(mangle_type_constructor($1)); }
   | CAPIDENT '(' ListOfExprPatterns ')' %prec APPLY { $$ = cons(mangle_type_constructor($1), $3); }
-  | '[' ']' { $$ = list("osl#ctor#EmptyList"); bindloc($$, @$); }
+  | '[' ']' { $$ = list("osl#ctor#EmptyList"); _derloc($$, $1, $2); }
 ;
 
 
@@ -1375,8 +1419,9 @@ Bind
   /*: IDENT '=' Expr { $$ = list($1, $3); }*/
   : NonZeroListOfIdents '=' Expr { $$ = list($1, $3); }
   | IDENT '(' ListOfExprs ')' '=' Expr {
+    _derloc($3, $2, $4);
     const value lambda = "lambda";
-    bindloc(lambda, @$);
+    _derloc(lambda, $1, $6);
     value lambdaexpr;
     if (ispair($6) and car($6) == "begin")
     {
@@ -1415,16 +1460,6 @@ yyset_in(FILE *in, yyscan_t scanner);
 extern void
 yylex_destroy(yyscan_t scanner);
 
-
-static void
-bindloc(opi::value val, const range_location &loc)
-{
-  opi::source_location location;
-  location.source = g_source;
-  location.start = loc.left;
-  location.end = loc.right;
-  opi::set_location(val, location);
-}
 
 opi::source_location
 opi::osl::make_location(const range_location &loc)

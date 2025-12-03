@@ -143,6 +143,7 @@ opi::display_location(const opi::source_location &location,
   // Read the entire file content
   std::string content {std::istreambuf_iterator<char>(file),
                        std::istreambuf_iterator<char>()};
+  content += "\n"; // artificial last line
   file.close();
 
   // Find line and column information
@@ -154,7 +155,6 @@ opi::display_location(const opi::source_location &location,
     if (content[i] == '\n')
       line_offsets.push_back(i + 1);
   }
-  // line_offsets.push_back(content.size()); // artificial last line
 
   // Find the line containing the start position
   size_t start_line;
@@ -167,7 +167,8 @@ opi::display_location(const opi::source_location &location,
     }
   }
   if (start_line >= line_offsets.size())
-    return std::format("<invalid location in {}>", location.source);
+    return std::format("<invalid location in {}:{}:{}>", location.source,
+                       location.start, location.end);
 
   // Find the line containing the end position
   size_t end_line;
@@ -180,7 +181,8 @@ opi::display_location(const opi::source_location &location,
     }
   }
   if (end_line >= line_offsets.size())
-    return std::format("<invalid location in {}>", location.source);
+    return std::format("<invalid location in {}:{}:{}>", location.source,
+                       location.start, location.end);
 
   // Expand line range with context lines
   const size_t display_start =

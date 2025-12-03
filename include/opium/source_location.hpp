@@ -22,6 +22,7 @@
 #include "opium/value.hpp"
 #include "opium/stl/string.hpp"
 
+#include <limits>
 #include <string>
 #include <string_view>
 
@@ -43,7 +44,11 @@ namespace opi {
  * \ingroup lisp
  */
 struct source_location {
-  source_location() = default;
+  source_location()
+  : source {"<undefined>"},
+    start {std::numeric_limits<size_t>::max()},
+    end {std::numeric_limits<size_t>::max()}
+  { }
 
   source_location(const source_location &other) = default;
 
@@ -69,8 +74,13 @@ struct source_location {
   { return source == other.source and start == other.start and end == other.end; }
 
   source_location
-  operator + (const source_location &rhs) const noexcept
-  { return {source, std::min(start, rhs.start), std::max(end, rhs.end)}; }
+  operator + (const source_location &rhs) const
+  {
+    if (source == rhs.source)
+      return {source, std::min(start, rhs.start), std::max(end, rhs.end)};
+    else
+      throw std::logic_error {"Combining locations from different sources"};
+  }
 
   bool
   contains(const source_location &other) const noexcept

@@ -40,36 +40,14 @@ opi::cons(value car, value cdr)
   if (hascarlocation and hascdrlocation)
   {
     if (carlocation.source == cdrlocation.source)
-    {
-      source_location location;
-      location.source = carlocation.source;
-      location.start = std::min(carlocation.start, cdrlocation.start);
-      location.end = std::max(carlocation.end, cdrlocation.end);
-      if (location.start > location.end)
-        std::swap(location.start, location.end);
-      set_location(result, location);
-    }
+      set_location(result, carlocation + cdrlocation);
+    else
+      set_location(result, carlocation);
   }
   else if (hascarlocation)
-  {
-    source_location location;
-    location.source = carlocation.source;
-    location.start = carlocation.start;
-    location.end = carlocation.end;
-    if (location.start > location.end)
-      std::swap(location.start, location.end);
-    set_location(result, location);
-  }
-  // else if (hascdrlocation)
-  // {
-  //   source_location location;
-  //   location.source = cdrlocation.source;
-  //   location.start = cdrlocation.start;
-  //   location.end = cdrlocation.end;
-  //   if (location.start > location.end)
-  //     std::swap(location.start, location.end);
-  //   set_location(result, location);
-  // }
+    set_location(result, carlocation);
+  else if (hascdrlocation)
+    set_location(result, cdrlocation);
 
   return result;
 }

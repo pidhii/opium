@@ -58,7 +58,7 @@ std::optional<int> start_token;
 
 <*>"\\"\n
 
-require return REQUIRE;
+require { yylval = "require"; return REQUIRE; }
 
 
 ^"```".*$ {
@@ -100,24 +100,24 @@ scm[[:space:]]*"{"[^}]*"}" {
   return INLINE_SCHEME;
 }
 
-foreign return FOREIGN;
+foreign { yylval = "foreign"; return FOREIGN; }
 
-assert return ASSERT;
+assert { yylval = "assert"; return ASSERT; }
 
-macro return MACRO;
+macro { yylval = "macro"; return MACRO; }
 
-match return MATCH;
-in    return IN;
+match { yylval = "match"; return MATCH; }
+in    { yylval = "in"; return IN; }
 
-if return IF;
-then return THEN;
-else return ELSE;
+if { yylval = "if"; return IF; }
+then { yylval = "then"; return THEN; }
+else { yylval = "else"; return ELSE; }
 
-otherwize return OTHERWIZE;
+otherwize { yylval = "otherwize"; return OTHERWIZE; }
 
-and return AND;
-or return OR;
-not return NOT;
+and { yylval = "and"; return AND; }
+or { yylval = "or"; return OR; }
+not { yylval = "not"; return NOT; }
 
 let { yylval = "let"; return LET; }
 letrec { yylval = "letrec"; return LETREC; }
@@ -125,12 +125,12 @@ where { yylval = "where"; return WHERE; }
 
 set { yylval = "set"; return SET; }
 
-type return TYPE;
+type { yylval = "type"; return TYPE; }
 
 fn { yylval = "fn"; return FN; }
 
-extern return EXTERN;
-as return AS;
+extern { yylval = "extern"; return EXTERN; }
+as { yylval = "as"; return AS; }
 
 identifier"!("[^)]+")" {
   // Read whatever is between the parenthes
@@ -160,6 +160,7 @@ identifier"!("[^)]+")" {
 
 \" {
   BEGIN(STRING);
+  yylval = sym("\"");
   return BEGIN_STRING;
 }
 <STRING>[^\\"]+ {
@@ -182,6 +183,7 @@ identifier"!("[^)]+")" {
     case 'v': yylval = str("\v"); break;
     case 'e': yylval = str("\e"); break;
   }
+  yylval = str(yytext);
   return STRING_CHUNK;
 }
 <STRING>\\. {
@@ -190,11 +192,13 @@ identifier"!("[^)]+")" {
 }
 <STRING>\" {
   BEGIN(INITIAL);
+  yylval = sym("\"");
   return END_STRING;
 }
 
 r\" {
   BEGIN(RAWSTRING);
+  yylval = sym("\"");
   return BEGIN_STRING;
 }
 <RAWSTRING>[^"]+ {
@@ -203,6 +207,7 @@ r\" {
 }
 <RAWSTRING>\" {
   BEGIN(INITIAL);
+  yylval = sym("\"");
   return END_STRING;
 }
 

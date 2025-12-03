@@ -459,7 +459,8 @@ macro_expander<ParamTypeDict, ParamValDict>::_expand(
       assert(issym(type));
       const value val = m_parameter_vals.at(name);
       source_location location;
-      if (get_location(val, location)) { };
+      if (not (get_location(val, location) or get_location(name, location)))
+        warning("failed to access macro parameter location");
       result.emplace_back(location, val, token_for(sym_name(type)));
       break;
     }
@@ -506,7 +507,10 @@ macro_expander<ParamTypeDict, ParamValDict>::_expand(
         assert(m_parameter_types.at(pname) == "ident");
         const value pval = m_parameter_vals.at(pname);
         const std::string identstr {sym_name(pval)};
-        result.emplace_back(*pval->location, opi::str("s:" + identstr), EXPR);
+        source_location location;
+        if (not (get_location(pval, location) or get_location(pname, location)))
+          warning("failed to access macro parameter location");
+        result.emplace_back(location, opi::str("s:" + identstr), EXPR);
         break;
       }
       else
