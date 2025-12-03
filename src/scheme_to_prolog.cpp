@@ -47,7 +47,7 @@ opi::prolog_emitter::setup_prolog(prolog &pl)
       "(and (fast-coerce InHead OutHead) (fast-coerce-list InTail OutTail))"_lisp);
 
   pl.add_predicate("(fast-coerce In Out)"_lisp,
-                   "(if (= In Out) #t (coerce In Out))"_lisp);
+                   "(if (= In Out) #t (distinct (coerce In Out)))"_lisp);
 
   // Type-check rule for dynamic function specialization
   pl.add_predicate(
@@ -145,7 +145,6 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
         if (ispair(pattern))
         { // Generate patter matching via match-on predicate
           const value constructor = car(pattern);
-          // assert(issym(constructor)); // NOTE constructor does not have to be a symbol
           const value arguments = cdr(pattern);
           value plarguments = nil;
           for (const value ident : range(arguments))

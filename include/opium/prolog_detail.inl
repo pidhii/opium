@@ -34,7 +34,7 @@ snapshot(value s, stl::unordered_map<const object *, value> &argmem,
   {
     if (is(car(s), cell_tag))
     {
-      cell *repr = find(static_cast<cell*>(ptr_val(cdr(s))));
+      cell *repr = find(ptr_val<cell*>(cdr(s)));
       value val;
       if (get_value(repr, val))
         return argmem[&*s] = snapshot<Mode>(val, argmem, cellmem);
@@ -89,7 +89,7 @@ remove_bodies(value s, stl::unordered_map<const object *, value> &argmem)
   {
     if (is(car(s), cell_tag))
     {
-      cell *repr = find(static_cast<cell*>(ptr_val(cdr(s))));
+      cell *repr = find(ptr_val<cell*>(cdr(s)));
       value val;
       if (get_value(repr, val))
         return argmem[&*s] = remove_bodies(val, argmem);
@@ -115,7 +115,7 @@ remove_bodies(value s, stl::unordered_map<const object *, value> &argmem)
     return argmem[&*s] = s;
 }
 
-static value
+inline value
 remove_bodies(value s)
 {
   OPI_FUNCTION_BENCHMARK
@@ -124,12 +124,13 @@ remove_bodies(value s)
 }
 
 
-
+template <snapshot_mode Mode = snapshot_mode::keep_body>
 struct effects_memoization {
   bool
   same_effect(value effect) const noexcept
   {
-    effect = remove_bodies(effect);
+    if constexpr (Mode == remove_body)
+      effect = remove_bodies(effect);
     for (value memeffect : range(m_effects_memory))
     {
       if (equivalent(effect, memeffect))
@@ -141,7 +142,7 @@ struct effects_memoization {
   void
   save_effect(value effect) noexcept
   {
-    const value effectsave = snapshot<detail::remove_body>(effect);
+    const value effectsave = snapshot<Mode>(effect);
     m_effects_memory = cons(effectsave, m_effects_memory);
   }
 

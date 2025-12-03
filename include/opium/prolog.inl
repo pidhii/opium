@@ -292,31 +292,34 @@ prolog::_make_true(const call_frame &frame, value e, Cont cont,
           cont();
         return;
       }
+      else if (ISSYM(car(e), "distinct"))
+      {
+        // This is a "green" cut as it does not remove possible solutions, but
+        // only prevents arriving to the identical solutions multiple times.
+        //
+        // NOTE:
+        //   Body-less snapshots are used for the purpose of optimization.
+        //   However, this approach may, in principle, be wrong in some cases.
+        const value goal = car(cdr(e));
+        detail::effects_memoization<detail::snapshot_mode::remove_body> effectmem;
+        const std::function contwcut = [&]() {
+          if (not effectmem.same_effect(goal)) // cut on same predicate effects
+          {
+            effectmem.save_effect(goal);
+            cont();
+          }
+        };
+        _make_true(frame, goal, contwcut, guide);
+        return;
+      }
       else if (issym(car(e)))
       {
         const std::string predname = sym_name(car(e)).data();
         const value eargs = cdr(e);
-
-        // Wrap continuation to cut predicate-branches that lead to the same
-        // effects.
-        //
-        // NOTE:
-        //   This cut is a "green" cut: it does not remove possible
-        //   solutions, but only prevents arriving to the identical solutions
-        //   multiple times.
-        detail::effects_memoization effectmem;
-        const std::function contwcut = [&]() {
-          if (not effectmem.same_effect(eargs)) // cut on same predicate effects
-          {
-            effectmem.save_effect(eargs);
-            cont();
-          }
-        };
-
         for (const predicate &p : predicate_branches(predname))
         {
           bool cut = false;
-          _make_predicate_true(frame, cut, p, eargs, contwcut, guide);
+          _make_predicate_true(frame, cut, p, eargs, cont, guide);
           if (frame.cut or cut)
             break;
         }
