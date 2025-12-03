@@ -125,10 +125,29 @@ extern identity as coerce :: coerce
   ;;
   ;; (coerce T (not U))
   ;;
-  ;;       ¬(T ≤ U)
+  ;;     ¬(T ≤ U), ¬(U ≤ T)  (<=> T and U unrelated)
   ;;;;
   (predicate (coerce T (not U))
-    (not (fast-coerce T U)))
+    (not (fast-coerce T U))
+    (not (fast-coerce U T)))
+
+
+  ;;;;
+  ;;
+  ;; (coerce (T (= U)))
+  ;;
+  ;;     T ≤ U, U ≤ T  (<=> T = U in a sense of order)
+  (predicate (coerce T (= U))
+    (if (= T U) #t
+        (and
+          (fast-coerce T U)
+          (fast-coerce U T))))
+
+  (predicate (coerce (= T) U)
+    (if (= T U) #t
+        (and
+          (fast-coerce T U)
+          (fast-coerce U T))))
 }
 
 // Return expression (Bison misunderstands my intentions)

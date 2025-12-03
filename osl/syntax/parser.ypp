@@ -1285,6 +1285,7 @@ AtomTypeParam
 TypeParam
   : EXTYPE
   | AtomTypeParam
+  | '=' TypeParam { $$ = list($1, $2); }
   | TypeParam OR TypeParam { $$ = list("or", $1, $3); }
   | TypeParam AND TypeParam { $$ = list("and", $1, $3); }
 ;
