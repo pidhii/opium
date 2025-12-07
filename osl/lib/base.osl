@@ -131,6 +131,9 @@ extern identity as coerce :: coerce
     (not (fast-coerce T U))
     (not (fast-coerce U T)))
 
+  (predicate (coerce (not T) (not U))
+    (fast-coerce T U)
+    (fast-coerce U T))
 
   ;;;;
   ;;
@@ -247,7 +250,7 @@ extern cons as (:) (T, list(T)) -> list(T)
 //                              call/cc
 //
 extern identifier!(call-with-current-continuation) as callcc(fn(fn(T) -> U) -> T) -> T
-extern identifier!(call-with-current-continuation) as __callcc(fn(fn(T) -> _) -> _) -> T
+extern identifier!(call-with-current-continuation) as __callcc(fn(fn(T) -> _) -> T) -> T
 
 
 ////////////////////////////////////////////////////////////////////////////////

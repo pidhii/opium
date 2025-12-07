@@ -167,7 +167,7 @@ identifier"!("[^)]+")" {
   yylval = str(yytext);
   return STRING_CHUNK;
 }
-<STRING>\\['\"\\\nabfnrtve] {
+<STRING>\\['\"\\nabfnrtve] {
   switch (yytext[1])
   {
     case '\'': yylval = str("'"); break;
@@ -183,7 +183,6 @@ identifier"!("[^)]+")" {
     case 'v': yylval = str("\v"); break;
     case 'e': yylval = str("\e"); break;
   }
-  yylval = str(yytext);
   return STRING_CHUNK;
 }
 <STRING>\\. {

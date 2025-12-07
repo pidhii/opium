@@ -42,7 +42,7 @@ let j = open("test.json", "r").readjson() in {
 assert { 42 :: json }
 assert { array([1::json, "42"::json, 3::json]) :: json }
 let s = "whatever" :: (num or str) in
-assert { s :: json }
+{ assert { s :: json } }
 
 
 println("testing regex")
@@ -87,7 +87,7 @@ println("test division: ", 4 / 2 / 2)
 let x = 1 in
 println("test unary: ", -x < 0)
 
-type one = One | Two
+type one = One
 tup = pack(1, "one", One)
 println("tup: ", tup)
 let t1, t2, t3 = unpack(tup) in

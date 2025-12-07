@@ -917,14 +917,6 @@ Expr
     else
       $$ = list("letrec", list(letbinds), $1);
   }
-  | ASSERT '{' SeqOfStmts '}' {
-    $$ = list("if", False, cons("begin", $3));
-  }
-  | ASSERT NOT '{' SeqOfStmts '}' {
-    const value lambda = list("lambda", nil, dot, $4);
-    const value assertion = list("assert_thunk", lambda);
-    $$ = list("annotate-type", assertion, "assertion_failure");
-  }
 ;
 
 Stmt
@@ -962,6 +954,23 @@ Stmt
       {
         $$ = list(define, fixed_signature, $3);
       }
+    }
+  }
+  | Expr RIGHT_ARROW ListOfTypeParams '=' Expr {
+    assert(ispair($1));
+    const value define = "define-overload";
+    const value identwithret = cons(car($1), $3);
+    const value fixed_signature =
+      cons(identwithret, fix_type_annotations_in_arguments(cdr($1)));
+    _derloc(define, $4);
+    if (opi::ispair($5) and car($5) == "begin")
+    {
+      const value body = make_body_with_return(cdr($5));
+      $$ = list(define, fixed_signature, dot, body);
+    }
+    else
+    {
+      $$ = list(define, fixed_signature, $5);
     }
   }
   | Expr ',' ListOfExprs '=' Expr {
@@ -1068,6 +1077,14 @@ Stmt
           list("fn", osltypes, oslrettype)),
         dot, argnames);
     $$ = list("define-overload", cons($3, oslargs), foreign_call);
+  }
+  | ASSERT '{' SeqOfStmts '}' {
+    $$ = list("if", False, cons("begin", $3));
+  }
+  | ASSERT NOT '{' SeqOfStmts '}' {
+    const value lambda = list("lambda", nil, dot, $4);
+    const value assertion = list("assert_thunk", lambda);
+    $$ = list("annotate-type", assertion, "assertion_failure");
   }
 ;
 
@@ -1268,7 +1285,7 @@ TypeDef
     $$ = list(tape);
     _derloc($$, $1, $5);
   }
-  | TYPE TypeSign '=' TypeParam {
+  | TYPE TypeSign '=' TypeDefTypeParam {
     const value T = sym("Osl#alias#typevar");
     const value coercefrom = 
       list("predicate", list("coerce", $2, T),
@@ -1297,7 +1314,7 @@ TypeSign
   }
 ;
 
-ListOfCtorSigns: CtorSign '|' ListOfCtorSigns_ { $$ = cons($1, $3); };
+ListOfCtorSigns: ListOfCtorSigns_
 
 ListOfCtorSigns_
   : CtorSign { $$ = list($1); }
@@ -1322,17 +1339,29 @@ AtomTypeParam
   | '_'
   | TypeSign
   | AtomTypeParam '?' { $$ = list($2, $1); }
-  | NOT AtomTypeParam { $$ = list("not", $2); }
+  | NOT AtomTypeParam { $$ = list($1, $2); }
+  | '=' AtomTypeParam { $$ = list($1, $2); }
   | '(' TypeParam ')' { $$ = $2; }
 ;
 
 TypeParam
   : EXTYPE
   | AtomTypeParam
-  | '=' TypeParam { $$ = list($1, $2); }
   | TypeParam OR TypeParam { $$ = list("or", $1, $3); }
   | TypeParam AND TypeParam { $$ = list("and", $1, $3); }
 ;
+
+TypeDefTypeParam
+  : ATTYPE
+  | EXTYPE
+  | TypeSign
+  | AtomTypeParam '?' { $$ = list($2, $1); }
+  | NOT AtomTypeParam { $$ = list($1, $2); }
+  | '=' AtomTypeParam { $$ = list($1, $2); }
+  | TypeParam OR TypeParam { $$ = list($2, $1, $3); }
+  | TypeParam AND TypeParam { $$ = list($2, $1, $3); }
+;
+
 
 ListOfFields
   : { $$ = nil; }

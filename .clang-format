@@ -24,3 +24,5 @@ IndentCaseLabels: true
 
 ConstructorInitializerIndentWidth: 0
 PackConstructorInitializers: NextLine
+
+MaxEmptyLinesToKeep: 99999999
