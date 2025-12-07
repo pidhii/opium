@@ -33,6 +33,24 @@
 using namespace std::placeholders;
 
 
+opi::value
+opi::prolog_emitter::default_literal_type_coder(value literal)
+{
+  switch (tag(literal))
+  {
+    case tag::num:
+      return "num";
+    case tag::str:
+      return "str";
+    case tag::boolean:
+      return "bool";
+    default:
+      throw bad_code {"default_literal_type_coder - unsupported literal",
+                      literal};
+  }
+}
+
+
 void
 opi::prolog_emitter::setup_prolog(prolog &pl)
 {
@@ -59,35 +77,32 @@ opi::prolog_emitter::setup_prolog(prolog &pl)
 }
 
 
-opi::prolog_emitter::prolog_emitter(size_t &counter,
-                                        const type_coder &typecoder,
-                                        code_type_map &code_types)
+opi::prolog_emitter::prolog_emitter()
 : m_targets {"_"},
   m_alist {nil},
   m_global_alist {nil},
-  m_typecoder {typecoder},
-  m_ctm {code_types},
-  m_typevargen {counter, "Opi#typevar{}"},
-  m_termgen {counter, "opi#term{}"}
+  m_typecoder {default_literal_type_coder},
+  m_typevargen {m_counter, "Opi#typevar{}"},
+  m_termgen {m_counter, "opi#term{}"}
 {
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                            inline-prolog
   const match inlplmatch {list("pragma", "inline-prolog"),
                           list("pragma", "inline-prolog", dot, "statements")};
-  append_rule(inlplmatch, [](const auto &ms) {
+  m_T.append_rule(inlplmatch, [](const auto &ms) {
     return cons("and", ms.at("statements"));
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                            other pragmas (omit)
   const match pragmatch {list("pragma"), list("pragma", dot, "_")};
-  append_rule(pragmatch, [](const auto &) { return True; });
+  m_T.append_rule(pragmatch, [](const auto &) { return True; });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                             annotate-type
   const match asstypematch {list("annotate-type"),
                             list("annotate-type", "expr", dot, "types")};
-  append_rule(asstypematch, [this](const auto &ms) {
+  m_T.append_rule(asstypematch, [this](const auto &ms) {
     const value expr = ms.at("expr");
     const value types = ms.at("types");
 
@@ -97,7 +112,7 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
       utl::state_saver _ {m_targets};
       m_targets = exprtgts;
       // m_targets = types;
-      (*this)(expr);
+      m_T(expr);
     });
 
     const value coercion = list("coerce-list", exprtgts, types);
@@ -109,7 +124,7 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
   //                                 cases
   const match casesmatch {
       list("cases"), list("cases", "idents", cons("patterns", "branch"), "...")};
-  append_rule(casesmatch, [this](const auto &ms) {
+  m_T.append_rule(casesmatch, [this](const auto &ms) {
     const value idents = ms.at("idents");
     const value patterns = ms.contains("patterns") ? ms.at("patterns") : nil;
     const value branches = ms.contains("branch") ? ms.at("branch") : nil;
@@ -164,7 +179,7 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
       }
 
       m_targets = origtargets;
-      const value plbranch = transform_block(branch);
+      const value plbranch = _transform_block(branch);
 
       // Add all matches and the branch to plcases
       plcases = append(plcases, plmatches);
@@ -181,7 +196,7 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 if
   const match ifmatch {list("if"), list("if", "cond", "then", "else")};
-  append_rule(ifmatch, [this](const auto &ms) {
+  m_T.append_rule(ifmatch, [this](const auto &ms) {
     const value cond = ms.at("cond");
     const value thenbr = ms.at("then");
     const value elsebr = ms.at("else");
@@ -190,7 +205,7 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
     const value newcond = ({
       utl::state_saver _ {m_targets};
       m_targets = list("bool", dot, "_");
-      (*this)(cond);
+      m_T(cond);
     });
 
     const value thentgts = m_typevargen();
@@ -198,8 +213,8 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
 
     if (m_targets == "_")
     {
-      const value newthen = (*this)(thenbr);
-      const value newelse = (*this)(elsebr);
+      const value newthen = m_T(thenbr);
+      const value newelse = m_T(elsebr);
       return list("and", newcond, newthen, newelse);
     }
     else
@@ -207,13 +222,13 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
       const value newthen = ({
         utl::state_saver _ {m_targets};
         m_targets = thentgts;
-        (*this)(thenbr);
+        m_T(thenbr);
       });
 
       const value newelse = ({
         utl::state_saver _ {m_targets};
         m_targets = elsetgts;
-        (*this)(elsebr);
+        m_T(elsebr);
       });
 
       const value coercebranches =
@@ -230,7 +245,7 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 if (no else-branch)
   const match ifnoelsematch {list("if"), list("if", "cond", "then")};
-  append_rule(ifnoelsematch, [this](const auto &ms, value fm) {
+  m_T.append_rule(ifnoelsematch, [this](const auto &ms, value fm) {
     // TODO: remove this '?'-related stuff from here (revert the changes), and
     //       it to a separate plugin
     const value cond = ms.at("cond");
@@ -254,10 +269,10 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
     const value newcond = ({
       utl::state_saver _ {m_targets};
       m_targets = list("bool", dot, "_");
-      (*this)(cond);
+      m_T(cond);
     });
 
-    const value newthen = (*this)(thenbr);
+    const value newthen = m_T(thenbr);
     return list("and", newcond, newthen);
   });
 
@@ -288,11 +303,11 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
       // and accumulate transformed expression in results
       utl::state_saver _ {m_targets};
       m_targets = list(type, dot, "_");
-      result = append(result, list((*this)(expr)));
+      result = append(result, list(m_T(expr)));
     }
 
     // Process body and accumulate in results
-    result = cons(transform_block(ms.at("body")), result);
+    result = cons(_transform_block(ms.at("body")), result);
 
     // Reverse results as we were accumulating from the front
     return cons("and", reverse(result));
@@ -300,10 +315,10 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
 
   // Add rules
   const value letpat = list(list(list("ident", "expr"), "..."), dot, "body");
-  append_rule({list("let"), cons("let", letpat)}, letrule);
-  append_rule({list("let*"), cons("let*", letpat)}, letrule);
-  append_rule({list("letrec"), cons("letrec", letpat)}, letrule);
-  append_rule({list("letrec*"), cons("letrec*", letpat)}, letrule);
+  m_T.append_rule({list("let"), cons("let", letpat)}, letrule);
+  m_T.append_rule({list("let*"), cons("let*", letpat)}, letrule);
+  m_T.append_rule({list("letrec"), cons("letrec", letpat)}, letrule);
+  m_T.append_rule({list("letrec*"), cons("letrec*", letpat)}, letrule);
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                       let-values / let*-values
@@ -335,26 +350,26 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
       // accumulate resulting Prolog expression to the `result`
       utl::state_saver _ {m_targets};
       m_targets = types;
-      result = append(result, list((*this)(expr)));
+      result = append(result, list(m_T(expr)));
     }
 
     // Process body and accumulate in results
-    result = cons(transform_block(ms.at("body")), result);
+    result = cons(_transform_block(ms.at("body")), result);
 
     // Reverse results as we were accumulating from the front
     return cons("and", reverse(result));
   };
 
   // Add rules
-  append_rule({list("let-values"), cons("let-values", letpat)}, letvalsrule);
-  append_rule({list("let*-values"), cons("let*-values", letpat)}, letvalsrule);
+  m_T.append_rule({list("let-values"), cons("let-values", letpat)}, letvalsrule);
+  m_T.append_rule({list("let*-values"), cons("let*-values", letpat)}, letvalsrule);
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                        declare-template-overload
   // NOTE: leaks a-list
   const value ovdeclpat = list("declare-template-overload", "ovident", "ident");
-  append_rule({list("declare-template-overload"), ovdeclpat},
-              [this](const auto &ms, [[maybe_unused]]value fm) {
+  m_T.append_rule({list("declare-template-overload"), ovdeclpat},
+                        [this](const auto &ms, [[maybe_unused]]value fm) {
     const value ovident = ms.at("ovident");
     const value ident = ms.at("ident");
 
@@ -371,7 +386,7 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
   //                        declare-template
   // NOTE: leaks a-list
   const value declpat = list("declare-template", "ident");
-  append_rule({list("declare-template"), declpat}, [this](const auto &ms) {
+  m_T.append_rule({list("declare-template"), declpat}, [this](const auto &ms) {
     const value ident = ms.at("ident");
 
     // Generate types
@@ -387,7 +402,7 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
   //                             declare
   // NOTE: leaks a-list
   const value declonepat = list("declare", "ident");
-  append_rule({list("declare"), declonepat}, [this](const auto &ms) {
+  m_T.append_rule({list("declare"), declonepat}, [this](const auto &ms) {
     const value ident = ms.at("ident");
 
     // Generate types
@@ -402,15 +417,24 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
   //                             template
   // NOTE: leaks a-list
   const value temppat = list("template", cons("ident", "params"), dot, "body");
-  append_rule({list("template"), temppat}, [this](const auto &ms, value fm) {
-    const value ident = ms.at("ident");
+  m_T.append_rule({list("template"), temppat}, [this](const auto &ms, value fm) {
+    value ident = ms.at("ident");
     const value params = ms.at("params");
     const value body = ms.at("body");
 
-    assert(sym_name(ident)[0] != '_' and not isupper(sym_name(ident)[0]) &&
-           "Tempalte identifiers can't look like Prolog variables");
+    value plresults;
+    if (ispair(ident))
+    {
+      // Syntax with explicit return type declaration
+      plresults = cdr(ident);
+      ident = car(ident);
+    }
+    else
+      // No explicit return type declaration
+      plresults = sym("Results");
+
     const value proxyvar = _generate_type_and_copy_location(ident);
-    m_ctm.assign_type(fm, proxyvar);
+    m_ctm->assign_type(fm, proxyvar);
 
     // Will revert a-list from any changes after this point.
     utl::state_saver _ {m_alist, m_targets};
@@ -434,13 +458,11 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
       m_alist = cons(cons(x, xtype), m_alist);
     }
 
-    // (local) Type variable to hold function return type
-    const value plresults = sym("Results");
 
     // Translate the body with apropriate target
     m_targets = plresults;
-    // const value plbody = clean_prolog(transform_block(body)); // FIXME
-    const value plbody = transform_block(body);
+    // const value plbody = clean_prolog(_transform_block(body)); // FIXME
+    const value plbody = _transform_block(body);
 
     // Wrapp it up. Instances of this template can now be created by simple
     // calling `insert-cells` on the structure below
@@ -458,7 +480,7 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               lambda
   const match lambdamatch {list("lambda"), list("lambda", "params", dot, "body")};
-  append_rule(lambdamatch, [this](const auto &ms, value fm) {
+  m_T.append_rule(lambdamatch, [this](const auto &ms, value fm) {
     const value params = ms.at("params");
     const value body = ms.at("body");
 
@@ -485,8 +507,8 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
 
     // Translate the body with apropriate target
     m_targets = plresults;
-    const value plbody = clean_prolog(transform_block(body)); // NOTE: may cause segfault
-    // const value plbody = transform_block(body);
+    const value plbody = clean_prolog(_transform_block(body)); // NOTE: may cause segfault
+    // const value plbody = _transform_block(body);
 
     // Generate unique identifier for this lambda
     const value lambdaname = m_termgen();
@@ -498,8 +520,8 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
     const value instvar = m_typevargen();
 
     // TODO: this is ugly
-    m_ctm.assign_type(fm, proxyvar);
-    m_ctm.assign_type(car(fm), instvar); // FIXME
+    m_ctm->assign_type(fm, proxyvar);
+    m_ctm->assign_type(car(fm), instvar); // FIXME
 
     return list("and", list("=", proxyvar, functemplate),
                        list("insert-cells", proxyvar, instvar),
@@ -510,7 +532,7 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
   //                               define
   // NOTE: leaks a-list
   const value defpat = list("define", "ident", dot, "body");
-  append_rule({list("define"), defpat}, [this](const auto &ms) {
+  m_T.append_rule({list("define"), defpat}, [this](const auto &ms) {
     const value ident = ms.at("ident");
     const value body = ms.at("body");
 
@@ -520,14 +542,14 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
     // Set new type as target for body evaluation
     utl::state_saver _ {m_alist, m_targets};
     m_targets = list(type, dot, "_");
-    return transform_block(body);
+    return _transform_block(body);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                            define-values
   // NOTE: leaks a-list
   const value defvalspat = list("define-values", "idents", dot, "body");
-  append_rule({list("define-values"), defvalspat}, [this](const auto &ms) {
+  m_T.append_rule({list("define-values"), defvalspat}, [this](const auto &ms) {
     const value idents = ms.at("idents");
     const value body = ms.at("body");
 
@@ -542,27 +564,28 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
     // Evaluate `body` with `values_type` as a target
     utl::state_saver _ {m_alist, m_targets};
     m_targets = types;
-    return transform_block(body);
+    return _transform_block(body);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                begin
   const match beginmatch {list("begin"), list("begin", dot, "body")};
-  append_rule(beginmatch, [this](const auto &ms) {
+  m_T.append_rule(beginmatch, [this](const auto &ms) {
     const value body = ms.at("body");
     // Special handling for blocks
-    return transform_block(body);
+    return _transform_block(body);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 and
   const match andmatch {list("and"), list("and", dot, "clauses")};
-  append_rule(andmatch, [this](const auto &ms) {
+  m_T.append_rule(andmatch, [this](const auto &ms) {
     const value clauses = ms.at("clauses");
     // Evaluate all clauses with current target
     // TODO: add some boolean-convertable test
+
     const value newclauses =
-        list(range(clauses) | std::views::transform(std::ref(*this)));
+        list(range(clauses) | std::views::transform(std::ref(m_T)));
     // Wrap all resulting Prolog expressions in an AND
     return cons("and", newclauses);
   });
@@ -571,10 +594,10 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
   //                                 or
   // NOTE: code duplication from and
   const match ormatch {list("or"), list("or", dot, "clauses")};
-  append_rule(ormatch, [this](const auto &ms) {
+  m_T.append_rule(ormatch, [this](const auto &ms) {
     const value clauses = ms.at("clauses");
     const value newclauses =
-        list(range(clauses) | std::views::transform(std::ref(*this)));
+        list(range(clauses) | std::views::transform(std::ref(m_T)));
     return cons("and", newclauses);
   });
 
@@ -582,7 +605,7 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
   //                                set!
   // TODO: set current target to some dedicated "undefined" type
   const match setmatch {list("set!"), list("set!", "ident", "expr")};
-  append_rule(setmatch, [this](const auto &ms, value fm) {
+  m_T.append_rule(setmatch, [this](const auto &ms, value fm) {
     const value ident = ms.at("ident");
     const value expr = ms.at("expr");
 
@@ -602,7 +625,7 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
     // Evaluate `expr`
     const value exprresult = m_typevargen();
     m_targets = list(exprresult, dot, "_");
-    const value plexpr = (*this)(expr);
+    const value plexpr = m_T(expr);
     tape.push_back(plexpr);
 
     // Bind `ident` with result of `expr`
@@ -615,7 +638,7 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                quote
-  append_rule({list("quote"), list("quote", dot, "x")}, [this](const auto &ms) {
+  m_T.append_rule({list("quote"), list("quote", dot, "x")}, [this](const auto &ms) {
     opi::stl::vector<value> code;
 
     const value resexpr =
@@ -636,23 +659,15 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                form
-  append_rule({nil, list("f", dot, "xs")}, [this](const auto &ms, value fm) {
+  m_T.append_rule({nil, list("f", dot, "xs")}, [this](const auto &ms, value fm) {
     const value f = ms.at("f");
     const value xs = ms.at("xs");
 
     opi::stl::vector<value> code;
-  // #define ARGUMENT_COERSIONS
-  #ifdef ARGUMENT_COERSIONS
-    // const auto cxs = std::views::transform(range(xs), [](const auto &x) {
-    //   return x;
-    // });
-    // const value form = list(range(cons(f, xs)) | std::views::transform(totype));
-  #else
     const auto totype = [&](value atom) {
       return _to_type(atom, true, std::back_inserter(code));
     };
     const value form = list(range(cons(f, xs)) | std::views::transform(totype));
-  #endif
     const value plform = list("result-of", form, dot, m_targets);
     code.push_back(plform);
     copy_location(fm, plform);
@@ -666,7 +681,7 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                atom
-  append_rule({nil, "x"}, [this](const auto &ms) {
+  m_T.append_rule({nil, "x"}, [this](const auto &ms) {
     const value x = ms.at("x");
 
     opi::stl::vector<value> code;
@@ -679,15 +694,11 @@ opi::prolog_emitter::prolog_emitter(size_t &counter,
     else
       return cons("and", list(code));
   });
-
-  // Load external plugins
-  flip_page();
-
 }
 
 
 opi::value
-opi::prolog_emitter::transform_block(value block)
+opi::prolog_emitter::_transform_block(value block)
 {
   if (length(block) == 0)
     return nil;
@@ -701,11 +712,11 @@ opi::prolog_emitter::transform_block(value block)
   rest = ({
     utl::state_saver _ {m_targets};
     m_targets = "_";
-    list(range(rest) | std::views::transform(std::ref(*this)));
+    list(range(rest) | std::views::transform(std::ref(m_T)));
   });
 
   // Evaluate `last` with the actual (current) target
-  last = (*this)(last);
+  last = m_T(last);
 
   // Dont forget to reverse the results and wrap them in AND
   const value result = cons("and", append(rest, list(last)));
@@ -748,7 +759,7 @@ opi::prolog_emitter::_generate_type_and_copy_location(value ident)
 {
   const value type = sym(_type_name_for(ident));
   copy_location(ident, type);
-  m_ctm.assign_type(ident, type);
+  m_ctm->assign_type(ident, type);
   return type;
 }
 
@@ -856,18 +867,18 @@ opi::prolog_emitter::_require_symbol(value ident, CodeOutput out, bool lvalue)
   {
     case 0:
       // throw bad_code {std::format("No such symbol, {}", ident), ident};
-      m_ctm.assign_type(ident, ident);
+      m_ctm->assign_type(ident, ident);
       return ident;
 
     case 1:
-      m_ctm.assign_type(ident, variants[0].type);
+      m_ctm->assign_type(ident, variants[0].type);
       std::ranges::copy(range(variants[0].code), out);
       return variants[0].type;
 
     default: {
       // Crate or-expression running over the variants
       const value tmpvar = m_typevargen();
-      m_ctm.assign_type(ident, tmpvar);
+      m_ctm->assign_type(ident, tmpvar);
       copy_location(ident, tmpvar);
 
       value clauses = nil;
@@ -911,6 +922,6 @@ opi::prolog_emitter::_to_type(value atom, bool resolve_symbols, CodeOutput out)
 
   result = m_typecoder(atom);
   copy_location(atom, result);
-  m_ctm.assign_type(atom, result);
+  m_ctm->assign_type(atom, result);
   return result;
 }

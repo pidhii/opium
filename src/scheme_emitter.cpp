@@ -25,6 +25,41 @@
 #include "opium/value.hpp"
 
 
+template <typename TypeIter>
+static void
+_dump_type_ambiguity_info(opi::value x, opi::value xtypelabel, TypeIter begin,
+                          TypeIter end, std::ostream &os)
+{
+  opi::source_location location;
+  const size_t ntypes = std::distance(begin, end);
+
+  if (get_location(x, location))
+    os << "Ambiguous type: "
+       << display_location(location, 2, "\e[38;5;9m", "\e[2m");
+  else
+    os << std::format("Ambiguous type {} for {} ({} options):\n", xtypelabel, x,
+                      ntypes);
+  for (size_t iopt = 1;
+       const opi::value variant : std::ranges::subrange(begin, end))
+  {
+    if (get_location(variant, location))
+      os << "option " << iopt << ": "
+         << display_location(location, 1, "\e[38;5;4;1m", "\e[2m");
+    else if (ispair(variant) and
+             car(variant) == "#dynamic-function-dispatch" and
+             get_location(car(cdr(variant)), location))
+    {
+      os << "option " << iopt << ": "
+         << display_location(location, 1, "\e[38;5;4;1m", "\e[2m");
+      os << std::format("type: {:c#5}\n", variant);
+    }
+    else
+      os << "option " << iopt << ": " << variant << "\n";
+    iopt += 1;
+  }
+}
+
+
 opi::value
 opi::scheme_emitter::_unfold_types(opi::value x) const
 {
@@ -185,23 +220,24 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
     const value body = ms.at("body");
 
     // FIXME (ugly)
+    const value fixedident = issym(identifier) ? identifier : car(identifier);
     value fixedparams = nil;
     for (const value param : range(params))
       fixedparams = append(fixedparams, list(issym(param) ? param : car(param)));
     const value cleandef =
-        list("template", cons(identifier, fixedparams), dot, body);
+        list("template", cons(fixedident, fixedparams), dot, body);
 
     // Register this identifier as a reference to a function template 
     // NOTE: concrete overload referenced by the identifier is subject to be
     // be determined by the TypeCheck; this registration needed just to remember
     // to substitute this particular identifier with another identifier refering
     // to an apropriate specialization
-    m_ctx.register_identifier_for_function_template(identifier);
+    m_ctx.register_identifier_for_function_template(fixedident);
 
     // Register all the pieces of information need for generation of function
     // template specializations in future
     const value typetemplate = _find_code_type(fm);
-    m_ctx.register_template(identifier, {cleandef, typetemplate, m_ctx});
+    m_ctx.register_template(fixedident, {cleandef, typetemplate, m_ctx});
 
     return m_dont_emit_symbol;
   };
@@ -297,36 +333,14 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
     const auto it = m_type_bindings.find(type);
     if (it != m_type_bindings.end())
     {
-      const auto &possibilities = it->second;
-      if (possibilities.size() != 1)
+      const auto &opts = it->second;
+      if (opts.size() != 1)
       {
-        source_location location;
         std::ostringstream buf;
-        if (get_location(x, location))
-          buf << "Ambiguous type: "
-              << display_location(location, 2, "\e[38;5;9m", "\e[2m");
-        else
-          buf << std::format("Ambiguous type {} for {} ({} options):\n", type, x, possibilities.size());
-        for (size_t iopt = 1; const value variant : possibilities)
-        {
-          if (get_location(variant, location))
-            buf << "option " << iopt << ": "
-                << display_location(location, 1, "\e[38;5;4;1m", "\e[2m");
-          else if (ispair(variant) and
-                   car(variant) == "#dynamic-function-dispatch" and
-                   get_location(car(cdr(variant)), location))
-          {
-            buf << "option " << iopt << ": "
-                << display_location(location, 1, "\e[38;5;4;1m", "\e[2m");
-            buf << std::format("type: {:c#5}\n", variant);
-          }
-          else
-            buf << "option " << iopt << ": " << variant << "\n";
-          iopt += 1;
-        }
+        _dump_type_ambiguity_info(x, type, opts.begin(), opts.end(), buf);
         throw ambiguous_type_error {buf.str()};
       }
-      type = *possibilities.begin();
+      type = *opts.begin();
     }
 
     // Instantiate function template

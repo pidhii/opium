@@ -157,6 +157,13 @@ using prolog_guide_function = std::function<bool(value, const trace_node *)>;
 static_assert(prolog_guide<prolog_guide_function>);
 
 
+value
+snapshot(value stateview);
+
+
+void
+apply_snapshot(predicate_runtime &prt, value stateview, value snapshot);
+
 
 /**
  * Prolog evaluator

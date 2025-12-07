@@ -94,7 +94,7 @@ tracedump(const opi::prolog &pl, size_t tracelen,
 
   const size_t tstart = trace.size() < tracelen ? 0 : trace.size() - tracelen;
   for (size_t t = tstart; t < trace.size(); ++t)
-    opi::error("[{:3}] {}", t, display_location(trace[t], 1, "\e[1m", "\e[2m"));
+    opi::error("\e[48;5;9;38;5;16;1m[trace{:3}]\e[0m {}", t, display_location(trace[t], 1, "\e[1m", "\e[2m"));
 }
 
 

@@ -159,31 +159,33 @@ struct code_type_map {
 };
 
 
-class prolog_emitter: public code_transformer {
+class prolog_emitter {
   public:
-  using type_coder = std::function<value(value)>;
+  using literal_type_coder = std::function<value(value)>;
 
-  struct unknown_identifier: public code_transformation_error {
-    using code_transformation_error::code_transformation_error;
-  }; // struct opi::prolog_emitter::unknown_identifier
-
-  struct duplicate_code_objects: public code_transformation_error {
-    using code_transformation_error::code_transformation_error;
-  }; // struct opi::prolog_emitter::duplicate_code_objects
-
-  prolog_emitter(size_t &counter, const type_coder &typecoder,
-                   code_type_map &code_types);
+  static value
+  default_literal_type_coder(value literal);
 
   static void
   setup_prolog(prolog &pl);
+
+  prolog_emitter();
+
+  void
+  set_literal_type_coder(const literal_type_coder &type_coder)
+  { m_typecoder = type_coder;}
 
   void
   add_global(value ident, value type);
 
   value
-  transform_block(value block);
+  transform_block(value block, code_type_map &ctm)
+  { m_ctm = &ctm; return _transform_block(block); }
 
   protected:
+  value
+  _transform_block(value block);
+
   template <std::output_iterator<value> CodeOutput>
   value
   _to_type(value atom, bool resolve_symbols, CodeOutput code_output);
@@ -202,13 +204,15 @@ class prolog_emitter: public code_transformer {
   _require_symbol(value ident, CodeOutput code_output, bool lvalue = false);
 
   private:
+  size_t m_counter;
   value m_targets;
   value m_alist;
   value m_global_alist;
-  type_coder m_typecoder;
-  code_type_map &m_ctm;
+  literal_type_coder m_typecoder;
+  code_type_map *m_ctm;
   symbol_generator m_typevargen;
   symbol_generator m_termgen;
+  code_transformer m_T;
 }; // class opi::prolog_emitter
 
 

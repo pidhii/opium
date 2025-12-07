@@ -194,7 +194,7 @@ prolog::_make_true(const call_frame &frame, value e, Cont cont,
         {
           predicate_runtime prt;
           if (not match_arguments(prt, cdr(e), snapshot))
-            throw bad_code {"(unique ...) - failed to match on snapshot", e};
+            throw std::logic_error {"(unique ...) - failed to match on snapshot"};
           cont();
         }
         else if (cnt > 1)

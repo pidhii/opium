@@ -224,7 +224,7 @@ opi::osl::program_parser::program_parser(program_sources &target,
 : m_target {target},
   m_translator_config {translator_config}
 {
-  m_translator_config.type_coder = _literal_type_coder;
+  m_translator_config.typer.set_literal_type_coder(_literal_type_coder);
   m_translator_config.literal_coder = _literal_value_coder;
 }
 

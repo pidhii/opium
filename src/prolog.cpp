@@ -18,6 +18,8 @@
 
 
 #include "opium/prolog.hpp"
+#include "opium/predicate_runtime.hpp"
+#include "opium/prolog_detail.inl"
 #include "opium/source_location.hpp"
 #include "opium/value.hpp"
 
@@ -54,3 +56,13 @@ opi::prolog::_trace_expr(value expr) const
   m_trace->children.push_back(newtracenode);
   m_trace = newtracenode;
 }
+
+
+opi::value
+opi::snapshot(value stateview)
+{ return detail::snapshot<detail::snapshot_mode::keep_body>(stateview); }
+
+
+void
+opi::apply_snapshot(opi::predicate_runtime &prt, value stateview, value snapshot)
+{ match_arguments(prt, stateview, snapshot); }

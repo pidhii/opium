@@ -16,15 +16,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-
 #include "opium/code_transform_utils.hpp"
 #include "opium/code_transformer.hpp"
+#include "opium/lisp_parser.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
 #include "opium/source_location.hpp"
 #include "opium/stl/unordered_set.hpp"
+#include "opium/utilities/ranges.hpp"
 #include "opium/utilities/state_saver.hpp"
 #include "opium/value.hpp"
-#include "opium/utilities/ranges.hpp"
 
 #include <ranges>
 #include <readline/readline.h>
@@ -78,16 +78,27 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
 {
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                form
-  append_rule(match {nil, list("f", dot, "xs")}, [this](const auto &ms) {
+  append_rule(
+    {
+      nil,
+      "(f . xs)"_lisp
+    },
+    [this](const auto &ms) {
     const value f = ms.at("f");
     const value xs = ms.at("xs");
     const value form = cons(f, xs);
     return list(range(form) | std::views::transform(T));
   });
 
+
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                atoms
-  append_rule({nil, "atom"}, [this](const auto &ms) {
+  append_rule(
+    {
+      nil,
+      "atom"
+    },
+    [this](const auto &ms) {
     const value atom = ms.at("atom");
     assert(not ispair(atom));
     // Lookup for identifier, forward the rest
@@ -107,11 +118,15 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
 
   flip_page();
 
+
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                              annotate-type
-  const match asstypematch {list("annotate-type"),
-                            list("annotate-type", "expr", dot, "types")};
-  append_rule(asstypematch, [this](const auto &ms) {
+  append_rule(
+    {
+      "(annotate-type)"_lisp,
+      "(annotate-type expr . types)"_lisp
+    },
+    [this](const auto &ms) {
     const value expr = ms.at("expr");
     const value types = ms.at("types");
 
@@ -121,11 +136,15 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     return list("annotate-type", newexpr, dot, types);
   });
 
+
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 cases
-  const match casesmatch {
-      list("cases"), list("cases", "exprs", cons("patterns", "branch"), "...")};
-  append_rule(casesmatch, [this](const auto &ms) {
+  append_rule(
+    {
+      "(cases)"_lisp,
+      list("cases", "exprs", cons("patterns", "branch"), "...")
+    },
+    [this](const auto &ms) {
     const value exprs = ms.at("exprs");
     const value patterns = ms.contains("patterns") ? ms.at("patterns") : nil;
     const value branches = ms.contains("branch") ? ms.at("branch") : nil;
@@ -161,117 +180,109 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     return list("cases", newexprs, dot, newcases);
   });
 
+
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
-  //                  define-overload (function-syntax)
-  const value fndefovldpat =
-      list("define-overload", cons("identifier", "xs"), dot, "body");
-  append_rule({list("define-overload"), fndefovldpat}, [this](const auto &ms) {
-    const value identifier = ms.at("identifier");
+  //                 define-overload & define (function-syntax)
+  const auto define_function = [this](const auto &ms) {
+    const value ident = ms.at("ident");
     const value xs = ms.at("xs");
     const value body = ms.at("body");
 
     // Get the mapped identifier created during forward-declaration
-    value newidentifier = nil;
-    [[maybe_unused]] const bool ok =
-        assq(identifier, m_overload_alist, newidentifier);
-    assert(ok && "Missing overload identifier");
-    copy_location(identifier, newidentifier);
+    value newidentifier;
+    if (ispair(ident))
+    { // Syntax with return type declaration
+      const value name = car(ident);
+      if (not assq(name, m_overload_alist, newidentifier))
+        throw std::logic_error {
+            std::format("Missing overload declaration for symbol {}", ident)};
+      newidentifier = sym(sym_name(newidentifier));
+      copy_location(name, newidentifier);
+      newidentifier = cons(newidentifier, cdr(ident));
+    }
+    else
+    {
+      if (not assq(ident, m_overload_alist, newidentifier))
+        throw std::logic_error {
+            std::format("Missing overload declaration for symbol {}", ident)};
+      newidentifier = sym(sym_name(newidentifier));
+      copy_location(ident, newidentifier);
+    }
 
     // Roll-back further changes to alist
     utl::state_saver _ {m_alist};
 
     // Replace function arguments with unique identifiers
     value newxs = nil, newident;
-    for (value ident : range(xs))
+    for (value argident : range(xs))
     {
-      if (issym(ident))
+      if (issym(argident))
       {
-        newident = _into_unique_symbol(ident);
+        newident = _into_unique_symbol(argident);
         newxs = append(newxs, list(newident));
       }
       else
       {
-        newident = _into_unique_symbol(car(ident));
-        newxs = append(newxs, list(cons(newident, cdr(ident))));
-        ident = car(ident);
+        newident = _into_unique_symbol(car(argident));
+        newxs = append(newxs, list(cons(newident, cdr(argident))));
+        argident = car(argident);
       }
-      m_alist = cons(cons(ident, newident), m_alist);
+      m_alist = cons(cons(argident, newident), m_alist);
       // Copy original identifier location
-      copy_location(ident, newident);
+      copy_location(argident, newident);
     }
 
     // Transform body with new alist
     const value newbody = transform_block(body);
     return list("template", cons(newidentifier, newxs), dot, newbody);
-  });
-
-  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
-  //                      define (function-syntax)
-  // TODO: merge with define-overload as the handlers are identical
-  const value fndefpat = list("define", cons("identifier", "xs"), dot, "body");
-  append_rule({list("define"), fndefpat}, [this](const auto &ms) {
-    const value identifier = ms.at("identifier");
-    const value xs = ms.at("xs");
-    const value body = ms.at("body");
-
-    // Get the mapped identifier created during forward-declaration
-    const value newidentifier = _copy_mapped_identifier(identifier);
-    copy_location(identifier, newidentifier);
-
-    // Roll-back changes to alist after this point
-    utl::state_saver _ {m_alist};
-
-    // Replace function arguments with unique identifiers
-    value newxs = nil, newident;
-    for (value ident : range(xs))
+  };
+  append_rule(
     {
-      if (issym(ident))
-      {
-        newident = _into_unique_symbol(ident);
-        newxs = append(newxs, list(newident));
-      }
-      else
-      {
-        newident = _into_unique_symbol(car(ident));
-        newxs = append(newxs, list(cons(newident, cdr(ident))));
-        ident = car(ident);
-      }
-      m_alist = cons(cons(ident, newident), m_alist);
-      // Copy original identifier location
-      copy_location(ident, newident);
-    }
+      "(define-overload)"_lisp,
+      "(define-overload (ident . xs) . body)"_lisp
+    }, define_function);
+  append_rule(
+    {
+      "(define)"_lisp,
+      "(define (ident . xs) . body)"_lisp
+    }, define_function);
 
-    // Transform body with new alist
-    const value newbody = transform_block(body);
-    return list("template", cons(newidentifier, newxs), dot, newbody);
-  });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               define
-  const value defpat = list("define", "identifier", dot, "body");
-  append_rule({list("define"), defpat}, [this](const auto &ms) {
-    const value identifier = ms.at("identifier");
+  append_rule(
+    {
+      "(define)"_lisp,
+      "(define ident . body)"_lisp
+    },
+    [this](const auto &ms) {
+    const value ident = ms.at("ident");
     const value body = ms.at("body");
 
-    // Get the mapped identifier created during forward-declaration
-    const value newidentifier = _copy_mapped_identifier(identifier);
-    copy_location(identifier, newidentifier);
+    // Get the mapped ident created during forward-declaration
+    const value newidentifier = _copy_mapped_identifier(ident);
+    copy_location(ident, newidentifier);
 
     // Transform body with new alist
     const value newbody = transform_block(body);
     return list("define", newidentifier, dot, newbody);
   });
 
+
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                           define-values
-  const value defvalspat = list("define-values", "identifiers", dot, "body");
-  append_rule({list("define-values"), defvalspat}, [this](const auto &ms) {
-    const value identifiers = ms.at("identifiers");
+  append_rule(
+    {
+      "(define-values)"_lisp,
+      "(define-values idents . body)"_lisp
+    },
+    [this](const auto &ms) {
+    const value idents = ms.at("idents");
     const value body = ms.at("body");
 
     // Get the mapped identifiers created during forward-declaration
     value newidentifiers = nil;
-    for (const value identifier : range(identifiers))
+    for (const value identifier : range(idents))
     {
       const value newidentifier = _copy_mapped_identifier(identifier);
       copy_location(identifier, newidentifier);
@@ -282,6 +293,7 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     const value newbody = transform_block(body);
     return list("define-values", newidentifiers, dot, newbody);
   });
+
 
   // Helper macro with common code for all let-expressions
 #define UNPACK_MATCHES_AND_SAVE_STATE(ms)                                      \
@@ -470,10 +482,15 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     return list("let*-values", newbinds, dot, newbody);
   });
 
+
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               lambda
-  const value lambdapat = list("lambda", "args", dot, "body");
-  append_rule({list("lambda"), lambdapat}, [this](const auto &ms) {
+  append_rule(
+    {
+      "(lambda)"_lisp,
+      "(lambda args . body)"_lisp
+    },
+    [this](const auto &ms) {
     const value args = ms.at("args");
     const value body = ms.at("body");
 
@@ -497,14 +514,20 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     return list("lambda", newargs, dot, newbody);
   });
 
+
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               begin
-  const value beginpat = cons("begin", "body");
-  append_rule({list("begin"), beginpat}, [this](const auto &ms) {
+  append_rule(
+    {
+      "(begin)"_lisp,
+      "(begin . body)"_lisp
+    },
+    [this](const auto &ms) {
     const value body = ms.at("body");
     const value newbody = transform_block(body);
     return cons("begin", newbody);
   });
+
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                           IMPORT PLUGINS
@@ -519,10 +542,9 @@ opi::scheme_unique_identifiers::_copy_mapped_identifier(value ident) const
   const bool ok = assoc(ident, m_alist, mappedidentifier);
   if (not ok)
   {
-    throw bad_code {std::format("Can't find ident {} in a-list."
-                                "Possibly missing forward-declaration.",
-                                ident),
-                    ident};
+    throw std::logic_error {std::format("Can't find ident {} in a-list."
+                                        "Possibly missing forward-declaration.",
+                                        ident)};
   }
   return sym(sym_name(mappedidentifier));
 }
@@ -532,23 +554,23 @@ opi::value
 opi::scheme_unique_identifiers::transform_block(value block) const
 {
   const match define_overload {
-    list("define-overload"),
-    list("define-overload", cons("identifier", "xs"), dot, "body")
+    "(define-overload)"_lisp,
+    "(define-overload (identifier . xs) . body)"_lisp
   };
 
   const match define_function {
-    list("define"),
-    list("define", cons("identifier", "xs"), dot, "body")
+    "(define)"_lisp,
+    "(define (identifier . xs) . body)"_lisp
   };
 
   const match define_identifier {
-    list("define"),
-    list("define", "identifier", dot, "body")
+    "(define)"_lisp,
+    "(define identifier . body)"_lisp
   };
 
   const match define_values {
-    list("define-values"),
-    list("define-values", "identifier", dot, "body")
+    "(define-values)"_lisp,
+    "(define-values identifier . body)"_lisp
   };
 
   // Helper function for matching expression on one of the matches above and
@@ -609,6 +631,10 @@ opi::scheme_unique_identifiers::transform_block(value block) const
     value identifier = nil;
     if (try_match(expr, define_overload, identifier))
     {
+      // Handle syntax with return type declaration
+      if (ispair(identifier))
+        identifier = car(identifier);
+
       // Check if apropriate overload group exists and crate it if not.
       auto it = ovgroups.find(identifier);
       if (it == ovgroups.end())
@@ -635,6 +661,10 @@ opi::scheme_unique_identifiers::transform_block(value block) const
     }
     else if (try_match(expr, define_function, identifier))
     {
+      // Handle syntax with return type declaration
+      if (ispair(identifier))
+        identifier = car(identifier);
+
       _assert_nodup(identifier);
       const value newidentifier = _into_unique_symbol(identifier);
       m_alist = cons(cons(identifier, newidentifier), m_alist);

@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include "opium/predicate_runtime.hpp"
+#include "opium/prolog.hpp"
 #include "opium/prolog_repl.hpp"
 #include "opium/scheme/scheme_type_location_map.hpp"
 #include "opium/scheme/translator/scheme_emitter_context.hpp"
@@ -50,43 +52,39 @@ struct program {
   std::optional<value> typecheck_script;
   std::optional<code_type_map> code_types;
   std::optional<type_bindings_t> type_bindings;
+  std::optional<value> typecheck_save;
 };
 
 struct scheme_program: public program {
   std::optional<value> scheme_script;
 };
 
+// struct translator_state {
+//   opium_preprocessor &preprocessor;
+//   prolog_emitter &typer;
+//   value &typecheck_save;
+// };
+
 
 void
-generate_ir(program &program, const opium_preprocessor &pp, value opicode);
+generate_ir(program &program, opium_preprocessor &pp, value opicode);
 
 void
-generate_typecheck_script(program &program,
-                          const opi::prolog_emitter::type_coder &type_coder);
+generate_typecheck_script(program &program, prolog_emitter &typer);
 
 bool
 typecheck(program &program, const prolog &prolog,
           const prolog_guide_function &guide = nullptr);
 
 bool
+incremental_typecheck(program &program, const prolog &prolog,
+                      predicate_runtime &typecheckns,
+                      const prolog_guide_function &guide = nullptr);
+
+bool
 generate_scheme(scheme_program &scmprogram,
                 const match_translation_rules &match_translation,
                 const scheme_emitter_context::literal_coder &literal_coder);
-
-
-struct default_type_coder {
-  value
-  operator () (value x) const
-  {
-    switch (tag(x))
-    {
-      case tag::num: return "num";
-      case tag::str: return "str";
-      case tag::boolean: return "bool";
-      default: throw bad_code {"default_type_coder - unsupported type", x};
-    }
-  }
-};
 
 
 struct default_literal_coder {
@@ -119,13 +117,12 @@ struct default_literal_coder {
 
 struct scheme_translator {
   scheme_translator()
-  : type_coder {default_type_coder()},
-    literal_coder {default_literal_coder()}
+  : literal_coder {default_literal_coder()}
   { prolog_emitter::setup_prolog(prolog); }
 
   opium_preprocessor preprocessor;
+  prolog_emitter typer;
   prolog_repl prolog;
-  prolog_emitter::type_coder type_coder;
   scheme_emitter_context::literal_coder literal_coder;
   match_translation_rules match_translation;
   value prologue;
@@ -134,7 +131,7 @@ struct scheme_translator {
 };
 
 void
-translate_to_scheme(const scheme_translator &config, value opicode,
+translate_to_scheme(scheme_translator &config, value opicode,
                     scheme_program &scmprogram,
                     const prolog_guide_function &guide = nullptr);
 
