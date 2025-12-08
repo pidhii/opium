@@ -461,7 +461,7 @@ opi::scheme_code_flattener::scheme_code_flattener(symbol_generator &gensym)
     {
       match_table::table_row &newrow = rows.emplace_back();
       std::ranges::copy(range(rowpatterns), std::back_inserter(newrow.row_patterns));
-      newrow.row_branch.set_code(transform_block(*this, branch));
+      newrow.row_branch.set_code(transform_block(branch));
     }
 
     // Create identifiers for all expressions

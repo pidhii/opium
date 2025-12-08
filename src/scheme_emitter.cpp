@@ -17,6 +17,7 @@
  */
 
 #include "opium/scheme/translator/scheme_emitter.hpp"
+#include "opium/prolog_detail.inl"
 #include "opium/scheme/scheme_type_system.hpp"
 #include "opium/scheme/translator/exceptions.hpp"
 #include "opium/scheme/translator/scheme_emitter_context.hpp"
@@ -100,17 +101,18 @@ opi::scheme_emitter::_unfold_pattern_type(opi::value pattern) const
 
 opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
                                     const type_bindings &query)
-: m_dont_emit_symbol {"<dont-emit>"}, m_type_bindings {query}, m_ctx {ctx}
+: m_type_bindings {query},
+  m_ctx {ctx}
 {
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                         other pragmas (omit)
-  m_transformer.prepend_rule(
+  prepend_rule(
       {list("pragma"), list("pragma", dot, "_")},
-      [this](const auto &) { return m_dont_emit_symbol; });
+      [](const auto &) { return nil; });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                         inline-scheme
-  m_transformer.prepend_rule(
+  prepend_rule(
       {list("pragma", "inline-scheme"), list("pragma", "inline-scheme", "expr")},
       [](const auto &ms) { return ms.at("expr"); });
 
@@ -118,41 +120,54 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
   //                               annotate-type
   const match asstypematch {list("annotate-type"),
                             list("annotate-type", "expr", dot, "types")};
-  m_transformer.prepend_rule(asstypematch, [this](const auto &ms) {
+  prepend_rule(asstypematch, [this](const auto &ms) {
     const value expr = ms.at("expr");
+    const value types = ms.at("types");
+
+    try
+    {
+      [[maybe_unused]] const value exprtype =
+          detail::remove_bodies(_unfold_types(m_ctx.ctm().code_type(expr)));
+      [[maybe_unused]] const value tgttypes = _unfold_types(types);
+
+      info("exprtype: {}", exprtype);
+      info("tgttypes: {}", tgttypes);
+    }
+    catch (...)
+    { }
 
     // TODO:
     // o handle non-nop type coercions
     // Just forward the `expr`
-    return m_transformer(expr);
+    return (*this)(expr);
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                        declare-template-overload
-  m_transformer.prepend_rule(
+  prepend_rule(
       {list("declare-template-overload"),
        list("declare-template-overload", "ovident", "_")},
       [this](const auto &ms) {
         m_ctx.register_identifier_for_function_template(ms.at("ovident"));
-        return m_dont_emit_symbol;
+        return nil;
       });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                           declare-template
-  m_transformer.prepend_rule(
+  prepend_rule(
       {list("declare-template"), list("declare-template", "_")},
-      [this](const auto &) { return m_dont_emit_symbol; });
+      [](const auto &) { return nil; });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                              declare
-  m_transformer.prepend_rule(
+  prepend_rule(
       {list("declare"), list("declare", "_")},
-      [this](const auto &) { return m_dont_emit_symbol; });
+      [](const auto &) { return nil; });
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 cases
   const match casesmatch {
       list("cases"), list("cases", "exprs", cons("patterns", "branch"), "...")};
-  m_transformer.prepend_rule(casesmatch, [this](const auto &ms) {
+  prepend_rule(casesmatch, [this](const auto &ms) {
     const value exprs = ms.at("exprs");
     const value patterns = ms.contains("patterns") ? ms.at("patterns") : nil;
     const value branches = ms.contains("branch") ? ms.at("branch") : nil;
@@ -239,14 +254,14 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
     const value typetemplate = _find_code_type(fm);
     m_ctx.register_template(fixedident, {cleandef, typetemplate, m_ctx});
 
-    return m_dont_emit_symbol;
+    return nil;
   };
-  m_transformer.prepend_rule({list("template"), temppat}, temprule);
+  prepend_rule({list("template"), temppat}, temprule);
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               lambda
   const match lambdamatch {list("lambda"), list("lambda", "parms", dot, "body")};
-  m_transformer.prepend_rule(lambdamatch, [this](const auto &ms, value fm) {
+  prepend_rule(lambdamatch, [this](const auto &ms, value fm) {
     const value parms = ms.at("parms");
     const value body = ms.at("body");
 
@@ -263,7 +278,7 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                begin
   const match beginmatch {list("begin"), list("begin", dot, "body")};
-  m_transformer.prepend_rule(beginmatch, [this](const auto &ms) {
+  prepend_rule(beginmatch, [this](const auto &ms) {
     const value body = ms.at("body");
     // FIXME: maybe have to involve `transform_block()` here
     return transform_inner_block_into_expression(body);
@@ -271,7 +286,6 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                       let-values/let*-values
-#if 1
   const auto valuesrule = [this](const auto &ms, value fm) {
     const value binds = ms.at("binds");
     const value body = ms.at("body");
@@ -287,40 +301,38 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
       const value expr = car(cdr(bind));
 
       const value newidents = append(idents, "_");
-      const value newexpr = m_transformer(expr);
+      const value newexpr = (*this)(expr);
       newbinds = append(newbinds, list(list(newidents, newexpr)));
     }
 
     // Transform the body
     const value newbody = transform_block(body);
-        // list(range(body) | std::views::transform(std::ref(m_transformer)));
 
     return list(car(fm), newbinds, dot, newbody);
   };
 
   const match letvalsmatch {list("let-values"),
                             list("let-values", "binds", dot, "body")};
-  m_transformer.prepend_rule(letvalsmatch, valuesrule);
+  prepend_rule(letvalsmatch, valuesrule);
 
   const match letstarvalsmatch {list("let*-values"),
                                 list("let*-values", "binds", dot, "body")};
-  m_transformer.prepend_rule(letstarvalsmatch, valuesrule);
-#endif
+  prepend_rule(letstarvalsmatch, valuesrule);
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                form
-  m_transformer.append_rule({nil, list("f", dot, "xs")}, [this](const auto &ms) {
+  append_rule({nil, list("f", dot, "xs")}, [this](const auto &ms) {
     const value f = ms.at("f");
     const value xs = ms.at("xs");
     const value form = cons(f, xs);
     // TODO:
     // o handle non-nop type coercions
-    return list(range(form) | std::views::transform(std::ref(m_transformer)));
+    return list(range(form) | std::views::transform(std::ref(*this)));
   });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                atom
-  m_transformer.append_rule({nil, "x"}, [this](const auto &ms) {
+  append_rule({nil, "x"}, [this](const auto &ms) {
     const value x = ms.at("x");
 
     // Get type of this atom
@@ -379,7 +391,7 @@ opi::value
 opi::scheme_emitter::transform_inner_block_into_expression(value block)
 {
   // Transform all expressions within the block
-  const opi::value tblock = transform_list(block);
+  const opi::value tblock = transform_block(block);
 
   if (tblock == nil)
     return nil;
@@ -408,7 +420,7 @@ opi::scheme_emitter::transform_inner_block_into_expression(value block)
       {
         const value ident = car(sign);
         const value args = cdr(sign);
-        newbinds = list(list(ident, list("lambda", args, body)));
+        newbinds = list(list(ident, list("lambda", args, dot, body)));
       }
     }
     else if (ispair(expr) and car(expr) == "define-values")

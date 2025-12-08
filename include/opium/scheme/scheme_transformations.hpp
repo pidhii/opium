@@ -93,7 +93,7 @@ class opium_preprocessor {
   transform_block(value block) const
   {
     return m_unique_identifiers.transform_block(
-        opi::transform_block(m_flattener, block));
+        m_flattener.transform_block(block));
   }
 
   private:
@@ -163,6 +163,11 @@ class prolog_emitter {
   public:
   using literal_type_coder = std::function<value(value)>;
 
+  struct transformer: code_transformer {
+    value
+    transform_block(opi::value val) const override;
+  };
+
   static value
   default_literal_type_coder(value literal);
 
@@ -212,7 +217,7 @@ class prolog_emitter {
   code_type_map *m_ctm;
   symbol_generator m_typevargen;
   symbol_generator m_termgen;
-  code_transformer m_T;
+  transformer m_T;
 }; // class opi::prolog_emitter
 
 

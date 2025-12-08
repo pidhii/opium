@@ -60,12 +60,8 @@ opi::generate_function_template_body(scheme_emitter_context &ctx,
     }
   })
 
-  stl::deque<value> tape;
   scheme_emitter emitter {ctx, results};
-  for (const value expr : range(ppbody))
-    emitter.emit(expr, std::back_inserter(tape));
-
-  return list(tape);
+  return emitter.transform_block(ppbody);
 }
 
 
@@ -161,17 +157,15 @@ opi::emit_scheme(scheme_emitter_context &ctx, value plcode, value ppcode,
     debug("\e[1mQUERY SUCCEEDED\e[0m");
 
   // Emit proper (standard) scheme code
-  stl::deque<value> tape;
   scheme_emitter emitter {ctx, results};
-  for (const value expr : range(ppcode))
-    emitter.emit(expr, std::back_inserter(tape));
+  const value result = emitter.transform_block(ppcode);
 
   // Build the type location map
   scheme_type_location_map type_map =
       build_type_location_map(ctx.ctm(), ppcode);
   type_map.substitute_type_aliases(results);
 
-  return {list(tape), type_map};
+  return {result, type_map};
 }
 
 

@@ -51,6 +51,13 @@ opi::prolog_emitter::default_literal_type_coder(value literal)
 }
 
 
+opi::value
+opi::prolog_emitter::transformer::transform_block(opi::value block) const
+{
+  throw std::logic_error {"Not supposed to use block-transformation of "
+                          "prolog_emitter::transformer"};
+}
+
 void
 opi::prolog_emitter::setup_prolog(prolog &pl)
 {

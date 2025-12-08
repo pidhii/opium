@@ -27,40 +27,30 @@
 
 namespace opi {
 
-
 using type_bindings =
     opi::stl::unordered_map<value, opi::stl::unordered_set<value>>;
 
-struct scheme_emitter {
+struct scheme_emitter: ext_scheme_code_transformer {
   scheme_emitter(scheme_emitter_context &ctx, const type_bindings &query);
 
-  template <std::output_iterator<value> ExprOutput>
-  void
-  emit(value expr, ExprOutput exproutput)
-  {
-    const value result = m_transformer(expr);
-    if (not is(result, m_dont_emit_symbol))
-      *exproutput++ = result;
-  }
+  value
+  transform_list(value l) const
+  { return list(std::views::transform(range(l), std::ref(*this))); }
 
   value
-  transform_list(value l)
-  {
-    opi::stl::vector<value> result;
-    for (const value expr : range(l))
-      emit(expr, std::back_inserter(result));
-    return list(result);
-  }
-
-  value
-  transform_block(value l)
+  transform_block(value l) const override
   {
     stl::vector<value> blockhead, blockbody;
     scheme_emitter_context blockctx {m_ctx, blockhead};
     scheme_emitter blockemitter {blockctx, m_type_bindings};
     for (const value expr : range(l))
-      blockemitter.emit(expr, std::back_inserter(blockbody));
-    std::copy(blockbody.begin(), blockbody.end(), std::back_inserter(blockhead));
+    {
+      const value texpr = blockemitter(expr);
+      if (texpr != nil)
+        blockbody.push_back(texpr);
+    }
+    std::copy(blockbody.begin(), blockbody.end(),
+              std::back_inserter(blockhead));
     return list(blockhead);
   }
 
@@ -78,9 +68,7 @@ struct scheme_emitter {
   _unfold_pattern_type(opi::value pattern) const;
 
   private:
-  const value m_dont_emit_symbol;
   const type_bindings &m_type_bindings;
-  ext_scheme_code_transformer m_transformer;
   scheme_emitter_context &m_ctx;
 }; // class opi::scheme_emitter
 

@@ -137,7 +137,7 @@ opi::generate_scheme(scheme_program &scmprogram,
   static const char no_tbinds_msg[] =
       "Can't generate Scheme, program is missing type bindings";
 
-  stl::vector<value> headertape, maintape;
+  stl::vector<value> headertape;
   const value ircode = _access(scmprogram.ircode, no_ir_msg);
   const code_type_map &ctm = _access(scmprogram.code_types, no_ctm_msg);
   const type_bindings &tbinds = _access(scmprogram.type_bindings, no_tbinds_msg);
@@ -147,12 +147,11 @@ opi::generate_scheme(scheme_program &scmprogram,
   // Translate `program` into Scheme
   info("\e[1mgenerating Scheme\e[0m");
   scheme_emitter emitter {ctx, tbinds};
-  for (const value expr : range(ircode))
-    emitter.emit(expr, std::back_inserter(maintape));
+  const value main = emitter.transform_block(ircode);
 
   value &scmcode = scmprogram.scheme_script.emplace(nil);
   append_mut(scmcode, list(headertape));
-  append_mut(scmcode, list(maintape));
+  append_mut(scmcode, main);
 
   return true;
 }

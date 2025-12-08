@@ -23,7 +23,6 @@
 #include "opium/match.hpp"
 #include "opium/stl/deque.hpp"
 #include "opium/stl/list.hpp"
-#include "opium/utilities/execution_timer.hpp"
 #include "opium/value.hpp"
 
 #include <functional>
@@ -164,6 +163,10 @@ class code_transformer {
   value
   operator () (value inexpr) const;
 
+  virtual value
+  transform_block(value block) const
+  { return list(range(block) | std::views::transform(std::ref(*this))); }
+
   private:
   using syntax_table = opi::stl::deque<std::pair<match, transformation>>;
   opi::stl::list<syntax_table> m_pages; /**< Syntax tables */
@@ -190,16 +193,16 @@ static_assert(
     transformation<composed_transformer<code_transformer, code_transformer>>);
 
 
-template <transformation Lhs, transformation Rhs>
-composed_transformer<Lhs, Rhs>
-compose(const Lhs &lhs, const Rhs &rhs)
-{ return {lhs, rhs}; }
+// template <transformation Lhs, transformation Rhs>
+// composed_transformer<Lhs, Rhs>
+// compose(const Lhs &lhs, const Rhs &rhs)
+// { return {lhs, rhs}; }
 
 
-template <transformation Transformer>
-value
-transform_block(const Transformer &transformer, value block)
-{ return list(range(block) | std::views::transform(std::ref(transformer))); }
+// template <transformation Transformer>
+// value
+// transform_block(const Transformer &transformer, value block)
+// { return list(range(block) | std::views::transform(std::ref(transformer))); }
 
 
 // TODO: move to a separate file

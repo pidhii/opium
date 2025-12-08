@@ -85,7 +85,7 @@ opi::scheme_code_transformer::scheme_code_transformer()
     value newbinds = nil;
     for (; ispair(exprs); idents = cdr(idents), exprs = cdr(exprs))
       newbinds = append(newbinds, list(list(car(idents), (*this)(car(exprs)))));
-    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    const value newbody = transform_block(body);
     return list(sym(let), newbinds, dot, newbody);
   };
 
@@ -123,7 +123,7 @@ opi::scheme_code_transformer::scheme_code_transformer()
   append_rule(definematch, [this](const auto &ms) {
     const value ident = ms.at("ident");
     const value body = ms.at("body");
-    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    const value newbody = transform_block(body);
     return list("define", ident, dot, newbody);
   });
 
@@ -132,7 +132,7 @@ opi::scheme_code_transformer::scheme_code_transformer()
   append_rule(defvalsmatch, [this](const auto &ms) {
     const value idents = ms.at("idents");
     const value body = ms.at("body");
-    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    const value newbody = transform_block(body);
     return list("define-values", idents, dot, newbody);
   });
 
@@ -148,7 +148,7 @@ opi::scheme_code_transformer::scheme_code_transformer()
   append_rule(lambdamatch, [this](const auto &ms) {
     const value args = ms.at("args");
     const value body = ms.at("body");
-    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    const value newbody = transform_block(body);
     return list("lambda", args, dot, newbody);
   });
 
@@ -162,7 +162,7 @@ opi::scheme_code_transformer::scheme_code_transformer()
   const match beginmatch {list("begin"), list("begin", dot, "body")};
   append_rule(beginmatch, [this](const auto &ms) {
     const value body = ms.at("body");
-    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    const value newbody = transform_block(body);
     return cons("begin", newbody);
   });
 
@@ -234,7 +234,7 @@ opi::ext_scheme_code_transformer::ext_scheme_code_transformer()
   prepend_rule(defineovlmatch, [this](const auto &ms) {
     const value ident = ms.at("ident");
     const value body = ms.at("body");
-    const value newbody = list(range(body) | std::views::transform(std::ref(*this)));
+    const value newbody = transform_block(body);
     return list("define-overload", ident, dot, newbody);
   });
 
@@ -246,14 +246,15 @@ opi::ext_scheme_code_transformer::ext_scheme_code_transformer()
     const value patterns = ms.contains("patterns") ? ms.at("patterns") : nil;
     const value branches = ms.contains("branch") ? ms.at("branch") : nil;
     warning("branches: {}", branches);
-    
-    const value newexprs = transform_block(*this, exprs);
+
+    const value newexprs =
+        list(std::views::transform(range(exprs), std::ref(*this)));
 
     value newcases = nil;
     for (const auto &[rowpatterns, branch] :
          utl::zip(range(patterns), range(branches)))
     {
-      const value newbranch = transform_block(*this, branch);
+      const value newbranch = transform_block(branch);
       const value newcase = cons(patterns, newbranch);
       newcases = append(newcases, list(newcase));
     }
