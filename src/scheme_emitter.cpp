@@ -25,6 +25,7 @@
 #include "opium/source_location.hpp"
 #include "opium/utilities/ranges.hpp"
 #include "opium/value.hpp"
+#include <stdexcept>
 
 
 template <typename TypeIter>
@@ -108,13 +109,13 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                         other pragmas (omit)
   prepend_rule(
-      {list("pragma"), list("pragma", dot, "_")},
+      {"(pragma)"_lisp, "(pragma . _)"_lisp},
       [](const auto &) { return nil; });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                         inline-scheme
   prepend_rule(
-      {list("pragma", "inline-scheme"), list("pragma", "inline-scheme", "expr")},
+      {"(pragma inline-scheme)"_lisp, "(pragma inline-scheme expr)"_lisp},
       [](const auto &ms) { return ms.at("expr"); });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
@@ -174,29 +175,34 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                        declare-template-overload
   prepend_rule(
-      {list("declare-template-overload"),
-       list("declare-template-overload", "ovident", "_")},
-      [this](const auto &ms) {
-        m_ctx.register_identifier_for_function_template(ms.at("ovident"));
-        return nil;
-      });
+    {
+      "(declare-template-overload)"_lisp,
+      "(declare-template-overload ovident _)"_lisp
+    },
+    [this](const auto &ms) {
+    m_ctx.register_identifier_for_function_template(
+        ms.at("ovident"));
+    return nil;
+  });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                           declare-template
-  prepend_rule(
-      {list("declare-template"), list("declare-template", "_")},
-      [](const auto &) { return nil; });
+  prepend_rule({"(declare-template)"_lisp, "(declare-template _)"_lisp},
+               [](const auto &) { return nil; });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                              declare
-  prepend_rule(
-      {list("declare"), list("declare", "_")},
-      [](const auto &) { return nil; });
+  prepend_rule({"(declare)"_lisp, "(declare _)"_lisp},
+               [](const auto &) { return nil; });
+
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 cases
-  const match casesmatch {
-      list("cases"), list("cases", "exprs", cons("patterns", "branch"), "...")};
-  prepend_rule(casesmatch, [this](const auto &ms) {
+  prepend_rule(
+    {
+      "(cases)"_lisp,
+      list("cases", "exprs", cons("patterns", "branch"), "...")
+    },
+    [this](const auto &ms) {
     const value exprs = ms.at("exprs");
     const value patterns = ms.contains("patterns") ? ms.at("patterns") : nil;
     const value branches = ms.contains("branch") ? ms.at("branch") : nil;
@@ -257,8 +263,12 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 template
-  const value temppat = list("template", cons("ident", "parms"), dot, "body");
-  const auto temprule = [this](const auto &ms, value fm) {
+  prepend_rule(
+    {
+      "(template)"_lisp,
+      "(template (ident . parms) . body)"_lisp
+    },
+    [this](const auto &ms, value fm) {
     const value identifier = ms.at("ident");
     const value params = ms.at("parms");
     const value body = ms.at("body");
@@ -284,13 +294,16 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
     m_ctx.register_template(fixedident, {cleandef, typetemplate, m_ctx});
 
     return nil;
-  };
-  prepend_rule({list("template"), temppat}, temprule);
+  });
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               lambda
-  const match lambdamatch {list("lambda"), list("lambda", "parms", dot, "body")};
-  prepend_rule(lambdamatch, [this](const auto &ms, value fm) {
+  prepend_rule(
+    {
+      "(lambda)"_lisp,
+      "(lambda parms . body)"_lisp
+    },
+    [this](const auto &ms, value fm) {
     const value parms = ms.at("parms");
     const value body = ms.at("body");
 
@@ -306,8 +319,12 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                begin
-  const match beginmatch {list("begin"), list("begin", dot, "body")};
-  prepend_rule(beginmatch, [this](const auto &ms) {
+  prepend_rule(
+    {
+      "(begin)"_lisp,
+      "(begin . body)"_lisp
+    },
+    [this](const auto &ms) {
     const value body = ms.at("body");
     return transform_inner_block_into_expression(body);
   });
@@ -339,17 +356,23 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
     return list(car(fm), newbinds, dot, newbody);
   };
 
-  const match letvalsmatch {list("let-values"),
-                            list("let-values", "binds", dot, "body")};
-  prepend_rule(letvalsmatch, valuesrule);
+  prepend_rule(
+    {
+      "(let-values)"_lisp,
+      "(let-values binds . body)"_lisp
+    },
+    valuesrule);
 
-  const match letstarvalsmatch {list("let*-values"),
-                                list("let*-values", "binds", dot, "body")};
-  prepend_rule(letstarvalsmatch, valuesrule);
+  prepend_rule(
+    {
+      "(let*-values)"_lisp,
+      "(let*-values binds . body)"_lisp
+    },
+    valuesrule);
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                form
-  append_rule({nil, list("f", dot, "xs")}, [this](const auto &ms) {
+  append_rule({nil, "(f . xs)"_lisp}, [this](const auto &ms) {
     const value f = ms.at("f");
     const value xs = ms.at("xs");
     const value form = cons(f, xs);
@@ -384,8 +407,18 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
     }
 
     // Instantiate function template
-    if (m_ctx.identifier_refers_to_function_template(x))
-      return instantiate_function_template(m_ctx, type);
+    if (ispair(type) and car(type) == "#dynamic-function-dispatch")
+    // if (m_ctx.identifier_refers_to_function_template(x))
+    {
+      // FIXME:
+      //   Exceptions are thrown when the type referes to a lambda. Lambdas are
+      //   instantiated imediately and are not subject of multiple-instantiation.
+      // TODO:
+      //   Mark type signatures comming from lambdas and explicitly omit this
+      //   branch for them.
+      try { return instantiate_function_template(m_ctx, type); }
+      catch (const std::range_error &) { ; }
+    }
 
     // TODO:
     // o handle non-trivial coercions
