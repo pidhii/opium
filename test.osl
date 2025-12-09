@@ -39,10 +39,10 @@ let j = open("test.json", "r").readjson() in {
   println("j[two] = ", jsonref(j, "two"))
   println("j[two][2] = ", jsonref(j, "two").jsonref(2))
 }
-assert { 42 :: json }
-assert { array([1::json, "42"::json, 3::json]) :: json }
-let s = "whatever" :: (num or str) in
-{ assert { s :: json } }
+assert { 42 as json }
+assert { array([1 as json, "42" as json, 3 as json])  as  json }
+let s = "whatever"  as  (num or str) in
+{ assert { s  as  json } }
 
 
 println("testing regex")

@@ -138,7 +138,7 @@ generate_inlinescm_lambda(opi::value scmexpr, opi::value argtypes,
                           opi::value restypes)
 {
   return
-    list("annotate-type",
+    list("coerce",
       list("pragma", "inline-scheme", scmexpr),
       list("fn", argtypes, dot, restypes));
 }
@@ -462,6 +462,40 @@ fix_type_annotations_in_arguments(opi::value l)
 }
 
 
+static std::pair<opi::value, opi::value> // {new-args, new-body}
+insert_argument_type_coercions(opi::value args, opi::value body)
+{
+  value newargs = nil;
+  value binds = nil;
+  for (const opi::value arg : range(args))
+  {
+    // o nothing to do when there is no type annotation
+    if (issym(arg))
+    {
+      append_mut(newargs, list(arg));
+      continue;
+    }
+    // o otherwise, ...
+    // TODO: do notihing when type is a type variable
+    const value ident = car(arg);
+    const value type = car(cdr(arg));
+    const value proxyident = sym(std::format("osl#x{}", g_counter++));
+    append_mut(newargs, list(proxyident));
+    const value coercearg = list("coerce", proxyident, type);
+    const value bindarg = list(ident, coercearg);
+    append_mut(binds, list(bindarg));
+  }
+
+  if (binds == nil) // Nothing have been changed
+    return {args, body};
+  else
+  {
+    const value letexpr = list("let", binds, dot, body);
+    return {newargs, list(letexpr)};
+  }
+}
+
+
 static opi::value // (<chicken-foreign-type>, <osl-type>)
 foreign_type_info(opi::value t)
 {
@@ -682,7 +716,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %token TYPE
 %token SET
 %token FN
-%token EXTERN AS
+%token EXTERN
 
 %right '|' '&'
 
@@ -703,7 +737,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %left '+' '-' '%'
 %left '*' '/'
 %right NOT UNARY_OPERATOR
-%nonassoc DOUBLE_COLUMN
+%left DOUBLE_COLUMN AS
 %left '[' ']'
 %left '.' '#'
 %left '?'
@@ -804,6 +838,7 @@ ApplExpr
     $$ = list(getter, $1, $3);
   }
   | ApplExpr DOUBLE_COLUMN AtomTypeParam { $$ = list("annotate-type", $1, $3); }
+  | ApplExpr AS AtomTypeParam { $$ = list("coerce", $1, $3); }
   | INLINE_SCHEME {
     opi::lisp_parser parser;
     try {
@@ -942,18 +977,19 @@ Stmt
     else
     {
       const value define = "define-overload";
-      const value fixed_signature =
-          cons(car($1), fix_type_annotations_in_arguments(cdr($1)));
       _derloc(define, $2);
+      const value ident = car($1);
+      value args = fix_type_annotations_in_arguments(cdr($1));
+      value body;
       if (opi::ispair($3) and car($3) == "begin")
-      {
-        const value body = make_body_with_return(cdr($3));
-        $$ = list(define, fixed_signature, dot, body);
-      }
+        body = make_body_with_return(cdr($3));
       else
-      {
-        $$ = list(define, fixed_signature, $3);
-      }
+        body = list($3);
+
+      // Insert argument coercions
+      std::tie(args, body) = insert_argument_type_coercions(args, body);
+
+      $$ = list(define, cons(ident, args), dot, body);
     }
   }
   | Expr RIGHT_ARROW ListOfTypeParams '=' Expr {

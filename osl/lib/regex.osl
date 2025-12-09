@@ -71,11 +71,11 @@ indices(matchobj regexpmatch, groupid num or str) = {
   extern identifier!(irregex-match-end-index) as getend(regexpmatch, num or sym) -> num?
   let groupid = match groupid in
   // TODO: make this typing implicit
-  | num n -> n::(num or sym)
-  | str s -> sym(s)::(num or sym)
+  | num n -> n as (num or sym)
+  | str s -> sym(s) as (num or sym)
   in
   match matchobj.getstart(groupid), matchobj.getend(groupid) in
-  | Some(start), Some(end) -> { return (start : end) :: range(num)? }
+  | Some(start), Some(end) -> { return (start : end) as range(num)? }
   | otherwize -> return null
 }
 

@@ -19,8 +19,8 @@ trie() = {
   extern identifier!(make-hash-trie)(trietype(K, V)) -> trie(K, V)
   extern identifier!(make-hash-trie-type)(fn(K, K) -> bool, fn(K) -> num) -> trietype(K, V)
 
-  equalfn = coerce((==)) :: fn(K, K) -> bool
-  hashfn = coerce(hash) :: fn(K) -> num
+  equalfn = (==) as fn(K, K) -> bool
+  hashfn = hash as fn(K) -> num
   trietype = identifier!(make-hash-trie-type)(equalfn, hashfn)
   return identifier!(make-hash-trie)(trietype)
 }

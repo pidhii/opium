@@ -192,5 +192,5 @@ macro test_match {
 fixtures = unit_test_fixtures()
 unit_tests = unit_tests_t(dict())
 
-scm { on-exit }(run_tests :: fn() -> void)
+scm { on-exit }(run_tests as fn() -> void)
 where run_tests = () => unit_tests.run()

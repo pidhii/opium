@@ -63,8 +63,8 @@ macro try {
               else
               ]catches
                 abort($exnvar)
-            in __TryCont(dohandle :: fn() -> T),
-          thunk() = let result = $tryexpr in {() => result} :: fn() -> T
+            in __TryCont(dohandle as fn() -> T),
+          thunk() = let result = $tryexpr in {() => result} as fn() -> T
       in 
       identifier!(with-exception-handler)(handler, thunk))
     in fin()

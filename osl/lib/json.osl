@@ -45,6 +45,14 @@ parsejson(s str) = {
   return result
 }
 
+unparsejson(j json) = {
+  p = openstring()
+  p.writejson(j)
+  result = str(p)
+  close(p)
+  return result
+}
+
 // Element getter
 jsonref(j json, k num or str) = match j, k in
 | array(json)     l, num i -> l[i]
