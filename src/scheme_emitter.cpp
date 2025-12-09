@@ -17,6 +17,7 @@
  */
 
 #include "opium/scheme/translator/scheme_emitter.hpp"
+#include "opium/lisp_parser.hpp"
 #include "opium/prolog_detail.inl"
 #include "opium/scheme/scheme_type_system.hpp"
 #include "opium/scheme/translator/exceptions.hpp"
@@ -118,9 +119,12 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                               annotate-type
-  const match asstypematch {list("annotate-type"),
-                            list("annotate-type", "expr", dot, "types")};
-  prepend_rule(asstypematch, [this](const auto &ms) {
+  prepend_rule(
+    {
+      "(annotate-type)"_lisp,
+      "(annotate-type expr . types)"_lisp
+    },
+    [this](const auto &ms) {
     const value expr = ms.at("expr");
     const value types = ms.at("types");
 
@@ -129,9 +133,34 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
       [[maybe_unused]] const value exprtype =
           detail::remove_bodies(_unfold_types(m_ctx.ctm().code_type(expr)));
       [[maybe_unused]] const value tgttypes = _unfold_types(types);
+      info("annotate-type\nexprtype: {}\ntgttypes: {}", exprtype, tgttypes);
+    }
+    catch (...)
+    { }
 
-      info("exprtype: {}", exprtype);
-      info("tgttypes: {}", tgttypes);
+    // TODO:
+    // o handle non-nop type coercions
+    // Just forward the `expr`
+    return (*this)(expr);
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                 coerce
+  prepend_rule(
+    {
+      "(coerce)"_lisp,
+      "(coerce expr . types)"_lisp
+    },
+    [this](const auto &ms) {
+    const value expr = ms.at("expr");
+    const value types = ms.at("types");
+
+    try
+    {
+      [[maybe_unused]] const value exprtype =
+          detail::remove_bodies(_unfold_types(m_ctx.ctm().code_type(expr)));
+      [[maybe_unused]] const value tgttypes = _unfold_types(types);
+      info("coerce\nexprtype: {}\ntgttypes: {}", exprtype, tgttypes);
     }
     catch (...)
     { }
@@ -280,7 +309,6 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
   const match beginmatch {list("begin"), list("begin", dot, "body")};
   prepend_rule(beginmatch, [this](const auto &ms) {
     const value body = ms.at("body");
-    // FIXME: maybe have to involve `transform_block()` here
     return transform_inner_block_into_expression(body);
   });
 

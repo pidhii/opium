@@ -53,7 +53,7 @@ extern identifier!(osl#list) :: identifier!(osl#list)
   (predicate (result-of (coerce T) U)
     (fast-coerce T U))
 }
-extern identity as coerce :: coerce
+// extern identity as coerce :: coerce
 
 ~~~
 (define-compiler-syntax coerce

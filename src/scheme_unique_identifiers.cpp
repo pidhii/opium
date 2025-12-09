@@ -129,11 +129,21 @@ opi::scheme_unique_identifiers::scheme_unique_identifiers(
     [this](const auto &ms) {
     const value expr = ms.at("expr");
     const value types = ms.at("types");
+    return list("annotate-type", (*this)(expr), dot, types);
+  });
 
-    // Only transform the expression
-    const value newexpr = (*this)(expr);
 
-    return list("annotate-type", newexpr, dot, types);
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                                coerce
+  append_rule(
+    {
+      "(coerce)"_lisp,
+      "(coerce expr . types)"_lisp
+    },
+    [this](const auto &ms) {
+    const value expr = ms.at("expr");
+    const value types = ms.at("types");
+    return list("coerce", (*this)(expr), dot, types);
   });
 
 

@@ -19,10 +19,11 @@
 
 #include "opium/code_transform_utils.hpp"
 #include "opium/code_transformer.hpp"
+#include "opium/lisp_parser.hpp"
 #include "opium/match.hpp"
 #include "opium/scheme/scheme_transformations.hpp"
-#include "opium/value.hpp"
 #include "opium/utilities/ranges.hpp"
+#include "opium/value.hpp"
 
 #include <algorithm>
 #include <concepts>
@@ -438,13 +439,30 @@ opi::scheme_code_flattener::scheme_code_flattener(symbol_generator &gensym)
 {
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                             annotate-type
-  const match asstypematch {list("annotate-type"),
-                            list("annotate-type", "expr", dot, "types")};
-  append_rule(asstypematch, [this](const auto &ms) {
+  append_rule(
+    {
+      "(annotate-type)"_lisp,
+      "(annotate-type expr . types)"_lisp
+    },
+    [this](const auto &ms) {
     const value expr = ms.at("expr");
     const value types = ms.at("types");
     return list("annotate-type", (*this)(expr), dot, types);
   });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                               coerce
+  append_rule(
+    {
+      "(coerce)"_lisp,
+      "(coerce expr . types)"_lisp
+    },
+    [this](const auto &ms) {
+    const value expr = ms.at("expr");
+    const value types = ms.at("types");
+    return list("coerce", (*this)(expr), dot, types);
+  });
+
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                cases

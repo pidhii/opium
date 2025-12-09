@@ -107,25 +107,51 @@ opi::prolog_emitter::prolog_emitter()
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                             annotate-type
-  const match asstypematch {list("annotate-type"),
-                            list("annotate-type", "expr", dot, "types")};
-  m_T.append_rule(asstypematch, [this](const auto &ms) {
+  m_T.append_rule(
+    {
+      "(annotate-type)"_lisp,
+      "(annotate-type expr . types)"_lisp
+    },
+    [this](const auto &ms) {
     const value expr = ms.at("expr");
     const value types = ms.at("types");
 
-    // Evaluate `expr` with target set to `type`
+    utl::state_saver _ {m_targets};
+
+    // Evaluate `expr` with expliciit targets
+    if (m_targets == "_")
+    {
+      // Slight optimization for type-ignorant surrounding context
+      m_targets = types;
+      return m_T(expr);
+    }
+    else
+      return list("and", list("=", m_targets, types), m_T(expr));
+  });
+
+  // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
+  //                               coerce
+  m_T.append_rule(
+    {
+      "(coerce)"_lisp,
+      "(coerce expr . types)"_lisp
+    },
+    [this](const auto &ms) {
+    const value expr = ms.at("expr");
+    const value types = ms.at("types");
+
+    // Coerce natural results of `expr` towards the specified `types`
     const value exprtgts = m_typevargen();
     const value newexpr = ({
       utl::state_saver _ {m_targets};
       m_targets = exprtgts;
-      // m_targets = types;
       m_T(expr);
     });
-
     const value coercion = list("coerce-list", exprtgts, types);
     const value bindtarget = list("=", m_targets, types);
     return list("and", newexpr, coercion, bindtarget);
   });
+
 
   // <<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>><<+>>
   //                                 cases
