@@ -1263,6 +1263,10 @@ TopLvlExpr
           .add_rule(match_pattern, type_pattern, predicate, unpack);
       $$ = nil;
     }
+    else if ($2 == "inline-opium")
+    {
+      $$ = data;
+    }
     else
       $$ = list(list("pragma", $2, dot, data));
   }
