@@ -132,6 +132,8 @@ fn { yylval = "fn"; return FN; }
 extern { yylval = "extern"; return EXTERN; }
 as { yylval = "as"; return AS; }
 
+explicit { yylval = "explicit"; return EXPLICIT; }
+
 identifier"!("[^)]+")" {
   // Read whatever is between the parenthes
   std::string text = yytext + strlen("identifier!(");

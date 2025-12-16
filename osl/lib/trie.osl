@@ -26,9 +26,9 @@ trie() = {
 }
 
 trie::trie(K, V)[key::K] = {
-  default = reinterpret_cast(scm { (gensym) }) :: V
+  default = scm { (gensym) } :: V
   result = get(trie, key, default)
-  if reinterpret_cast(scm { eq? }(result, default)) :: bool then
+  if (scm { eq? } :: fn(V, V) -> bool) (result, default) then
     error("No such key", key, trie)
   return result
 }

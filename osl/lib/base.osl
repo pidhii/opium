@@ -1,3 +1,15 @@
+
+// reinterpret_cast
+macro reinterpret_cast {
+  [reinterpret_cast($expr:expr)] = [
+    { scm { identity } :: fn(_) -> _ }($expr)
+  ]
+  [reinterpret_cast($expr:expr) :: $attype:otype] = [
+    { scm { identity } :: fn(_) -> $otype }($expr)
+  ]
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 //                              Syntax base
 //
@@ -21,7 +33,26 @@ extern identifier!(not) :: identifier!(not) // FIXME: use scheme directly
 extern void :: void // FIXME: use scheme directly
 extern values :: values
 
-// Meta assertion
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//                            type casts
+#pragma prolog {
+  (predicate (result-of (resolvecast T) (castpolicy U CastPolicy))
+    (if (fast-coerce T U)
+        (= CastPolicy trivial)
+        (and
+          (distinct (convertible T U))
+          (= CastPolicy conversion))))
+}
+extern identity as resolvecast :: resolvecast
+
+__cast(x, _ explicit castpolicy(U, trivial)) -> U = reinterpret_cast(x) :: U
+__cast(x, _ explicit castpolicy(U, conversion)) -> U = convert(x)
+cast(x) -> U = __cast(x, resolvecast(x) :: castpolicy(U, _))
+
+
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//                            type assertion
 #pragma prolog {
   (predicate (result-of (assert_thunk Thunk) Result)
     (if (result-of (Thunk) _)
@@ -279,13 +310,6 @@ iter(it) = {
   assert { next(it) :: maybe(T) }
   return it
 }
-
-// reinterpret_cast
-~~~
-(define-inline (reinterpret_cast x) x)
-~~~
-extern reinterpret_cast(_) -> _
-
 
 ////////////////////////////////////////////////////////////////////////////////
 //                       builtin parameters

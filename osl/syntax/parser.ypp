@@ -133,6 +133,60 @@ random_access_setter()
 { return "osl#set"; }
 
 
+static std::pair<opi::value, opi::value> // {new-args, new-body}
+insert_argument_type_coercions(opi::value args, opi::value body)
+{
+  value newargs = nil;
+  value binds = nil;
+  for (const opi::value arg : range(args))
+  {
+    // o nothing to do when there is no type annotation
+    if (issym(arg))
+    {
+      append_mut(newargs, list(arg));
+      continue;
+    }
+
+    const value ident = car(arg);
+    const value type = car(cdr(arg));
+
+    // o otherwise, do notihing when type is a type variable
+    // FIXME: ... unless it is constrained by the surrounding context ...
+    if (issym(type) and (std::isupper(sym_name(type)[0]) or sym_name(type) == "_"))
+    {
+      append_mut(newargs, list(arg));
+      continue;
+    }
+
+    // o otherwise, handle `explicit` type-specifiers
+    if (ispair(type) and car(type) == "explicit")
+    {
+      const value explicitarg = list(ident, car(cdr(type)));
+      info("explicit arugment type annotation: {}", explicitarg);
+      append_mut(newargs, list(explicitarg));
+      continue;
+    }
+
+    // o otherwize, inject type-conversion
+    const value proxyident = sym(std::format("osl#x{}", g_counter++));
+    append_mut(newargs, list(proxyident));
+    /*const value castarg = list("coerce", proxyident, type);*/
+    // cast(from as castguide(_, To, _)) :: To
+    const value castarg = list("annotate-type", list("cast", proxyident), type);
+    const value bindarg = list(ident, castarg);
+    append_mut(binds, list(bindarg));
+  }
+
+  if (binds == nil) // Nothing have been changed
+    return {newargs, body};
+  else
+  {
+    const value letexpr = list("let", binds, dot, body);
+    return {newargs, list(letexpr)};
+  }
+}
+
+
 static opi::value
 generate_inlinescm_lambda(opi::value scmexpr, opi::value argtypes,
                           opi::value restypes)
@@ -261,10 +315,14 @@ generate_record_interface(opi::value recorddef,
 
   const opi::value define_overload = "define-overload";
   set_location(define_overload, location);
-  const opi::value ctordef =
-    list(define_overload, cons(ovctorname, ctorargs),
-      list(generate_inlinescm_lambda(constructor, fieldtypes, list(typesign)),
-           dot, fieldnames));
+
+  value ctorbody = list(
+    list( // application
+      generate_inlinescm_lambda(constructor, fieldtypes, list(typesign)),
+      dot, fieldnames)
+  );
+  std::tie(ctorargs, ctorbody) = insert_argument_type_coercions(ctorargs, ctorbody);
+  const opi::value ctordef = list(define_overload, cons(ovctorname, ctorargs), dot, ctorbody);
   *output++ = ctordef;
 
   for (const auto [fieldname, fieldtype] : opi::utl::zip(range(fieldnames), range(fieldtypes)))
@@ -272,14 +330,23 @@ generate_record_interface(opi::value recorddef,
     const auto [getter, setter] = record_field_accessors(recorddef, fieldname);
     const opi::value ovgetter = overloaded_getter_name(fieldname);
     const opi::value ovsetter = overloaded_setter_name(fieldname);
-    const opi::value getterdef =
-      list(define_overload, list(ovgetter, list("x", typesign)),
-        list(generate_inlinescm_lambda(getter, list(typesign), list(fieldtype)),
-             "x"));
-    const opi::value setterdef =
-      list(define_overload, list(ovsetter, list("x", typesign), list("v", fieldtype)),
-        list(generate_inlinescm_lambda(setter, list(typesign, fieldtype), list("void")),
-             "x", "v"));
+
+    // Generate getter function
+    value getterargs = list(list("x", typesign));
+    value getterbody = list(
+      list(generate_inlinescm_lambda(getter, list(typesign), list(fieldtype)), "x")
+    );
+    std::tie(getterargs, getterbody) = insert_argument_type_coercions(getterargs, getterbody);
+    const opi::value getterdef = list(define_overload, cons(ovgetter, getterargs), dot, getterbody);
+
+    // Generate setter function
+    value setterargs = list(list("x", typesign), list("v", fieldtype));
+    value setterbody = list(
+      list(generate_inlinescm_lambda(setter, list(typesign, fieldtype), list("void")), "x", "v")
+    );
+    std::tie(setterargs, setterbody) = insert_argument_type_coercions(setterargs, setterbody);
+    const opi::value setterdef = list(define_overload, cons(ovsetter, setterargs), dot, setterbody);
+
     set_location(getterdef, location);
     set_location(setterdef, location);
     *output++ = getterdef;
@@ -459,40 +526,6 @@ fix_type_annotations_in_arguments(opi::value l)
   if (ispair(head) and car(head) == "annotate-type")
     head = cdr(head);
   return cons(head, tail);
-}
-
-
-static std::pair<opi::value, opi::value> // {new-args, new-body}
-insert_argument_type_coercions(opi::value args, opi::value body)
-{
-  value newargs = nil;
-  value binds = nil;
-  for (const opi::value arg : range(args))
-  {
-    // o nothing to do when there is no type annotation
-    if (issym(arg))
-    {
-      append_mut(newargs, list(arg));
-      continue;
-    }
-    // o otherwise, ...
-    // TODO: do notihing when type is a type variable
-    const value ident = car(arg);
-    const value type = car(cdr(arg));
-    const value proxyident = sym(std::format("osl#x{}", g_counter++));
-    append_mut(newargs, list(proxyident));
-    const value coercearg = list("coerce", proxyident, type);
-    const value bindarg = list(ident, coercearg);
-    append_mut(binds, list(bindarg));
-  }
-
-  if (binds == nil) // Nothing have been changed
-    return {args, body};
-  else
-  {
-    const value letexpr = list("let", binds, dot, body);
-    return {newargs, list(letexpr)};
-  }
 }
 
 
@@ -717,6 +750,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %token SET
 %token FN
 %token EXTERN
+%token EXPLICIT
 
 %right '|' '&'
 
@@ -843,8 +877,7 @@ ApplExpr
     opi::lisp_parser parser;
     try {
       const value sexpr = parser.parse(str_view($1).data());
-      const value inlinescm = list("pragma", "inline-scheme", sexpr);
-      $$ = list("annotate-type", inlinescm, "inline-scheme-result");
+      $$ = list("pragma", "inline-scheme", sexpr);
     }
     catch (const std::exception &exn)
     {
@@ -996,17 +1029,19 @@ Stmt
     assert(ispair($1));
     const value define = "define-overload";
     const value identwithret = cons(car($1), $3);
-    const value fixed_signature =
-      cons(identwithret, fix_type_annotations_in_arguments(cdr($1)));
+    value args = fix_type_annotations_in_arguments(cdr($1));
     _derloc(define, $4);
     if (opi::ispair($5) and car($5) == "begin")
     {
-      const value body = make_body_with_return(cdr($5));
-      $$ = list(define, fixed_signature, dot, body);
+      value body = make_body_with_return(cdr($5));
+      std::tie(args, body) = insert_argument_type_coercions(args, body);
+      $$ = list(define, cons(identwithret, args), dot, body);
     }
     else
     {
-      $$ = list(define, fixed_signature, $5);
+      value body = list($5);
+      std::tie(args, body) = insert_argument_type_coercions(args, body);
+      $$ = list(define, cons(identwithret, args), dot, body);
     }
   }
   | Expr ',' ListOfExprs '=' Expr {
@@ -1033,13 +1068,16 @@ Stmt
       argnames.push_back(argname);
       wrapperargs.push_back(list(argname, argtype));
     }
-    $$ =
-      list("define-overload", cons($2, list(wrapperargs)),
-        list(
-          list("annotate-type",
-            list("pragma", "inline-scheme", $2),
-            list("fn", $4, dot, $7)),
-          dot, list(argnames)));
+    value args = list(wrapperargs);
+    value body = list(
+      list( // application
+        list("annotate-type",
+          list("pragma", "inline-scheme", $2),
+          list("fn", $4, dot, $7)),
+        dot, list(argnames))
+    );
+    std::tie(args, body) = insert_argument_type_coercions(args, body);
+    $$ = list("define-overload", cons($2, args), dot, body);
   }
   | EXTERN IDENT AS IDENT '(' ListOfTypeParams ')' RIGHT_ARROW ListOfTypeParams {
     stl::vector<value> wrapperargs, argnames;
@@ -1049,13 +1087,16 @@ Stmt
       argnames.push_back(argname);
       wrapperargs.push_back(list(argname, argtype));
     }
-    $$ =
-      list("define-overload", cons($4, list(wrapperargs)),
-        list(
-          list("annotate-type",
-            list("pragma", "inline-scheme", $2),
-            list("fn", $6, dot, $9)),
-          dot, list(argnames)));
+    value args = list(wrapperargs);
+    value body = list(
+      list( // application
+        list("annotate-type",
+          list("pragma", "inline-scheme", $2),
+          list("fn", $6, dot, $9)),
+        dot, list(argnames))
+    );
+    std::tie(args, body) = insert_argument_type_coercions(args, body);
+    $$ = list("define-overload", cons($4, args), dot, body);
   }
   | EXTERN FOREIGN IDENT AS IDENT '(' ListOfForeignTypes ')' RIGHT_ARROW ForeignType {
     // TODO: bind locations
@@ -1083,7 +1124,9 @@ Stmt
           list("pragma", "inline-scheme", foreign_safe_lambda),
           list("fn", osltypes, oslrettype)),
         dot, argnames);
-    $$ = list("define-overload", cons($5, oslargs), foreign_call);
+    value body = list(foreign_call);
+    std::tie(oslargs, body) = insert_argument_type_coercions(oslargs, body);
+    $$ = list("define-overload", cons($5, oslargs), dot, body);
   }
   | EXTERN FOREIGN IDENT '(' ListOfForeignTypes ')' RIGHT_ARROW ForeignType {
     // See above but no aliasing
@@ -1112,7 +1155,9 @@ Stmt
           list("pragma", "inline-scheme", foreign_safe_lambda),
           list("fn", osltypes, oslrettype)),
         dot, argnames);
-    $$ = list("define-overload", cons($3, oslargs), foreign_call);
+    value body = list(foreign_call);
+    std::tie(oslargs, body) = insert_argument_type_coercions(oslargs, body);
+    $$ = list("define-overload", cons($3, oslargs), dot, body);
   }
   | ASSERT '{' SeqOfStmts '}' {
     $$ = list("if", False, cons("begin", $3));
@@ -1429,6 +1474,7 @@ NonZeroListOfIdents
 ExprWithOptTypeParam
   : Expr
   | Expr TypeParam { $$ = list($1, $2); }
+  | Expr EXPLICIT TypeParam { $$ = list($1, list($2, $3)); }
 ;
 
 

@@ -76,11 +76,8 @@ opi::prolog_emitter::setup_prolog(prolog &pl)
 
   // Type-check rule for dynamic function specialization
   pl.add_predicate(
-      "(result-of ((#dynamic-function-dispatch _ Args Results Body) . ArgsIn) . Results)"_lisp,
-      // inline of `coerce-list` from above
-      "(and (if (= ArgsIn Args) #t                     \
-                (fast-coerce-list ArgsIn Args))        \
-            (call Body))"_lisp);
+      "(result-of ((#dynamic-function-dispatch _ Args Results Body) . Args) . Results)"_lisp,
+      "(call Body)"_lisp);
 }
 
 

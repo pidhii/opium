@@ -1,7 +1,7 @@
+require "base"
 require "loops"
 require "conditionals"
 require "exceptions"
-require "base"
 require "maybe"
 require "optional"
 require "error"

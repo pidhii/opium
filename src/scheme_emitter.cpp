@@ -127,20 +127,6 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
     },
     [this](const auto &ms) {
     const value expr = ms.at("expr");
-    const value types = ms.at("types");
-
-    try
-    {
-      [[maybe_unused]] const value exprtype =
-          detail::remove_bodies(_unfold_types(m_ctx.ctm().code_type(expr)));
-      [[maybe_unused]] const value tgttypes = _unfold_types(types);
-      info("annotate-type\nexprtype: {}\ntgttypes: {}", exprtype, tgttypes);
-    }
-    catch (...)
-    { }
-
-    // TODO:
-    // o handle non-nop type coercions
     // Just forward the `expr`
     return (*this)(expr);
   });
@@ -154,21 +140,6 @@ opi::scheme_emitter::scheme_emitter(scheme_emitter_context &ctx,
     },
     [this](const auto &ms) {
     const value expr = ms.at("expr");
-    const value types = ms.at("types");
-
-    try
-    {
-      [[maybe_unused]] const value exprtype =
-          detail::remove_bodies(_unfold_types(m_ctx.ctm().code_type(expr)));
-      [[maybe_unused]] const value tgttypes = _unfold_types(types);
-      info("coerce\nexprtype: {}\ntgttypes: {}", exprtype, tgttypes);
-    }
-    catch (...)
-    { }
-
-    // TODO:
-    // o handle non-nop type coercions
-    // Just forward the `expr`
     return (*this)(expr);
   });
 

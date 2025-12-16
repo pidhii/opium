@@ -105,7 +105,7 @@ println(format("~S", "ĸ•⌚⏪"))
 
 test_inline_scm() = {
   println("before")
-  scm { print }(1, 2, 3)
+  { scm { print } :: fn(_, _, _) -> void} (1, 2, 3)
   println("after")
 }
 test_inline_scm()

@@ -1,5 +1,8 @@
 require "base"
 require "coroutines"
+require "pack"
+require "itertools"
+require "maybe"
 
 ~~~
 (import srfi-12 (chicken condition))

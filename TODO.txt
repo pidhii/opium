@@ -8,7 +8,7 @@ BUGS:
 [✓] Match-translation predicates must account for type parameters.
 [ ] Proper error reporting on invalid macro-parameter references.
 [✓] Allow wildcard identifier, `_`, in local bindings.
-[ ] Typecheck ignores ambiguities in function bodies.
+[✓] Typecheck ignores ambiguities in function bodies.
 
 FEATURES:
 [ ] Implicit union-typing in result of match expression.
