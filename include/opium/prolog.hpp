@@ -196,9 +196,9 @@ class prolog {
   std::ranges::view auto
   predicate_branches(const std::string &name) const;
 
-  std::ranges::range auto
+  std::ranges::view auto
   predicates() const noexcept
-  { return m_db; }
+  { return std::views::values(m_db); }
 
   bool
   is_true(value plexpr) const

@@ -18,6 +18,7 @@
 
 
 #include "opium/prolog.inl"
+#include "opium/prolog_detail.inl"
 
 
 bool
@@ -37,7 +38,7 @@ opi::prolog_impl::debug(value expr, value args)
   if (get_location(expr, location))
     std::clog << display_location(location, 0, "\e[38;5;5;1m", "\e[2m") << " ";
   for (const value x : range(args))
-    display(std::clog, reconstruct(x, stringify_unbound_variables));
+    display(std::clog, detail::remove_bodies(reconstruct(x, stringify_unbound_variables)));
   std::clog << std::endl;
 }
 

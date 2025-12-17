@@ -1,0 +1,17 @@
+
+////////////////////////////////////////////////////////////////////////////////
+//                           Type Cast Dispatch
+//
+#pragma prolog {
+  (predicate (result-of (resolvecast T) (castpolicy U CastPolicy))
+    (if (fast-coerce T U)
+        (= CastPolicy trivial)
+        (and
+          (distinct (convertible T U))
+          (= CastPolicy conversion))))
+}
+extern identity as resolvecast :: resolvecast
+
+__cast(x, _ explicit castpolicy(U, trivial)) -> U = reinterpret_cast(x) :: U
+__cast(x, _ explicit castpolicy(U, conversion)) -> U = identifier!(convert)(x)
+cast(x) -> U = __cast(x, resolvecast(x) :: castpolicy(U, _))

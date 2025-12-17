@@ -1,0 +1,97 @@
+
+////////////////////////////////////////////////////////////////////////////////
+//                    Coercion rules for type combinators
+//
+#pragma prolog {
+  ;;;;;
+  ;; T ~> (or U1 U2 ...)
+  ;;
+  ;;     ∃ Ui: T ≤ Ui
+  ;;;;
+  (predicate (coerce T (or . Us))
+    (less-then-some* fast-coerce T Us))
+
+  ;;;;
+  ;; (or T1 T2 ...) ~> U
+  ;;
+  ;;     ∀ Ti: Ti ≤ U
+  ;;;;
+  (predicate (coerce (or . Ts) U)
+    (all-less-then* fast-coerce Ts U))
+
+  ;;;;
+  ;; T ~> (and U1 U2 ...)
+  ;;
+  ;;     ∀ Ui: T ≤ Ui
+  ;;;;
+  (predicate (coerce T (and . Us))
+    (less-then-all* fast-coerce T Us))
+
+  ;;;;
+  ;; (and T1 T2 ...) ~> U
+  ;;
+  ;;     ∃ Ti: Ti ≤ U
+  ;;;;
+  (predicate (coerce (and . Ts) U)
+    (some-less-then* fast-coerce Ts U))
+
+  ;;;;
+  ;; T ~> (not U)
+  ;;
+  ;;     ¬(T ≤ U), ¬(U ≤ T)  (<=> T and U unrelated)
+  ;;;;
+  (predicate (coerce T (not U))
+    (not (fast-coerce T U))
+    (not (fast-coerce U T)))
+
+  ;;;;
+  ;; (not T) ~> (not U)
+  ;;
+  ;;     T ≤ U, U ≤ T  (<=> T = U in a sense of order)
+  ;;;;
+  (predicate (coerce (not T) (not U))
+    (fast-coerce T U)
+    (fast-coerce U T))
+
+  ;;;;
+  ;; T ~> (= U)
+  ;;
+  ;;     T ≤ U, U ≤ T  (<=> T = U in a sense of order)
+  ;;;;
+  (predicate (coerce T (= U))
+    (if (= T U) #t
+        (and
+          (fast-coerce T U)
+          (fast-coerce U T))))
+
+  ;;;;
+  ;; (= T) ~> U
+  ;;
+  ;;     T ≤ U, U ≤ T  (<=> T = U in a sense of order)
+  ;;;;
+  (predicate (coerce (= T) U)
+    (if (= T U) #t
+        (and
+          (fast-coerce T U)
+          (fast-coerce U T))))
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+//                    Conversions with type combinators
+//
+// or-combinator:
+// - [✓] T into U1 or U2
+// - [✓] T1 or T2 into U
+// [✗] and-combinator
+// [✗] not-combinator
+// [✗] =-combinator:
+//
+// - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+//                            or-combinator
+convert x T -> U1 or U2 = (cast(x) :: U1) as (U1 or U2)
+convert x T -> U1 or U2 = (cast(x) :: U2) as (U1 or U2)
+
+convert x T1 or T2 -> U =
+  match x in type T1 a -> cast(a) :: U
+  |          type T2 b -> cast(b) :: U

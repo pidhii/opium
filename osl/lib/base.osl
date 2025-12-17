@@ -9,6 +9,32 @@ macro reinterpret_cast {
   ]
 }
 
+#pragma prolog {
+  ;;;;
+  ;; pattern-matching
+  ;;;;
+
+  ;; Composite types (types with type parameters) are represented in OSL by
+  ;; Scheme objects that are ignorant to the types OSL attribute to them. For
+  ;; this reason it is not possible (normally) to distinguish between, e.g.,
+  ;; `list(num)` and `list(str)`, i.e. runtime predicates for match-translation
+  ;; can't handle type parameters. To accommodate this fact, we require that
+  ;; the match of type T on a composite type U stripped of type parameters has
+  ;; to be unique:
+  ;;
+  ;;    match T on U(_, _, ...)  <=>  ∃! (u1, u2, ...): U(u1, u2, ...) ≤ T
+  ;;
+  ;; Although, it is, formally, not correct to apply this rule to all composite
+  ;; types as this detail depends on runtime implementation details; for now,
+  ;; for the sake of simplicity, and until the case arises, we apply this to
+  ;; ALL composite types.
+  (predicate (match-on ((typename T) T) U)
+    (if (= T U) #t
+        (and (coerce T U)
+             (if (= T (TypeName . TypeParams))
+                 (unique (coerce (TypeName . _) U))
+                 #t))))
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 //                              Syntax base
@@ -36,19 +62,8 @@ extern values :: values
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 //                            type casts
-#pragma prolog {
-  (predicate (result-of (resolvecast T) (castpolicy U CastPolicy))
-    (if (fast-coerce T U)
-        (= CastPolicy trivial)
-        (and
-          (distinct (convertible T U))
-          (= CastPolicy conversion))))
-}
-extern identity as resolvecast :: resolvecast
-
-__cast(x, _ explicit castpolicy(U, trivial)) -> U = reinterpret_cast(x) :: U
-__cast(x, _ explicit castpolicy(U, conversion)) -> U = convert(x)
-cast(x) -> U = __cast(x, resolvecast(x) :: castpolicy(U, _))
+require "typecast"
+require "typecombinators"
 
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
@@ -92,97 +107,6 @@ extern identifier!(osl#list) :: identifier!(osl#list)
     ((_ x) x)))
 ~~~
 
-
-// Type-classes
-#pragma prolog {
-  ;;;;
-  ;; pattern-matching
-  ;;;;
-
-  ;; Composite types (types with type parameters) are represented in OSL by
-  ;; Scheme objects that are ignorant to the types OSL attribute to them. For
-  ;; this reason it is not possible (normally) to distinguish between, e.g.,
-  ;; `list(num)` and `list(str)`, i.e. runtime predicates for match-translation
-  ;; can't handle type parameters. To accommodate this fact, we require that
-  ;; the match of type T on a composite type U stripped of type parameters has
-  ;; to be unique:
-  ;;
-  ;;    match T on U(_, _, ...)  <=>  ∃! (u1, u2, ...): U(u1, u2, ...) ≤ T
-  ;;
-  ;; Although, it is, formally, not correct to apply this rule to all composite
-  ;; types as this detail depends on runtime implementation details; for now,
-  ;; for the sake of simplicity, and until the case arises, we apply this to
-  ;; ALL composite types.
-  (predicate (match-on ((typename T) T) U)
-    (if (= T U) #t
-        (and (coerce T U)
-             (if (= T (TypeName . TypeParams))
-                 (unique (coerce (TypeName . _) U))
-                 #t))))
-
-  ;;;;;
-  ;; (coerce T (or U1 U2 ...))
-  ;;
-  ;;     ∃ Ui: T ≤ Ui
-  ;;;;
-  (predicate (coerce T (or . Us))
-    (less-then-some* fast-coerce T Us))
-
-  ;;;;
-  ;; (coerce (or T1 T2 ...) U)
-  ;;
-  ;;     ∀ Ti: Ti ≤ U
-  ;;;;
-  (predicate (coerce (or . Ts) U)
-    (all-less-then* fast-coerce Ts U))
-
-  ;;;;
-  ;; (coerce T (and U1 U2 ...))
-  ;;
-  ;;     ∀ Ui: T ≤ Ui
-  ;;;;
-  (predicate (coerce T (and . Us))
-    (less-then-all* fast-coerce T Us))
-
-  ;;;;
-  ;; (coerce (and T1 T2 ...) U)
-  ;;
-  ;;     ∃ Ti: Ti ≤ U
-  ;;;;
-  (predicate (coerce (and . Ts) U)
-    (some-less-then* fast-coerce Ts U))
-
-  ;;;;
-  ;;
-  ;; (coerce T (not U))
-  ;;
-  ;;     ¬(T ≤ U), ¬(U ≤ T)  (<=> T and U unrelated)
-  ;;;;
-  (predicate (coerce T (not U))
-    (not (fast-coerce T U))
-    (not (fast-coerce U T)))
-
-  (predicate (coerce (not T) (not U))
-    (fast-coerce T U)
-    (fast-coerce U T))
-
-  ;;;;
-  ;;
-  ;; (coerce (T (= U)))
-  ;;
-  ;;     T ≤ U, U ≤ T  (<=> T = U in a sense of order)
-  (predicate (coerce T (= U))
-    (if (= T U) #t
-        (and
-          (fast-coerce T U)
-          (fast-coerce U T))))
-
-  (predicate (coerce (= T) U)
-    (if (= T U) #t
-        (and
-          (fast-coerce T U)
-          (fast-coerce U T))))
-}
 
 // Return expression (Bison misunderstands my intentions)
 macro return {

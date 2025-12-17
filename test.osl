@@ -150,3 +150,27 @@ d.foreach((k, v) => println("d[", k, "] = ", v))
 
 let a = array [1, 2, 3, 4, 5] in
 println("array literal: ", a)
+
+
+type promise(T) = { thunk fn() -> T, result T? }
+force(p promise(T)) -> T = {
+  if let Some(value) = p#result then
+    return value
+  else
+  {
+    result = p#thunk()
+    set p#result = result as T?
+    return result
+  }
+}
+convert p promise(T) -> T = force(p)
+
+macro lazy {
+  [lazy $expr:expr] = [promise(() => $expr, null)]
+}
+
+println("defer adding 2 + 2")
+twoplustwo = lazy { println("adding 2 + 2") 2 + 2 }
+println("adding (2 + 2) + 2")
+println("=> ", twoplustwo + 2)
+

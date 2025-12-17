@@ -751,6 +751,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %token FN
 %token EXTERN
 %token EXPLICIT
+%token CONVERT
 
 %right '|' '&'
 
@@ -1049,6 +1050,31 @@ Stmt
     const value define = "define-values";
     _derloc(define, $4);
     $$ = list(define, idents, $5);
+  }
+  | CONVERT IDENT TypeParam RIGHT_ARROW TypeParam '=' Expr {
+    const value define = "define-overload";
+    const value args = list(list($2, $3));
+    const value identwithret = list($1, $5);
+    _derloc(define, $6);
+    const value body = opi::ispair($7) and car($7) == "begin"
+                       ? make_body_with_return(cdr($7))
+                       : list($7);
+    $$ = list(define, cons(identwithret, args), dot, body);
+
+    opi::prolog_repl &pl = g_current_program_parser->m_translator_config.prolog;
+
+    // Define convertible-predicate unless equivalent predicate is already present
+    const value assert_convertible = list("convertible", $3, $5);
+    const auto &predicates = pl.predicates();
+    const auto equiv_sign = [&] (const opi::predicate &p) -> bool {
+      opi::predicate_runtime prt1, prt2;
+      const value oldsign = insert_cells(prt1, p.signature());
+      const value newsign = insert_cells(prt2, assert_convertible);
+      return equivalent(oldsign, newsign);
+    };
+    const auto it = std::ranges::find_if(predicates, equiv_sign);
+    if (it == predicates.end())
+      pl << list("predicate", assert_convertible);
   }
   | EXTERN IDENT DOUBLE_COLUMN AtomTypeParam {
     $$ =
