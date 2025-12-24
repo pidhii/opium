@@ -9,8 +9,13 @@ BUGS:
 [ ] Proper error reporting on invalid macro-parameter references.
 [✓] Allow wildcard identifier, `_`, in local bindings.
 [✓] Typecheck ignores ambiguities in function bodies.
+[✓] Handle accidental infinite type-names
 
 FEATURES:
+[ ] REPL
+[ ] Operators as constructors.
+[ ] Operators in pattern matching.
+[ ] User-friendly syntax for implementation of custom pattern matching
 [ ] Implicit union-typing in result of match expression.
 [ ] Variadic (template) arguments.
 [ ] Lift functions (as types) into domain of type definitions / coercions. May

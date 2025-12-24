@@ -82,9 +82,15 @@ opi::instantiate_function_template(scheme_emitter_context &ctx, value type)
     return specialident;
 
   // Generate identifier for the specialization we are about to create
-  std::ostringstream identbuf;
-  pretty_template_instance_name(type, identbuf);
-  specialident = sym(identbuf.str());
+  // NOTE: have to drop type information from identifier because of possible
+  //       recursion in the typing of function signature
+  // FIXME: don't use static counter
+  // std::ostringstream identbuf;
+  // pretty_template_instance_name(type, identbuf);
+  // specialident = sym(identbuf.str());
+  static size_t cnt = 0;
+  specialident = sym(std::format("osl#spec#{}", cnt++));
+
   const value ppsignature = car(cdr(ppdefinition));
 
   // Save specialization with forward declaration

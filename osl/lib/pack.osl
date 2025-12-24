@@ -32,6 +32,7 @@ extern identifier!(osl#unpack-pack) :: identifier!(osl#unpack-pack)
     ((_ (pack x ...)) (values x ...))))
 ~~~
 
+// FIXME: explicitly cast `p` into pack(...) (requires variadic arguments)
 unpack(p) = identifier!(osl#unpack-pack)(p)
 
 // FIXME: use overloaded operator `==` (requires variadic arguments)

@@ -158,9 +158,9 @@ force(p promise(T)) -> T = {
     return value
   else
   {
-    result = p#thunk()
-    set p#result = result as T?
-    return result
+    value = p#thunk()
+    set p#result = value
+    return value
   }
 }
 convert p promise(T) -> T = force(p)
@@ -169,8 +169,26 @@ macro lazy {
   [lazy $expr:expr] = [promise(() => $expr, null)]
 }
 
+
 println("defer adding 2 + 2")
 twoplustwo = lazy { println("adding 2 + 2") 2 + 2 }
 println("adding (2 + 2) + 2")
 println("=> ", twoplustwo + 2)
 
+
+type lazylist_value(T) = LCons(T, lazylist(T)) | LEmptyList
+type lazylist(T) = promise(lazylist_value(T))
+
+
+inflist(from) = lazy pack(from, inflist(from + 1))
+infl = inflist(1)
+
+sum_first_n(ll, n, acc) =
+  if n > 0 then
+    let hd, tl = unpack(force(ll)) in
+    sum_first_n(tl, n - 1, acc + hd)
+  else
+    acc
+
+println("playing with implicit infinite structures: ",
+  infl.sum_first_n(10, 0) == iter(1 : 11).foldl(0, (+)))
