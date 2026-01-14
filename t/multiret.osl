@@ -13,5 +13,5 @@ assert { a::num b::num c::str }
 println("d=", d, ", e=", e, ", f=", f)
 
 baz() = { return values(1, 2, 3) }
-g, h, i = baz()
+g, h, i = baz() :: (num, num, num)
 println(g, " ", h, " ", i)

@@ -872,7 +872,8 @@ ApplExpr
     _derloc(getter, $2, $4);
     $$ = list(getter, $1, $3);
   }
-  | ApplExpr DOUBLE_COLUMN AtomTypeParam { $$ = list("annotate-type", $1, $3); }
+  | ApplExpr DOUBLE_COLUMN '(' ListOfTypeParams ')' { $$ = list("annotate-type", $1, dot, $4); }
+  | ApplExpr DOUBLE_COLUMN AtomTypeParamWOBrackets { $$ = list("annotate-type", $1, $3); }
   | ApplExpr AS AtomTypeParam { $$ = list("coerce", $1, $3); }
   | INLINE_SCHEME {
     opi::lisp_parser parser;
@@ -1444,7 +1445,7 @@ ListOfTypeParams
   | TypeParam ',' ListOfTypeParams { $$ = cons($1, $3); }
 ;
 
-AtomTypeParam
+AtomTypeParamWOBrackets
   : ATTYPE
   | CAPIDENT
   | '_'
@@ -1452,6 +1453,10 @@ AtomTypeParam
   | AtomTypeParam '?' { $$ = list($2, $1); }
   | NOT AtomTypeParam { $$ = list($1, $2); }
   | '=' AtomTypeParam { $$ = list($1, $2); }
+;
+
+AtomTypeParam
+  : AtomTypeParamWOBrackets
   | '(' TypeParam ')' { $$ = $2; }
 ;
 
