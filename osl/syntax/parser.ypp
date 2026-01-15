@@ -113,6 +113,24 @@ _derloc(opi::value val, opi::value src)
 { opi::copy_location(src, val); }
 
 
+static value
+remove_operator_resolution_tags(value expr, std::optional<value> replacement_tag = std::nullopt)
+{
+  if (ispair(expr) and
+      (issym(car(expr), "unresolved-sufix") or
+       issym(car(expr), "unresolved-infix") or
+       issym(car(expr), "unresolved-postfix")))
+  {
+    if (replacement_tag.has_value())
+      return list(*replacement_tag, cdr(expr));
+    else
+      return cdr(expr);
+  }
+  else
+    return expr;
+}
+
+
 
 static opi::value
 mangle_type_constructor(opi::value ctor)
@@ -520,11 +538,20 @@ fix_type_annotations_in_arguments(opi::value l)
   if (not ispair(l))
     return l;
 
-  const opi::value tail = fix_type_annotations_in_arguments(cdr(l));
-
   opi::value head = car(l);
+
+  // Remove brackets
+  if (ispair(head) and car(head) == "begin")
+  {
+    assert(length(cdr(head)) == 1);
+    head = car(cdr(head));
+  }
+
+  // Fix type annotation syntax
   if (ispair(head) and car(head) == "annotate-type")
     head = cdr(head);
+
+  const opi::value tail = fix_type_annotations_in_arguments(cdr(l));
   return cons(head, tail);
 }
 
@@ -733,6 +760,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %token APPL EXPR STMT ATPAT EXPAT ATTYPE EXTYPE
 
 // General syntax tokens
+%token INFIX_LEFT INFIX_RIGHT PREFIX POSTFIX
 %token INLINE_TYPCHECK
 %token MACRO
 %token REQUIRE
@@ -753,7 +781,7 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 %token EXPLICIT
 %token CONVERT
 
-%right '|' '&'
+%right '|'
 
 %nonassoc IF THEN
 %right ELSE
@@ -764,14 +792,9 @@ parse_syntax_cases_macro(opi::osl::generic_lexer &lexer, opi::osl::parser &parse
 
 %right FAT_RIGHT_ARROW
 
-%right OR
-%right AND
-%nonassoc EQ NE
-%nonassoc LT LE GT GE
-%right ':'
-%left '+' '-' '%'
-%left '*' '/'
-%right NOT UNARY_OPERATOR
+%left POSTFIX_OPERATOR
+%right PREFIX_OPERATOR
+%right OPERATOR '*' NOT ':' AND OR INFIX_OPERATOR
 %left DOUBLE_COLUMN AS
 %left '[' ']'
 %left '.' '#'
@@ -860,7 +883,7 @@ ApplExpr
     _derloc($3, $2, $4);
     $$ = cons($1, $3);
   }
-  | '(' Expr ')' %prec AFTER_APPLY { $$ = $2; }
+  | '(' Expr ')' %prec AFTER_APPLY { $$ = list("begin", $2); }
   | ApplExpr '.' IDENT '(' ListOfExprs ')' {
     _derloc($5, $3, $6);
     $$ = list($3, $1, dot, $5);
@@ -909,34 +932,18 @@ Expr
     _derloc(store, $2, $4);
     $$ = list(store, $3, $5);
   }
-  | ':' ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
-  | '+' ApplExpr %prec UNARY_OPERATOR { $$ = isnum($2) ? $2 : list($1, $2); }
-  | '-' ApplExpr %prec UNARY_OPERATOR { $$ = isnum($2) ? num(-num_val($2)) : list($1, $2); }
-  | '*' ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
-  | '/' ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
-  | '%' ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
-  | EQ ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
-  | NE ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
-  | GT ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
-  | LT ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
-  | GE ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
-  | LE ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
-  | '&' ApplExpr %prec UNARY_OPERATOR { $$ = list($1, $2); }
-  | Expr ':' Expr { $$ = list($2, $1, $3); }
-  | Expr '+' Expr { $$ = list($2, $1, $3); }
-  | Expr '-' Expr { $$ = list($2, $1, $3); }
-  | Expr '*' Expr { $$ = list($2, $1, $3); }
-  | Expr '/' Expr { $$ = list($2, $1, $3); }
-  | Expr '%' Expr { $$ = list($2, $1, $3); }
-  | Expr EQ Expr { $$ = list($2, $1, $3); }
-  | Expr NE Expr { $$ = list($2, $1, $3); }
-  | Expr GT Expr { $$ = list($2, $1, $3); }
-  | Expr LT Expr { $$ = list($2, $1, $3); }
-  | Expr GE Expr { $$ = list($2, $1, $3); }
-  | Expr LE Expr { $$ = list($2, $1, $3); }
-  | Expr AND Expr { $$ = list($2, list("bool", $1), list("bool", $3)); }
-  | Expr OR Expr { $$ = list($2, list("bool", $1), list("bool", $3)); }
-  | NOT Expr { $$ = list($1, list("bool", $2)); }
+  | Expr OPERATOR Expr %prec INFIX_OPERATOR { $$ = list("unresolved-infix", $2, $1, $3); }
+  | OPERATOR ApplExpr %prec PREFIX_OPERATOR { $$ = list("unresolved-sufix", $1, $2); }
+  | Expr OPERATOR %prec POSTFIX_OPERATOR { $$ = list("unresolved-postfix", $2, $1); }
+
+  | Expr '*' Expr %prec INFIX_OPERATOR { $$ = list("unresolved-infix", $2, $1, $3); }
+  | '*' ApplExpr %prec PREFIX_OPERATOR { $$ = list("unresolved-sufix", $1, $2); }
+  | Expr '*' %prec POSTFIX_OPERATOR { $$ = list("unresolved-postfix", $2, $1); }
+
+  | Expr ':' Expr { $$ = list("unresolved-infix", $2, $1, $3); }
+  | Expr AND Expr { $$ = list("unresolved-infix", $2, list("bool", $1), list("bool", $3)); }
+  | Expr OR Expr { $$ = list("unresolved-infix", $2, list("bool", $1), list("bool", $3)); }
+  | NOT Expr { $$ = list("unresolved-sufix", $1, list("bool", $2)); }
   | Lambda
   | If
   | Match
@@ -993,18 +1000,20 @@ Stmt
   : STMT
   | Expr
   | Expr '=' Expr {
-    if (issym($1))
+    const value lhs = remove_operator_resolution_tags($1);
+
+    if (issym(lhs))
     { // define variable
       const value define = "define";
       _derloc(define, $2);
-      $$ = list(define, $1, $3);
+      $$ = list(define, lhs, $3);
     }
-    else if (ispair($1) and car($1) == "annotate-type")
+    else if (ispair(lhs) and car(lhs) == "annotate-type")
     { // move annotation to the LHS and use `define`-syntax
       const value define = "define";
       _derloc(define, $2);
-      const value ident = list_ref($1, 1);
-      const value type = list_ref($1, 2);
+      const value ident = list_ref(lhs, 1);
+      const value type = list_ref(lhs, 2);
       const value expr = $3;
       assert(issym(ident));
       $$ = list(define, ident, list("annotate-type", expr, type));
@@ -1013,8 +1022,8 @@ Stmt
     {
       const value define = "define-overload";
       _derloc(define, $2);
-      const value ident = car($1);
-      value args = fix_type_annotations_in_arguments(cdr($1));
+      const value ident = car(lhs);
+      value args = fix_type_annotations_in_arguments(cdr(lhs));
       value body;
       if (opi::ispair($3) and car($3) == "begin")
         body = make_body_with_return(cdr($3));
@@ -1028,10 +1037,12 @@ Stmt
     }
   }
   | Expr RIGHT_ARROW ListOfTypeParams '=' Expr {
-    assert(ispair($1));
+    const value lhs = remove_operator_resolution_tags($1);
+
+    assert(ispair(lhs));
     const value define = "define-overload";
-    const value identwithret = cons(car($1), $3);
-    value args = fix_type_annotations_in_arguments(cdr($1));
+    const value identwithret = cons(car(lhs), $3);
+    value args = fix_type_annotations_in_arguments(cdr(lhs));
     _derloc(define, $4);
     if (opi::ispair($5) and car($5) == "begin")
     {
@@ -1232,6 +1243,7 @@ Match
     const value cases = "cases";
     _derloc(cases, $1);
     $$ = list(cases, $2, dot, newclauses);
+    /*warning("cases: {:c}", $$);*/
   }
 ;
 
@@ -1341,6 +1353,26 @@ TopLvlExpr
     }
     else
       $$ = list(list("pragma", $2, dot, data));
+  }
+  | INFIX_LEFT INTEGER OPERATOR {
+    const int prec = num_val($2);
+    g_current_program_parser->add_operator(osl::operator_kind::infix, $3, -prec);
+    $$ = nil;
+  }
+  | INFIX_RIGHT INTEGER OPERATOR {
+    const int prec = num_val($2);
+    g_current_program_parser->add_operator(osl::operator_kind::infix, $3, prec);
+    $$ = nil;
+  }
+  | PREFIX INTEGER OPERATOR {
+    const int prec = num_val($2);
+    g_current_program_parser->add_operator(osl::operator_kind::sufix, $3, std::abs(prec));
+    $$ = nil;
+  }
+  | POSTFIX INTEGER OPERATOR {
+    const int prec = num_val($2);
+    g_current_program_parser->add_operator(osl::operator_kind::postfix, $3, std::abs(prec));
+    $$ = nil;
   }
 ;
 
@@ -1708,7 +1740,8 @@ program_parser::load_source(const std::string &source, std::FILE *file)
   g_current_program_parser = this;
 
   lexer scanner {{source, 0, 0}, file};
-  const opi::value result = parse(PARSE_TOPLVL, scanner);
+  opi::value result = parse(PARSE_TOPLVL, scanner);
+  result = resolve_operator_precedence(result, operators());
   m_target.append(source, result);
 }
 

@@ -53,6 +53,18 @@ is_token(const syntax *syn, int toktype, value value) noexcept
          syn->token.value == value;
 }
 
+
+static inline bool
+read_expecting(generic_lexer &lex, lexer::token &token, int toktype,
+               const std::string_view &expect)
+{ return lex.read(token) == toktype and issym(token.value, expect); }
+
+static inline bool
+read_expecting(generic_lexer &lex, lexer::token &token,
+               const std::string_view &expect)
+{ return lex.read(token) and issym(token.value, expect); }
+
+
 void
 dump_syntax(std::ostream &os, const syntax *syn);
 
@@ -185,17 +197,15 @@ macro_pattern_parser<ParamDict>::parse_syntax(generic_lexer &lex)
         stl::vector<const syntax*> seq;
         subparser.parse_list(lex, ']', std::back_inserter(seq));
         lexer::token reptag;
-        switch (lex.read(reptag))
-        {
-          case '*':
-          case '+':
-            gpat->reptag = reptag.value;
-            break;
-          default:
-            throw bad_code {std::format(
-                "Invalid macro parameter (expected '*' or '+', got '{}'/{})",
-                reptag.value, reptag.type), reptag.location};
-        }
+
+        lex.read(reptag);
+        if (reptag.value == "*" or reptag.value == "+") // TODO
+          gpat->reptag = reptag.value;
+        else
+          throw bad_code {std::format(
+              "Invalid macro parameter (expected '*' or '+', got '{}'/{})",
+              reptag.value, reptag.type), reptag.location};
+
         lex.put(token);
         const auto [_, name] = detail::parse_pattern_parameter(lex, detail::name);
         m_parameter_types[name] = ptr(gpat);
@@ -264,7 +274,7 @@ macro_rule_parser::parse_syntax(generic_lexer &lex)
     {
       if (lex.peek(nexttoken) == '[')
       {
-        lex.read(nexttoken);
+        lex.read(nexttoken); // readout the '['
         stl::vector<const syntax*> seq;
         parse_list(lex, ']', std::back_inserter(seq));
         lex.put(token);
@@ -527,13 +537,12 @@ static std::pair<value /*type*/, value /*name*/>
 detail::parse_pattern_parameter(generic_lexer &lex, unsigned flags)
 { // TODO: pass locations to the exceptions
   lexer::token dolar, type, colon, name;
-  int toktype;
 
   // Leading dollar
-  if ((toktype = lex.read(dolar)) != '$')
+  if (not read_expecting(lex, dolar, "$"))
     throw bad_code {
         std::format("Invalid macro parameter (expected '$', got '{}'/{})",
-                      dolar.value, toktype), dolar.location};
+                      dolar.value, dolar.type), dolar.location};
 
   // parameter type
   if ((flags & parse_param_flags::type))
@@ -547,7 +556,7 @@ detail::parse_pattern_parameter(generic_lexer &lex, unsigned flags)
   }
 
   // colon
-  if ((flags == parse_param_flags::all) and lex.read(colon) != ':')
+  if ((flags == parse_param_flags::all) and not read_expecting(lex, colon, ":"))
     throw bad_code {"Invalid macro parameter (expected ':')", colon.location};
 
   // parameter name

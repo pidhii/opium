@@ -1,0 +1,19 @@
+
+
+type order = Lt | Eq | Gt
+infix left 5 <=>
+
+x::num <=> y::num =
+  if x < y then Lt
+  else if x > y then Gt
+  else Eq
+
+let x = 1, y = 0 in
+println(x, " <=> ", y, " = ", x <=> y)
+
+
+postfix 1 !
+x::maybe(T)! = unpack(x)
+
+
+println(Some(41)!)

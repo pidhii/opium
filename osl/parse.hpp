@@ -1,5 +1,6 @@
 #pragma once
 
+#include "operators.hpp"
 #include "osl_parser.hpp" // FIXME
 
 #include "opium/exceptions.hpp"
@@ -122,7 +123,7 @@ struct syntax;
 struct macro_case {
   const syntax *pattern, *rule;
   opi::stl::unordered_map<opi::value, opi::value> paramtypes;
-};
+}; // struct osl::macro_case
 using macro = stl::vector<macro_case>;
 
 using macro_key = std::pair<int, value>;
@@ -136,9 +137,10 @@ struct macro_key_hash {
     hash_combine(hash, key.second);
     return hash;
   }
-};
+}; // struct osl::macro_key_hash
 
 using macros_library = stl::unordered_multimap<macro_key, macro, macro_key_hash>;
+
 
 
 /** Specific exception type raised by the parser */
@@ -146,6 +148,7 @@ struct parse_error: public bad_code {
   using bad_code::bad_code;
 };
 
+/** Basic OSL Parser */
 class parser {
   public:
   opi::value
@@ -159,8 +162,17 @@ class parser {
   add_macro(const macro_key &key, macro &&macro)
   { m_macros.emplace(key, std::move(macro)); }
 
+  void
+  add_operator(operator_kind kind, value name, int precedence)
+  { m_operators.add_operator(kind, name, precedence); }
+
+  const operators_library&
+  operators() const noexcept
+  { return m_operators; }
+
   private:
   macros_library m_macros;
+  operators_library m_operators;
   prolog m_pl;
 }; // class opi::osl::parser
 
@@ -192,6 +204,7 @@ class program_sources {
 };
 
 
+/** OSL Parser with  */
 class program_parser: public parser {
   public:
   program_parser(program_sources &target, scheme_translator &translator_config);

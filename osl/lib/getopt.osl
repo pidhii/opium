@@ -23,7 +23,7 @@ getoptarg()
 
 getopt(argv, optstring str) = {
   // int getopt(int argc, char *argv[], const char *optstring);
-  extern foreign getopt as c_getopt(int, char**, cstr) -> int
+  extern foreign getopt as c_getopt(int, char * *, cstr) -> int
   extern foreign setoptind(int) -> void
   extern foreign getoptind() -> int
   extern foreign getoptarg() -> cstr

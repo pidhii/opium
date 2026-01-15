@@ -16,6 +16,9 @@ BUGS:
     explicit `type` keyword)
 
 FEATURES:
+[ ] Floating point values for operator precedences.
+[ ] Optimize `(begin ...)` when it contains a single expression.
+[ ] Inline small functions.
 [ ] REPL
 [ ] Operators as constructors.
 [ ] Operators in pattern matching.
@@ -28,7 +31,7 @@ FEATURES:
 [ ] Generation of unique identifiers in macros. And, if possible, make it
     possible to share them between multiple macros.
 [✓] Add character literals.
-[ ] User-defined operators.
+[✓] User-defined operators.
 [✓] Type-annotation for multiple return values.
 [ ] (?) Automatic generation of equality tests for user types
 [✓] Access to top-level macro parameters during expansions of sub-patterns.

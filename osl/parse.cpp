@@ -226,6 +226,33 @@ opi::osl::program_parser::program_parser(program_sources &target,
 {
   m_translator_config.typer.set_literal_type_coder(_literal_type_coder);
   m_translator_config.literal_coder = _literal_value_coder;
+
+  // %right OR                 // 8
+  add_operator(operator_kind::infix, "or", 8);
+  // %right AND                // 7
+  add_operator(operator_kind::infix, "and", 7);
+  // %nonassoc EQ NE           // 6
+  add_operator(operator_kind::infix, "==", 6);
+  add_operator(operator_kind::infix, "!=", 6);
+  // %nonassoc LT LE GT GE     // 5
+  add_operator(operator_kind::infix, "<", 5);
+  add_operator(operator_kind::infix, "<=", 5);
+  add_operator(operator_kind::infix, ">", 5);
+  add_operator(operator_kind::infix, ">=", 5);
+  // %right ':'                // 4
+  add_operator(operator_kind::infix, ":", 4);
+  // %left '+' '-' '%'         // 3
+  add_operator(operator_kind::infix, "+", -3);
+  add_operator(operator_kind::infix, "-", -3);
+  add_operator(operator_kind::infix, "%", -3);
+  // %left '*' '/'             // 2
+  add_operator(operator_kind::infix, "*", -2);
+  add_operator(operator_kind::infix, "/", -2);
+  // %right NOT UNARY_OPERATOR // 1
+  add_operator(operator_kind::sufix, "not", 1);
+  add_operator(operator_kind::sufix, "-", 1);
+  add_operator(operator_kind::sufix, "+", 1);
+  add_operator(operator_kind::sufix, "*", 1);
 }
 
 void

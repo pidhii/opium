@@ -1,6 +1,7 @@
 #include "operators.hpp"
 #include "opium/scheme/scheme_code_transformer.hpp"
 #include "opium/lisp_parser.hpp"
+#include "opium/utilities/execution_timer.hpp"
 
 #include <stdexcept>
 
@@ -365,7 +366,7 @@ struct precedence_tree_builder {
 
     resolver_node *node = make<resolver_node>();
     node->kind = resolver_node::kind::expr;
-    node->expr = expr;
+    node->expr = resolve_operator_precedence(expr, m_oplib);
     return node;
   }
 
@@ -437,6 +438,7 @@ struct operator_precedence_resolver: ext_scheme_code_transformer {
 opi::value
 opi::osl::resolve_operator_precedence(value expr, const operators_library &oplib)
 {
+  OPI_FUNCTION_BENCHMARK
   detail::operator_precedence_resolver resolver {oplib};
   return resolver(expr);
 }

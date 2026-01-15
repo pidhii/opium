@@ -21,8 +21,8 @@ unit_test writeln(oport) = {
 }
 
 unit_test read(iport, itext) = {
-  test_equal iport.read(5).unpack_or("-") = itext[0:5]
-  test_equal iport.read().unpack_or("-") = itext[5:-1]
+  test_equal iport.read(5).unpack_or("-") = itext[0 : 5]
+  test_equal iport.read().unpack_or("-") = itext[5 : -1]
   test_false iport.read(1)
   test_false iport.read()
 }

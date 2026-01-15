@@ -55,7 +55,7 @@ unit_test ref_range = {
   s = "qweasd"
   test_equal s[0:3] = "qwe"
   test_equal s[3:6] = "asd"
-  test_equal s[3:-1] = s[3:length(s)]
+  test_equal s[3 : -1] = s[3:length(s)]
   test_not_eq s[0:3] = s[0:3]
 }
 

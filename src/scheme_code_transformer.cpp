@@ -18,8 +18,8 @@
 
 
 #include "opium/scheme/scheme_code_transformer.hpp"
+#include "opium/lisp_parser.hpp"
 #include "opium/utilities/ranges.hpp"
-#include "opium/logging.hpp"
 
 #include <functional>
 
@@ -222,55 +222,75 @@ opi::scheme_code_transformer::scheme_code_transformer()
 
 opi::ext_scheme_code_transformer::ext_scheme_code_transformer()
 {
-  /**
-   * Rule for define statements (T-agnostic extended-scheme syntax)
-   * 
-   * Propagates transformation to all contained expressions:
-   * (define-overload <ident> <body> ...) ->
-   * (define-overload <ident> T[<body>] ...)
-   */
-  const match defineovlmatch {list("define-overload"),
-                              list("define-overload", "ident", dot, "body")};
-  prepend_rule(defineovlmatch, [this](const auto &ms) {
-    const value ident = ms.at("ident");
-    const value body = ms.at("body");
-    const value newbody = transform_block(body);
-    return list("define-overload", ident, dot, newbody);
-  });
+  append_rule(
+    {
+      "(annotate-type)"_lisp,
+      "(annotate-type expr . types)"_lisp
+    },
+    [this](const auto &ms) {
+      const value expr = ms.at("expr");
+      const value types = ms.at("types");
+      return list("annotate-type", (*this)(expr), dot, types);
+    }
+  );
+
+  append_rule(
+    {
+      "(coerce)"_lisp,
+      "(coerce expr . types)"_lisp
+    },
+    [this](const auto &ms) {
+      const value expr = ms.at("expr");
+      const value types = ms.at("types");
+      return list("coerce", (*this)(expr), dot, types);
+    }
+  );
+
+  append_rule(
+    {
+      "(define-overload)"_lisp,
+      "(define-overload ident . body)"_lisp
+    },
+    [this](const auto &ms) {
+      const value ident = ms.at("ident");
+      const value body = ms.at("body");
+      const value newbody = transform_block(body);
+      return list("define-overload", ident, dot, newbody);
+    }
+  );
 
   // TODO: fixme
-  const match casesmatch {
-      list("cases"), list("cases", "exprs", cons("patterns", "branch"), "...")};
-  prepend_rule(casesmatch, [this](const auto &ms) {
-    const value exprs = ms.at("exprs");
-    const value patterns = ms.contains("patterns") ? ms.at("patterns") : nil;
-    const value branches = ms.contains("branch") ? ms.at("branch") : nil;
-    warning("branches: {}", branches);
-
-    const value newexprs =
-        list(std::views::transform(range(exprs), std::ref(*this)));
-
-    value newcases = nil;
-    for (const auto &[rowpatterns, branch] :
-         utl::zip(range(patterns), range(branches)))
+  append_rule(
     {
-      const value newbranch = transform_block(branch);
-      const value newcase = cons(patterns, newbranch);
-      newcases = append(newcases, list(newcase));
+      "(cases)"_lisp,
+      list("cases", "exprs", cons("patterns", "branch"), "...")
+    },
+    [this](const auto &ms) {
+      const value exprs = ms.at("exprs");
+      const value patterns = ms.contains("patterns") ? ms.at("patterns") : nil;
+      const value branches = ms.contains("branch") ? ms.at("branch") : nil;
+
+      const value newexprs =
+          list(std::views::transform(range(exprs), std::ref(*this)));
+
+      value newcases = nil;
+      for (const auto &[rowpatterns, branch] :
+           utl::zip(range(patterns), range(branches)))
+      {
+        const value newbranch = transform_block(branch);
+        const value newcase = cons(rowpatterns, newbranch);
+        newcases = append_mut(newcases, list(newcase));
+      }
+
+      return list("cases", newexprs, dot, newcases);
     }
+  );
 
-    warning("new cases: {}", newcases);
-    return list("cases", newexprs, dot, newcases);
-  });
-
-  /** 
-   * pragma
-   *
-   * Pass as is without modifications. This results in all transformers that are
-   * not explicitly handle this case to, effectively, ignore it, without applying
-   * any permutations; and only those transformers that explicitly overwrite this
-   * rule will affect the propagation of such expression.
-   */
-  const match tchmatch {list("pragma"), list("pragma", dot, "_")};
-  prepend_rule(tchmatch, [](const auto &, value fm) { return fm; });
+  append_rule(
+    {
+      "(pragma)"_lisp,
+      "(pragma . _)"_lisp
+    },
+    [](const auto &, value fm) { return fm; }
+  );
 }

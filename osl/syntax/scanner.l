@@ -50,6 +50,8 @@ std::optional<int> start_token;
 %x FOREIGN_INLINE
 %x SCHEME_INLINE
 
+OPCHAR [-+*/=!?.:$%\\&\|<>]
+
 %%
 
 ^"#!".*($|[\r\n])
@@ -105,6 +107,11 @@ foreign { yylval = "foreign"; return FOREIGN; }
 assert { yylval = "assert"; return ASSERT; }
 
 macro { yylval = "macro"; return MACRO; }
+
+infix[[:space:]]+left { yylval = sym(yytext); return INFIX_LEFT; }
+infix[[:space:]]+right { yylval = sym(yytext); return INFIX_RIGHT; }
+prefix { yylval = sym(yytext); return PREFIX; }
+postfix { yylval = sym(yytext); return POSTFIX; }
 
 match { yylval = "match"; return MATCH; }
 in    { yylval = "in"; return IN; }
@@ -330,60 +337,42 @@ false {
   return CAPIDENT;
 }
 
-"->" {
+{OPCHAR}+ {
   yylval = opi::sym(yytext);
-  return RIGHT_ARROW;
+
+  // Reserved operator-like keywords
+  if (yylval == "->")
+    return RIGHT_ARROW;
+  if (yylval == "=>")
+    return FAT_RIGHT_ARROW;
+  if (yylval == "::")
+    return DOUBLE_COLUMN;
+  if (yylval == "=")
+    return '=';
+  if (yylval == "|")
+    return '|';
+  if (yylval == ".")
+    return '.';
+  if (yylval == "?")
+    return '?';
+  if (yylval == "*")
+    return '*';
+
+  // FIXME
+  if (yylval == ":")
+    return ':';
+  if (yylval == "$")
+    return '$';
+
+  // Actual operators
+  return OPERATOR;
 }
-"=>" {
-  yylval = opi::sym(yytext);
-  return  FAT_RIGHT_ARROW;
-}
-"==" {
-  yylval = opi::sym(yytext);
-  return EQ;
-}
-"!=" {
-  yylval = opi::sym(yytext);
-  return NE;
-}
-"<"  {
-  yylval = opi::sym(yytext);
-  return LT;
-}
-"<=" {
-  yylval = opi::sym(yytext);
-  return LE;
-}
-">"  {
-  yylval = opi::sym(yytext);
-  return GT;
-}
-">=" {
-  yylval = opi::sym(yytext);
-  return GE;
-}
-"::" {
-  yylval = opi::sym(yytext);
-  return DOUBLE_COLUMN;
-}
-"=" |
-"+" |
-"-" |
-"*" |
-"/" |
-"%" |
+
 "," |
-"|" |
-"." |
-":" |
-"&" |
 "["|"]" |
 "{"|"}" |
 "#" |
 "_" |
-"$" |
-"?" |
-"\\" |
 "("|")" {
   yylval = opi::sym(yytext);
   return yytext[0];
