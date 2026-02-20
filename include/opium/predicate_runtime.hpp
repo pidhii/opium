@@ -42,7 +42,10 @@
 
 namespace opi {
 
-extern const opi::value cell_tag;
+
+value
+cell_ptrtag();
+
 
 /**
  * Cell representing a variable that can be identified with other variables or
@@ -78,8 +81,16 @@ make_variable()
 inline value
 make_cell(cell *c)
 {
+  static value ptrtag = cell_ptrtag();
   assert(c != nullptr);
-  return cons(cell_tag, ptr(c));
+  return ptr(c, ptrtag);
+}
+
+inline bool
+iscell(value x)
+{
+  static const value ptrtag = cell_ptrtag();
+  return isptr(x, ptrtag);
 }
 
 /**

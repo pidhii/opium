@@ -30,25 +30,26 @@ snapshot(value s, stl::unordered_map<const object *, value> &argmem,
   if (it != argmem.end())
     return it->second;
 
+  if (iscell(s))
+  {
+    cell *repr = find(ptr_val<cell *>(s));
+    value val;
+    if (get_value(repr, val))
+      return argmem[&*s] = snapshot<Mode>(val, argmem, cellmem);
+    else
+    {
+      const auto it = cellmem.find(repr);
+      if (it != cellmem.end())
+        return it->second;
+      else
+        return cellmem[repr] = make_cell(make<cell>());
+    }
+  }
+
   if (ispair(s))
   {
-    if (is(car(s), cell_tag))
-    {
-      cell *repr = find(ptr_val<cell*>(cdr(s)));
-      value val;
-      if (get_value(repr, val))
-        return argmem[&*s] = snapshot<Mode>(val, argmem, cellmem);
-      else
-      {
-        const auto it = cellmem.find(repr);
-        if (it != cellmem.end())
-          return it->second;
-        else
-          return cellmem[repr] = make_cell(make<cell>());
-      }
-    }
-    else if (Mode == snapshot_mode::remove_body and
-             car(s) == "#dynamic-function-dispatch")
+    if (Mode == snapshot_mode::remove_body and
+        car(s) == "#dynamic-function-dispatch")
     {
       return argmem[&*s] = list(snapshot<Mode>(list_ref(s, 0), argmem, cellmem),  // tag
                                 snapshot<Mode>(list_ref(s, 1), argmem, cellmem),  // name
@@ -85,18 +86,19 @@ remove_bodies(value s, stl::unordered_map<const object *, value> &argmem)
   if (it != argmem.end())
     return it->second;
 
+  if (iscell(s))
+  {
+    cell *repr = find(ptr_val<cell *>(s));
+    value val;
+    if (get_value(repr, val))
+      return argmem[&*s] = remove_bodies(val, argmem);
+    else
+      return argmem[&*s] = s;
+  }
+
   if (ispair(s))
   {
-    if (is(car(s), cell_tag))
-    {
-      cell *repr = find(ptr_val<cell*>(cdr(s)));
-      value val;
-      if (get_value(repr, val))
-        return argmem[&*s] = remove_bodies(val, argmem);
-      else
-        return argmem[&*s] = s;
-    }
-    else if (car(s) == "#dynamic-function-dispatch")
+    if (car(s) == "#dynamic-function-dispatch")
     {
       return argmem[&*s] = list(remove_bodies(list_ref(s, 0), argmem),  // tag
                                 remove_bodies(list_ref(s, 1), argmem),  // name

@@ -26,18 +26,14 @@
 #include "opium/logging.hpp"
 
 
-static opi::object*
-_initialize_cell(opi::object *ptr)
+
+opi::value
+opi::cell_ptrtag()
 {
-  static const char name[] = "#__Cell";
-  ptr->_t = opi::tag::sym;
-  ptr->_sym.data = name;
-  ptr->_sym.len = strlen(name);
-  return ptr;
+  static const value ptrtag = sym("#_Cell");
+  return ptrtag;
 }
 
-static opi::object cell_tag_object {opi::tag::sym};
-const opi::value opi::cell_tag {_initialize_cell(&cell_tag_object)};
 
 
 /**
@@ -83,25 +79,25 @@ _insert_cells(opi::predicate_runtime &prt, opi::value expr,
       return it->second;
   }
 
+  if (opi::iscell(expr))
+  {
+    opi::cell *c = prt.find(ptr_val<opi::cell *>(expr));
+    if (c->kind == opi::cell::kind::value)
+    {
+      const opi::value result =
+          _insert_cells(prt, c->val, mem, quasiquote_level);
+      mem.emplace(&*expr, result);
+      return result;
+    }
+    else
+    {
+      mem.emplace(&*expr, expr);
+      return expr;
+    }
+  }
+
   if (opi::ispair(expr))
   {
-    if (is(car(expr), opi::cell_tag))
-    {
-      opi::cell *c = prt.find(ptr_val<opi::cell*>(cdr(expr)));
-      if (c->kind == opi::cell::kind::value)
-      {
-        const opi::value result =
-            _insert_cells(prt, c->val, mem, quasiquote_level);
-        mem.emplace(&*expr, result);
-        return result;
-      }
-      else
-      {
-        mem.emplace(&*expr, expr);
-        return expr;
-      }
-    }
-
     if (_is_quotation_form(expr, "quasiquote"))
     {
       // Validate expression
@@ -313,9 +309,9 @@ opi::predicate_runtime::variable(value var) const
 [[nodiscard]] static inline bool
 _is_cell(opi::value expr, opi::cell *&result) noexcept
 {
-  if (opi::ispair(expr) and opi::is(opi::car(expr), opi::cell_tag))
+  if (iscell(expr))
   {
-    result = static_cast<opi::cell*>(ptr_val(cdr(expr)));
+    result = ptr_val<opi::cell *>(expr);
     return true;
   }
   return false;
@@ -390,7 +386,6 @@ struct _match_arguments_impl {
       {
         case opi::tag::pair:
           OPI_END_BENCHMARK();
-          assert(not is(car(pexpr), opi::cell_tag));
           return match(prt, opi::car(pexpr), opi::car(eexpr)) and
                  match(prt, opi::cdr(pexpr), opi::cdr(eexpr));
 

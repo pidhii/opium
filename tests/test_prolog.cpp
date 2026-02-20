@@ -297,11 +297,11 @@ TEST_F(PrologTest, InsertCellsPredicate)
   opi::value third = opi::car(opi::cdr(opi::cdr(result)));
   
   EXPECT_TRUE(opi::ispair(second));
-  EXPECT_TRUE(opi::is(opi::car(second), opi::cell_tag));
+  EXPECT_TRUE(opi::iscell(second));
   EXPECT_TRUE(opi::isptr(opi::cdr(second)));
   
   EXPECT_TRUE(opi::ispair(third));
-  EXPECT_TRUE(opi::is(opi::car(third), opi::cell_tag));
+  EXPECT_TRUE(opi::iscell(third));
   EXPECT_TRUE(opi::isptr(opi::cdr(third)));
 }
 

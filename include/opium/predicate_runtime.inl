@@ -81,10 +81,12 @@ struct _reconstructor {
   opi::value
   _reconstruct(opi::value x)
   {
-    if (ispair(x))
+    if (iscell(x))
+      return _reconstruct(ptr_val<opi::cell *>(x));
+    else if (ispair(x))
     {
       value result = nil;
-      while (ispair(x) and not is(car(x), opi::cell_tag))
+      while (ispair(x))
       {
         auto it = mem.find(&*x);
         if (it != mem.end())
@@ -99,8 +101,8 @@ struct _reconstructor {
         x = cdr(x);
       }
 
-      if (ispair(x) and opi::is(car(x), opi::cell_tag))
-        return append_mut(result, _reconstruct(static_cast<opi::cell *>(ptr_val(cdr(x)))));
+      if (iscell(x))
+        return append_mut(result, _reconstruct(ptr_val<opi::cell *>(x)));
       else
         return append_mut(result, x);
     }

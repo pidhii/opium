@@ -43,12 +43,12 @@ class QuotationTest: public ::testing::Test {
   bool
   contains_cell(opi::value expr)
   {
+    if (iscell(expr))
+      return true;
+
     if (opi::ispair(expr))
-    {
-      if (opi::is(opi::car(expr), opi::cell_tag))
-        return true;
       return contains_cell(opi::car(expr)) || contains_cell(opi::cdr(expr));
-    }
+
     return false;
   }
 };
@@ -103,7 +103,7 @@ TEST_F(QuotationTest, QuasiquoteWithUnquote)
   opi::value third_element = opi::car(opi::cdr(opi::cdr(result)));
   
   // Verify it's a cell
-  EXPECT_TRUE(opi::is(opi::car(third_element), opi::cell_tag));
+  EXPECT_TRUE(opi::iscell(third_element));
 }
 
 // Test that unquote-splicing throws an error

@@ -70,7 +70,7 @@ struct source_location {
   operator = (const source_location &other) = default;
 
   bool
-  operator == (const source_location &other)
+  operator == (const source_location &other) const
   { return source == other.source and start == other.start and end == other.end; }
 
   source_location

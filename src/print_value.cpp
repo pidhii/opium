@@ -20,6 +20,7 @@
 #include "opium/predicate_runtime.hpp"
 #include "opium/utilities/execution_timer.hpp"
 #include "opium/value.hpp"
+#include "opium/predicate_runtime.hpp"
 
 #include <vector>
 #include <string>
@@ -121,16 +122,13 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
       break;
 
     case tag::ptr:
-      os << BEGC(pointer) << ptr_val(val) << ENDC(pointer);
+      if (iscell(val))
+        os << "<cell:" << ptr_val(val) << ">";
+      else
+        os << BEGC(pointer) << ptr_val(val) << ENDC(pointer);
       break;
 
     case tag::pair: {
-      if (is(car(val), cell_tag))
-      {
-        os << "<cell:" << cdr(val) << ">";
-        return;
-      }
-
       // Get color for current nesting level
       const std::string_view pcolor =
           cp.parent_colors.empty()
@@ -158,8 +156,7 @@ _print(mode mode, std::ostream &os, opi::value val, opi::value mem,
       
       _print(mode, os, car(val), mem, maxdepth, depth + 1, cp);
       value elt;
-      for (elt = cdr(val); ispair(elt) and not is(car(elt), cell_tag);
-           elt = cdr(elt))
+      for (elt = cdr(val); ispair(elt); elt = cdr(elt))
       {
          // Similar trick about self-referencing
         if (memq(elt, mem))

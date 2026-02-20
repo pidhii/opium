@@ -61,7 +61,10 @@ _equal(opi::value a, opi::value b, _memory_set &mem)
       return num_val(a) == num_val(b);
 
     case opi::tag::ptr:
-      return ptr_val(a) == ptr_val(b);
+      return ptr_val(a) == ptr_val(b) and !!a->_ptrtag == !!b->_ptrtag and
+             (a->_ptrtag ? _equal(opi::value {a->_ptrtag},
+                                  opi::value {b->_ptrtag}, mem)
+                         : true);
 
     case opi::tag::str:
       return str_view(a) == str_view(b);

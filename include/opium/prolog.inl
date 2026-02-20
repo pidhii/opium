@@ -166,14 +166,7 @@ prolog::_make_true(const call_frame &frame, value e, Cont cont,
   switch (tag(e))
   {
     case tag::pair: {
-      if (is(car(e), cell_tag))
-      {
-        if (get_value(ptr_val<cell*>(cdr(e)), e))
-          return _make_true(frame, e, cont, guide);
-        else
-          throw bad_code {std::format("Invalid expression: {}", e)};
-      }
-      else if (ISSYM(car(e), "if"))
+      if (ISSYM(car(e), "if"))
       {
         const value cond = car(cdr(e));
         const value thenbr = car(cdr(cdr(e)));
@@ -259,7 +252,7 @@ prolog::_make_true(const call_frame &frame, value e, Cont cont,
       else if (ISSYM(car(e), "elements-of"))
       {
         const value l = reconstruct(car(cdr(e)), ignore_unbound_variables);
-        if (ispair(l) and is(car(l), cell_tag))
+        if (iscell(l))
           throw error {"Can't invoke `elements-of` with unbound variable", l};
         const value result = car(cdr(cdr(e)));
         const value elements = prolog_impl::elements_of(l);
@@ -269,9 +262,9 @@ prolog::_make_true(const call_frame &frame, value e, Cont cont,
       {
         value goal = car(cdr(e));
 
-        if (ispair(goal) and is(car(goal), cell_tag))
+        if (iscell(goal))
         {
-          if (not get_value(ptr_val<cell*>(cdr(goal)), goal))
+          if (not get_value(ptr_val<cell*>(goal), goal))
             throw bad_code {"Can't use unbound variable as a Goal", e};
         }
 
@@ -327,6 +320,11 @@ prolog::_make_true(const call_frame &frame, value e, Cont cont,
       }
       break;
     }
+
+    case tag::ptr:
+      if (iscell(e) and get_value(ptr_val<cell*>(e), e))
+        return _make_true(frame, e, cont, guide);
+      break;
 
     case tag::boolean:
       if (e == True)

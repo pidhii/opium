@@ -157,7 +157,7 @@ struct object {
     struct { char *data; size_t len; } _str; /**< String data */
     struct { object *_car, *_cdr; }; /**< Pair data */
     long double _num; /**< Numeric data */
-    void *_ptr; /**< Pointer data */
+    struct { object *_ptrtag; void *_ptr; }; /**< Pointer data */
   };
 }; // struct opi::object
 
@@ -258,11 +258,26 @@ ptr(void *ptr)
 {
   value ret {make<object>(tag::ptr)};
   ret->_ptr = ptr;
+  ret->_ptrtag = nullptr;
   #ifdef OPIUM_HASH_CACHING
   chash(ret, hash(ret));
   #endif
   return ret;
 }
+
+[[nodiscard]] inline value
+ptr(void *ptr, value ptrtag)
+{
+  value ret {make<object>(tag::ptr)};
+  ret->_ptr = ptr;
+  ret->_ptrtag = &*ptrtag;
+  #ifdef OPIUM_HASH_CACHING
+  chash(ret, hash(ret));
+  #endif
+  return ret;
+}
+
+
 
 /**
  * Create a pair value
@@ -664,6 +679,11 @@ isbool(value x)
 [[nodiscard]] inline bool
 isptr(value x)
 { return x->_t == tag::ptr; }
+
+[[nodiscard]] inline bool
+isptr(value x, value ptrtag)
+{ return x->_t == tag::ptr && x->_ptrtag && value {x->_ptrtag} == ptrtag; }
+
 
 
 template <typename Ptr = void*>
