@@ -205,7 +205,7 @@ struct debugger {
   bool
   operator () (opi::value expr, const opi::trace_node *t)
   {
-    if (m_trace_point != m_trace_end and t->location != *m_trace_point)
+    if (m_trace_point != m_trace_end and t->location != *m_trace_point->first)
     {
       if (not t->location.is_file_location())
         return false;
@@ -213,7 +213,7 @@ struct debugger {
       warning("query diverges\n"
               "know path: {}\n"
               "query path: {}\n",
-              display_location(*m_trace_point, 1, "\e[38;5;2;1m"),
+              display_location(*m_trace_point->first, 1, "\e[38;5;2;1m"),
               display_location(t->location, 1, "\e[38;5;3;1m"));
 
       if (_confirm("allow divergence? [y/n]: "))
@@ -286,11 +286,12 @@ interactive_debugger(const opi::scheme_translator &translator,
                      opi::scheme_program &scmprogram)
 {
   // Get longest trace
-  opi::stl::vector<opi::source_location> maxtrace;
-  opi::scan_traces(translator.prolog.query_trace(), [&maxtrace](const auto &tcand) {
-    if (tcand.size() > maxtrace.size())
-      maxtrace = tcand;
-  });
+  opi::stl::vector<opi::code_trace> maxtrace;
+  // FIXME
+  // opi::scan_traces(translator.prolog.query_trace(), [&maxtrace](const auto &tcand) {
+  //   if (tcand.size() > maxtrace.size())
+  //     maxtrace = tcand;
+  // });
 
   opi::scheme_type_location_map tlm =
       opi::build_type_location_map(*scmprogram.code_types, *scmprogram.ircode);

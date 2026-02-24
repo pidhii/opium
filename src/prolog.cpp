@@ -27,7 +27,7 @@
 
 
 opi::prolog::prolog()
-: m_depth {0}, m_trace {make<trace_node>()}
+: m_depth {0}, m_trace {make<trace_node>(0U)}
 {
   // Define `=` as builtin
   add_predicate(list("=", "X", "X"), True);
@@ -45,10 +45,10 @@ opi::prolog::add_predicate(value sig, value body)
 
 
 void
-opi::prolog::_trace_expr(value expr) const
+opi::prolog::_trace_expr(value expr, size_t level) const
 {
   source_location location;
-  trace_node *newtracenode = make<trace_node>();
+  trace_node *newtracenode = make<trace_node>(level);
   if (get_location(expr, location))
     newtracenode->location = std::move(location);
   else

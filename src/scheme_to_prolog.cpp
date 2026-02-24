@@ -931,7 +931,9 @@ opi::prolog_emitter::_require_symbol(value ident, CodeOutput out, bool lvalue)
         clauses = cons(clause, clauses);
       }
       const value orexpr = cons("or", clauses);
+      *out++ = "trace-increment"_lisp;
       *out++ = orexpr;
+      *out++ = "trace-decrement"_lisp;
       copy_location(ident, orexpr);
 
       // Return temporary bound in the or expression

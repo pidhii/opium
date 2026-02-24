@@ -104,11 +104,17 @@ template <typename Cont>
 concept prolog_continuation = std::regular_invocable<Cont>;
 
 
+// TODO: (optimization) use reference for the location
 struct trace_node {
   source_location location;
   stl::vector<trace_node*> children;
+  size_t level;
+
+  trace_node(size_t level) : level {level} { }
 };
 
+
+using code_trace = std::pair<const source_location*, size_t>;
 
 namespace detail {
 template <typename Collect>
@@ -117,26 +123,51 @@ struct trace_collector {
   void
   follow_the_trace(trace_node *root, Container &trace)
   {
-    if (root->children.empty())
-      m_collect(std::cref(trace).get());
-    else
+    stl::vector<const trace_node*> stack;
+    stack.push_back(root);
+
+    while (true)
     {
-      trace.push_back(root->location);
-      for (trace_node *branch : root->children)
-        follow_the_trace(branch, trace);
-      trace.pop_back();
+      const trace_node *node = nullptr;
+      while (not stack.empty())
+      {
+        node = stack.back();
+        stack.pop_back();
+
+        if (node == nullptr)
+        {
+          assert(not trace.empty());
+          trace.pop_back();
+        }
+        else
+          break;
+      }
+      if (node == nullptr)
+        break;
+
+      trace.emplace_back(&node->location, node->level);
+      stack.push_back(nullptr);
+
+      for (const trace_node *const branch : node->children)
+        stack.push_back(branch);
+
+      if (node->children.empty())
+      {
+        Container tracecopy {trace.begin(), trace.end()};
+        m_collect(tracecopy);
+      }
     }
   }
 
-  Collect m_collect;
+  const Collect &m_collect;
 }; // struct opi::detail::trace_collector
 } // namespace opi::detail
 
-template <typename Container = stl::vector<source_location>, typename Collect>
+template <typename Container = stl::vector<code_trace>, typename Collect>
 void
-scan_traces(trace_node *root, Collect &&collect)
+scan_traces(trace_node *root, const Collect &collect)
 {
-  detail::trace_collector<Collect> tc {std::forward<Collect>(collect)};
+  detail::trace_collector<Collect> tc {collect};
   Container trace;
   tc.follow_the_trace(root, trace);
 }
@@ -223,8 +254,11 @@ class prolog {
   // separately for each file (determined from the location source of the `expr`
   // parameter)
   void
-  _trace_expr(value expr) const;
+  _trace_expr(value expr, size_t level) const;
 
+  void
+  _trace_expr(value expr) const
+  { _trace_expr(expr, m_trace->level); }
 
   struct call_frame {
     const void *id;

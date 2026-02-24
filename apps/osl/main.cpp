@@ -8,12 +8,14 @@
 #include "opium/source_location.hpp"
 #include "opium/utilities/execution_timer.hpp"
 #include "opium/utilities/path_resolver.hpp"
+#include "opium/stl/map.hpp"
 
 #include <boost/program_options.hpp>
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
+#include <gc/gc.h>
 #include <iterator>
 #include <set>
 
@@ -49,52 +51,140 @@ load_plugin(const std::fs::path &path)
 }
 
 
-static void
-tracedump(const opi::prolog &pl, size_t tracelen,
-          std::set<std::string_view> focus)
+template <std::forward_iterator Iter, typename UnaryPred>
+Iter
+find_last(Iter begin, Iter end, UnaryPred pred)
 {
-  const auto infocus = [&](const opi::source_location &l) {
-    return focus.contains(l.source);
+  for (Iter it = end - 1; it != begin - 1; --it)
+  {
+    if (pred(*it))
+      return it;
+  }
+  return end;
+}
+
+
+using trace_score = std::map<size_t, size_t>;
+struct trace_score_less {
+  bool
+  operator () (const trace_score &lhs, const trace_score &rhs) const noexcept
+  { return _less(0, lhs, rhs); }
+  
+  private:
+  bool
+  _less(size_t idx, const trace_score &lhs, const trace_score &rhs) const noexcept
+  {
+    const auto lhsit = lhs.find(idx);
+    const auto rhsit = rhs.find(idx);
+
+    const size_t lhsscore = lhsit == lhs.end() ? 0 : lhsit->second;
+    const size_t rhsscore = rhsit == rhs.end() ? 0 : rhsit->second;
+
+    if (lhsscore < rhsscore)
+      return true;
+    else if (lhsscore > rhsscore)
+      return false;
+    else // lhs == rhs
+    {
+      if (lhsit == lhs.end() and rhsit == rhs.end())
+        return false;
+      else
+        return _less(idx + 1, lhs, rhs);
+    }
+  }
+};
+
+
+template <std::forward_iterator Iter>
+static Iter
+format_trace(Iter begin, Iter end, trace_score &score, size_t base_level = 0)
+{
+  assert(begin <= end);
+
+  Iter tmp;
+
+  const auto infocus = [&](const opi::code_trace &t) {
+    return t.second == base_level;
+  };
+  const auto notinfocus = [&](const opi::code_trace &t) {
+    return not infocus(t);
   };
 
+  if (begin == end)
+    return end;
+
+  // Erase non-file nodes
+  end = std::remove_if(begin, end, [](const opi::code_trace &t) {
+    return not t.first->is_file_location();
+  });
+
+  // Find last focus node
+  Iter cut = find_last(begin, end, infocus);
+  if (cut == end)
+  {
+    // FIXME: verify there are higher trace levels present
+    //        (otherwize infinte recursion)
+    score[base_level] = 0;
+    return format_trace(begin, end, score, base_level + 1);
+  }
+  cut += 1;
+
+  // Erase everything outside focus before the last focus node
+  tmp = std::remove_if(begin, cut, notinfocus);
+  end = std::copy(cut, end, tmp);
+  cut = tmp;
+
+  // Erase duplications
+  const auto same = [](const opi::code_trace &a, const opi::code_trace &b) {
+    return *a.first == *b.first and a.second == b.second;
+  };
+  tmp = std::unique(begin, cut, same);
+  end = std::copy(cut, end, tmp);
+  cut = tmp;
+
+  // Effective size/length/value/score of the trace fragment
+  const size_t basescore = cut - begin;
+  score[base_level] = basescore;
+
+  // Cut trace prefix prior to the last base-level entry
+  tmp = find_last(begin, cut, infocus);
+  assert(tmp != end);
+  end = std::copy(tmp, end, begin);
+  cut = begin + 1;
+
+  // Proceed with same strategy over the remainder of the trace
+  return format_trace(cut, end, score, base_level + 1);
+}
+
+
+static void
+tracedump(const opi::prolog &pl, size_t tracelen,
+          [[maybe_unused]] std::set<std::string_view> focus)
+{
   // Get longest trace
-  opi::stl::vector<opi::source_location> maxtrace;
-  size_t maxtrace_focuslen = 0;
-  opi::scan_traces(pl.query_trace(), [&](const auto &tcand) {
-    opi::stl::vector<opi::source_location> tcopy = tcand;
-    // Erase entries with non-file locations
-    const auto newend = std::remove_if(
-        tcopy.begin(), tcopy.end(),
-        [](const opi::source_location &l) { return not l.is_file_location(); });
-    tcopy.erase(newend, tcopy.end());
+  [[maybe_unused]] trace_score_less traceless;
+  opi::stl::vector<opi::code_trace> maxtrace;
+  trace_score maxtracescore;
+  opi::scan_traces(pl.query_trace(), [&](auto &tcand) {
+    trace_score candscore;
+    const auto candend = format_trace(tcand.begin(), tcand.end(), candscore);
+    tcand.erase(candend, tcand.end());
 
-    const size_t focuslen = std::count_if(tcopy.begin(), tcopy.end(), infocus);
-
-    // if (tcopy.size() > maxtrace.size())
-    if (focuslen > maxtrace_focuslen)
+    if (traceless(maxtracescore, candscore))
     {
-      maxtrace = std::move(tcopy);
-      maxtrace_focuslen = focuslen;
+      maxtrace = std::move(tcand);
+      maxtracescore = std::move(candscore);
     }
   });
 
   opi::stl::vector<opi::source_location> trace;
-  // Filter out entries from outside the focus unless after the last point in focus
-  const auto rlastfp =
-      std::find_if(maxtrace.rbegin(), maxtrace.rend(), infocus);
-  const auto lastfp = maxtrace.end() - 1 - (rlastfp - maxtrace.rbegin());
-  std::copy_if(maxtrace.begin(), lastfp, std::back_inserter(trace), infocus);
-  std::copy(lastfp, maxtrace.end(), std::back_inserter(trace));
-  // Or, if focused trace turns out empty, ignore the focus
-  if (trace.empty())
-    trace = maxtrace;
-
-  // Erase consequitive duplicate locations
-  trace.erase(std::unique(trace.begin(), trace.end()), trace.end());
+  std::transform(maxtrace.begin(), maxtrace.end(), std::back_inserter(trace),
+                 [](const opi::code_trace &t) { return *t.first; });
 
   const size_t tstart = trace.size() < tracelen ? 0 : trace.size() - tracelen;
   for (size_t t = tstart; t < trace.size(); ++t)
-    opi::error("\e[48;5;9;38;5;16;1m[trace{:3}]\e[0m {}", t, display_location(trace[t], 1, "\e[1m", "\e[2m"));
+    opi::error("\e[48;5;9;38;5;16;1m[trace{:3}]\e[0m {}", t,
+               display_location(trace[t], 1, "\e[1m", "\e[2m"));
 }
 
 
@@ -275,10 +365,10 @@ main(int argc, char **argv)
   {
     opi::error("{}", exn.what());
 
-    tracedump(translator.prolog, tracelen,
-              {std::filesystem::canonical(inputpath).string()});
-    if (isatty(STDIN_FILENO))
-      interactive_debugger(translator, scmprogram);
+    const std::string fullpath = std::filesystem::canonical(inputpath).string();
+    tracedump(translator.prolog, tracelen, {std::string_view(fullpath)});
+    // if (isatty(STDIN_FILENO))
+    //   interactive_debugger(translator, scmprogram);
 
     return EXIT_FAILURE;
   }

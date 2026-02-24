@@ -309,10 +309,15 @@ prolog::_make_true(const call_frame &frame, value e, Cont cont,
       {
         const std::string predname = sym_name(car(e)).data();
         const value eargs = cdr(e);
+        _trace_expr(nil, m_trace->level + 1);
+        const std::function<void()> pcont = [&]() {
+          _trace_expr(nil, m_trace->level - 1);
+          cont();
+        };
         for (const predicate &p : predicate_branches(predname))
         {
           bool cut = false;
-          _make_predicate_true(frame, cut, p, eargs, cont, guide);
+          _make_predicate_true(frame, cut, p, eargs, pcont, guide);
           if (frame.cut or cut)
             break;
         }
@@ -336,6 +341,18 @@ prolog::_make_true(const call_frame &frame, value e, Cont cont,
       {
         cont();
         frame.cut = true;
+        return;
+      }
+      else if (ISSYM(e, "trace-increment"))
+      {
+        _trace_expr(nil, m_trace->level + 1);
+        cont();
+        return;
+      }
+      else if (ISSYM(e, "trace-decrement"))
+      {
+        _trace_expr(nil, m_trace->level - 1);
+        cont();
         return;
       }
 
