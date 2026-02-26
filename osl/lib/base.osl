@@ -222,8 +222,8 @@ extern identifier!(call-with-current-continuation) as __callcc(fn(fn(T) -> _) ->
 ////////////////////////////////////////////////////////////////////////////////
 //                              symbols
 //
-extern identifier!(string->symbol) as sym(str) -> sym
-extern identifier!(symbol->string) as str(sym) -> str
+extern identifier!(string->symbol) as sym(explicit str) -> sym
+extern identifier!(symbol->string) as str(explicit sym) -> str
 
 
 ////////////////////////////////////////////////////////////////////////////////

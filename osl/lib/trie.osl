@@ -7,12 +7,12 @@ require "error"
 (import hash-trie)
 ~~~
 
-extern identifier!(hash-trie/insert) as insert(trie(K, V), K, V) -> trie(K, V)
-extern identifier!(hash-trie/delete) as remove(trie(K, V), K) -> trie(K, V)
-extern identifier!(hash-trie/lookup) as get(trie(K, V), K, V) -> V
-extern identifier!(hash-trie/count) as length(trie(K, V)) -> num
-extern identifier!(hash-trie/empty?) as empty(trie(K, V)) -> num
-extern identifier!(hash-trie/member?) as contains(trie(K, V), K) -> bool
+extern identifier!(hash-trie/insert) as insert(explicit trie(K, V), K, V) -> trie(K, V)
+extern identifier!(hash-trie/delete) as remove(explicit trie(K, V), K) -> trie(K, V)
+extern identifier!(hash-trie/lookup) as get(explicit trie(K, V), K, V) -> V
+extern identifier!(hash-trie/count) as length(explicit trie(K, V)) -> num
+extern identifier!(hash-trie/empty?) as empty(explicit trie(K, V)) -> num
+extern identifier!(hash-trie/member?) as contains(explicit trie(K, V), K) -> bool
 
 
 trie() = {
@@ -25,10 +25,10 @@ trie() = {
   return identifier!(make-hash-trie)(trietype)
 }
 
-trie::trie(K, V)[key::K] = {
+identifier!(osl#ref)(t explicit trie(K, V), key K) = {
   default = scm { (gensym) } :: V
-  result = get(trie, key, default)
+  result = get(t, key, default)
   if (scm { eq? } :: fn(V, V) -> bool) (result, default) then
-    error("No such key", key, trie)
+    error("No such key", key, t)
   return result
 }

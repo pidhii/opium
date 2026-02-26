@@ -59,7 +59,7 @@ extern identifier!(f32vector-set!) as identifier!(osl#set)(f32array, num, num) -
 extern identifier!(f64vector-set!) as identifier!(osl#set)(f64array, num, num) -> void
 
 // Type convertions
-extern identifier!(blob->string) as str(blob) -> str
+extern identifier!(blob->string) as str(explicit blob) -> str
 
 // Comparison
 extern identifier!(blob=?) as (==) (blob, blob) -> bool

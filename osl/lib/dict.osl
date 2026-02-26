@@ -16,7 +16,8 @@ require "coroutines"
 //
 // Constructors
 //
-extern identifier!(make-hash-table) as dict(fn(K, K) -> bool, fn(K, num) -> num, num) -> dict(K, V)
+extern identifier!(make-hash-table)
+as dict(fn(K, K) -> bool, fn(K, num) -> num, num) -> dict(K, V)
 dict() = dict((==), (x, bound) => hash(x) % bound, 4)
 dict(it) = {
   assert { next(it) }
@@ -26,51 +27,67 @@ dict(it) = {
   return result
 }
 
-extern identifier!(hash-table-copy) as copy(dict(K, V)) -> dict(K, V)
+extern identifier!(hash-table-copy)
+as copy(explicit dict(K, V)) -> dict(K, V)
 
 ////
 //
 // Size 
 //
-extern identifier!(hash-table-size) as length(dict(_, _)) -> num
-empty(dict dict(K, V)) = length(dict) == 0
+extern identifier!(hash-table-size)
+as length(explicit dict(_, _)) -> num
+empty(d explicit dict(K, V)) = length(d) == 0
 
 ////
 //
 // Element access
 //
-extern identifier!(hash-table-ref) as identifier!(osl#ref)(dict(K, V), K) -> V
-extern identifier!(hash-table-ref/default) as get(dict(K, V), K, V) -> V
-extern identifier!(hash-table-exists?) as contains(dict(K, _), K) -> bool
+extern identifier!(hash-table-ref)
+as identifier!(osl#ref)(explicit dict(K, V), K) -> V
+extern identifier!(hash-table-ref/default)
+as get(explicit dict(K, V), K, V) -> V
+extern identifier!(hash-table-exists?)
+as contains(explicit dict(K, _), K) -> bool
 
 ////
 //
 // Element addition
 //
-extern identifier!(hash-table-set!) as identifier!(osl#set)(dict(K, V), K, V) -> void
+extern identifier!(hash-table-set!)
+as identifier!(osl#set)(explicit dict(K, V), K, V) -> void
 
 ////
 //
 // Element removal
 //
-extern identifier!(hash-table-delete!) as remove(dict(K, _), K) -> void
-extern identifier!(hash-table-clear!) as clear(dict(K, _)) -> void
+extern identifier!(hash-table-delete!)
+as remove(explicit dict(K, _), K) -> void
+extern identifier!(hash-table-clear!)
+as clear(explicit dict(K, _)) -> void
 
 ////
 //
 // Iterators
 //
-extern identifier!(hash-table-keys) as keys(dict(K, V)) -> list(K)
-extern identifier!(hash-table-values) as vals(dict(_, V)) -> list(V)
-extern identifier!(hash-table-for-each) as foreach(dict(K, V), fn(K, V) -> _) -> void
-extern identifier!(hash-table-map) as map(dict(K, V), fn(K, V) -> U) -> list(U)
-iter(d dict(K, V)) = generator { d.foreach((k, v) => yield pack(k, v)) }
+extern identifier!(hash-table-keys)
+as keys(explicit dict(K, V)) -> list(K)
+extern identifier!(hash-table-values)
+as vals(explicit dict(_, V)) -> list(V)
+extern identifier!(hash-table-for-each)
+as foreach(explicit dict(K, V), fn(K, V) -> _) -> void
+
+extern identifier!(hash-table-map)
+as map(explicit dict(K, V), fn(K, V) -> U) -> list(U)
+
+iter(d explicit dict(K, V)) =
+  generator { d.foreach((k, v) => yield pack(k, v)) }
 
 ////
 //
 // Misc
 //
-extern identifier!(hash-table-merge) as (+) (dict(K, V), dict(K, V)) -> dict(K, V)
+extern identifier!(hash-table-merge)
+as (+) (explicit dict(K, V), explicit dict(K, V)) -> dict(K, V)
 
 ////
 //

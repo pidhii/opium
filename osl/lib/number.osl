@@ -22,4 +22,4 @@ extern (>=) (num, num) -> bool
 
 // Conversions
 extern identifier!(exact->inexact) as inexact(num) -> num // FIXME
-extern identifier!(number->string) as str(num) -> str
+extern identifier!(number->string) as str(explicit num) -> str

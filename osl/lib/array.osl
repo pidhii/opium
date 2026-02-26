@@ -28,19 +28,19 @@ array(iter) = {
   return array(list(iter))
 }
 
-extern identifier!(vector-length) as length(array(T)) -> num
+extern identifier!(vector-length) as length(explicit array(T)) -> num
 
-extern identifier!(vector-copy) as copy(array(T)) -> array(T)
-extern identifier!(vector-copy) as copy(array(T), num) -> array(T)
-extern identifier!(vector-copy) as copy(array(T), num, num) -> array(T)
-extern identifier!(vector-copy) as copy(array(T), num, num, T) -> array(T)
+extern identifier!(vector-copy) as copy(explicit array(T)) -> array(T)
+extern identifier!(vector-copy) as copy(explicit array(T), num) -> array(T)
+extern identifier!(vector-copy) as copy(explicit array(T), num, num) -> array(T)
+extern identifier!(vector-copy) as copy(explicit array(T), num, num, T) -> array(T)
 
 
-extern identifier!(vector-append) as (+) (array(T), array(T)) -> array(T)
-extern identifier!(vector-ref) as identifier!(osl#ref)(array(T), num) -> T
-extern identifier!(vector-set!) as identifier!(osl#set)(array(T), num, T) -> void
+extern identifier!(vector-append) as (+) (explicit array(T), explicit array(T)) -> array(T)
+extern identifier!(vector-ref) as identifier!(osl#ref)(explicit array(T), num) -> T
+extern identifier!(vector-set!) as identifier!(osl#set)(explicit array(T), num, T) -> void
 
-extern identifier!(vector->list) as list(array(T)) -> list(T)
+extern identifier!(vector->list) as list(explicit array(T)) -> list(T)
 
 
 type arrayIterator(T) = {
@@ -49,7 +49,7 @@ type arrayIterator(T) = {
   to num
 }
 
-next(it arrayIterator(T)) = {
+next(it explicit arrayIterator(T)) = {
   if it#from < it#to then
   {
     result = it#arr[it#from]
@@ -61,7 +61,7 @@ next(it arrayIterator(T)) = {
 }
 
 
-iter(arr array(T), from num, to num) = {
+iter(arr explicit array(T), from num, to num) = {
   if from < 0 or from >= length(arr) then
     error("Array indices out of range", from, arr)
   if to < 0 or to > length(arr) then
@@ -69,8 +69,8 @@ iter(arr array(T), from num, to num) = {
   return arrayIterator(arr, from, to)
 }
 
-iter(arr array(T), from num) = iter(arr, from, length(arr))
-iter(arr array(T)) = arrayIterator(arr, 0, length(arr))
+iter(arr explicit array(T), from num) = iter(arr, from, length(arr))
+iter(arr explicit array(T)) = arrayIterator(arr, 0, length(arr))
 
 
 ////

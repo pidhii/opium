@@ -20,7 +20,7 @@ extern identifier!(co-finished?) as co_finished(generator_co(T)) -> bool
 type generator(T) = { co generator_co(T) }
 generator(f) = generator(generator_co(f))
 
-next(gen generator(T)) = {
+next(gen explicit generator(T)) = {
   co = gen#co
   if co_finished(co) then
     return Nothing

@@ -1,7 +1,6 @@
 require "base"
 require "error"
 require "number"
-require "maybe"
 require "pack"
 
 
@@ -44,7 +43,7 @@ type map(Iter, T, U) = {
   func fn(T) -> U,
 }
 
-next(it map(_, _, _)) =
+next(it explicit map(_, _, _)) =
   match next(it#inner) in
   | Some(x) -> Some(it#func(x))
   | Nothing -> Nothing
@@ -59,7 +58,7 @@ type takewhile(Iter, T) = {
   isdone bool,
 }
 
-next(it takewhile(Iter, T)) =
+next(it explicit takewhile(Iter, T)) =
   if it#isdone then Nothing
   else match next(it#inner) in
   | Some(x) -> if it#pred(x) then Some(x) else { set it#isdone = true Nothing }
@@ -76,7 +75,7 @@ type take(Iter) = {
   n num,
 }
 
-next(it take(_)) =
+next(it explicit take(_)) =
   let n = it#n in
   if n <= 0 then Nothing
   else if let Some(x) = next(it#inner) then { set it#n = n - 1 Some(x) }
@@ -99,7 +98,7 @@ type filter(Iter, T) = {
   pred  fn(T) -> bool,
 }
 
-next(it filter(_, _)) =
+next(it explicit filter(_, _)) =
   match next(it#inner) in
   | Some(x) -> if it#pred(x) then Some(x) else next(it)
   | Nothing -> Nothing
@@ -110,9 +109,9 @@ next(it filter(_, _)) =
 //
 type rangeiter(T) = { start T, end T }
 
-iter(r range(T)) = rangeiter(r#start, r#end)
+iter(r explicit range(T)) = rangeiter(r#start, r#end)
 
-next(it rangeiter(T)) =
+next(it explicit rangeiter(T)) =
   let result = it#start in
   if result < it#end then
   {
@@ -133,7 +132,7 @@ type enumerate(Iter) = {
 
 enumerate(it) = enumerate(it, 0)
 
-next(it enumerate(_)) =
+next(it explicit enumerate(_)) =
   if let Some(x) = next(it#inner) then
   {
     result = Some(pack(it#counter, x))

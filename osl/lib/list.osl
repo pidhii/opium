@@ -12,46 +12,46 @@ require "base"
   (unpack . identity)
 }
 
-list(l list(_)) = l
+list(l explicit list(_)) = l
 
 list(iter) = {
   assert { next(iter) :: maybe(_) }
   return reverse(iter.foldl([], (acc, x) => x : acc))
 }
 
-extern identifier!(list-ref) as identifier!(osl#ref)(list(T), num) -> T
-extern identifier!(list-set!) as identifier!(osl#set)(list(T), num, T) -> void
+extern identifier!(list-ref) as identifier!(osl#ref)(explicit list(T), num) -> T
+extern identifier!(list-set!) as identifier!(osl#set)(explicit list(T), num, T) -> void
 
-extern length(list(_)) -> num
+extern length(explicit list(_)) -> num
 
-extern append as (+) (list(T), list(T)) -> list(T)
+extern append as (+) (explicit list(T), list(T)) -> list(T)
 
-extern reverse(list(T)) -> list(T)
+extern reverse(explicit list(T)) -> list(T)
 
-contains(l list(T), v T) = {
+contains(l explicit list(T), v T) = {
   extern identifier!(find-tail) as _find(fn(T) -> bool, list(T)) -> list(T)?
   return _find(x => x == v, l)
 }
 
 
-map(l list(T), f fn(T) -> U) = {
+map(l explicit list(T), f fn(T) -> U) = {
   extern map as builtin_map(fn(T) -> U, list(T)) -> list(U)
   return builtin_map(f, l)
 }
 
 
-foreach(l list(T), f fn(T) -> _) = {
+foreach(l explicit list(T), f fn(T) -> _) = {
   extern identifier!(for-each) as builtin_foreach(fn(T) -> _, list(T)) -> void
   builtin_foreach(f, l)
 }
 
-xs::list(T) == ys::list(T) =
+(==) (xs explicit list(T), ys list(T)) =
   match xs, ys in
   | x : xs, y : ys -> x == y and xs == ys
   | [], [] -> true
   | otherwize -> false
 
-xs::list(T) != ys::list(T) =
+(!=) (xs explicit list(T), ys list(T)) =
   match xs, ys in
   | x : xs, y : ys -> x != y or xs != ys
   | [], [] -> false
@@ -63,9 +63,9 @@ xs::list(T) != ys::list(T) =
 //
 type listIterator(T) = { l list(T) }
 
-iter(l list(_)) = listIterator(l)
+iter(l explicit list(_)) = listIterator(l)
 
-next(it listIterator(_)) =
+next(it explicit listIterator(_)) =
   match it#l in
   | x : xs -> { set it#l = xs Some(x) }
   | otherwize -> Nothing()

@@ -151,11 +151,49 @@ random_access_setter()
 { return "osl#set"; }
 
 
+static opi::value
+remove_type_qualifiers(opi::value typelist)
+{
+  opi::value result = nil;
+  for (opi::value type : opi::range(typelist))
+  {
+    if (ispair(type) and car(type) == "explicit")
+      type = list_ref(type, 1);
+    result = cons(type, result);
+  }
+  return opi::reverse(result);
+}
+
+
+static inline bool
+is_type_variable(opi::value datum)
+{
+  return issym(datum) and (std::isupper(sym_name(datum)[0]) or sym_name(datum) == "_");
+}
+
+static void
+count_type_variables(opi::value datum,
+                     opi::stl::unordered_map<opi::value, size_t> &counts)
+{
+  if (ispair(datum))
+  {
+    count_type_variables(car(datum), counts);
+    count_type_variables(cdr(datum), counts);
+  }
+  else if (is_type_variable(datum))
+    counts[datum] += 1;
+}
+
+
 static std::pair<opi::value, opi::value> // {new-args, new-body}
 insert_argument_type_coercions(opi::value args, opi::value body)
 {
+  opi::stl::unordered_map<opi::value, size_t> typevarcounts;
   value newargs = nil;
   value binds = nil;
+
+  count_type_variables(args, typevarcounts);
+
   for (const opi::value arg : range(args))
   {
     // o nothing to do when there is no type annotation
@@ -168,9 +206,9 @@ insert_argument_type_coercions(opi::value args, opi::value body)
     const value ident = car(arg);
     const value type = car(cdr(arg));
 
-    // o otherwise, do notihing when type is a type variable
-    // FIXME: ... unless it is constrained by the surrounding context ...
-    if (issym(type) and (std::isupper(sym_name(type)[0]) or sym_name(type) == "_"))
+    // o also do notihing when type is a type variable, unless constrained by
+    //   the surrounding context
+    if (is_type_variable(type) and typevarcounts[type] <= 1)
     {
       append_mut(newargs, list(arg));
       continue;
@@ -180,7 +218,6 @@ insert_argument_type_coercions(opi::value args, opi::value body)
     if (ispair(type) and car(type) == "explicit")
     {
       const value explicitarg = list(ident, car(cdr(type)));
-      info("explicit arugment type annotation: {}", explicitarg);
       append_mut(newargs, list(explicitarg));
       continue;
     }
@@ -1111,7 +1148,7 @@ Stmt
       list( // application
         list("annotate-type",
           list("pragma", "inline-scheme", $2),
-          list("fn", $4, dot, $7)),
+          list("fn", remove_type_qualifiers($4), dot, $7)),
         dot, list(argnames))
     );
     std::tie(args, body) = insert_argument_type_coercions(args, body);
@@ -1130,7 +1167,7 @@ Stmt
       list( // application
         list("annotate-type",
           list("pragma", "inline-scheme", $2),
-          list("fn", $6, dot, $9)),
+          list("fn", remove_type_qualifiers($6), dot, $9)),
         dot, list(argnames))
     );
     std::tie(args, body) = insert_argument_type_coercions(args, body);
@@ -1492,12 +1529,16 @@ AtomTypeParam
   | '(' TypeParam ')' { $$ = $2; }
 ;
 
-TypeParam
+UnqualifiedTypeParam
   : EXTYPE
   | AtomTypeParam
   | TypeParam OR TypeParam { $$ = list("or", $1, $3); }
   | TypeParam AND TypeParam { $$ = list("and", $1, $3); }
 ;
+
+TypeParam
+  : UnqualifiedTypeParam
+  | EXPLICIT TypeParam { $$ = list($1, $2); }
 
 TypeDefTypeParam
   : ATTYPE
@@ -1537,7 +1578,6 @@ NonZeroListOfIdents
 ExprWithOptTypeParam
   : Expr
   | Expr TypeParam { $$ = list($1, $2); }
-  | Expr EXPLICIT TypeParam { $$ = list($1, list($2, $3)); }
 ;
 
 

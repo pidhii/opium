@@ -115,7 +115,7 @@ readline(port) = {
 //                       readline - iterator
 //
 type lines = { file port }
-next(it lines) = readline(it#file)
+next(it explicit lines) = readline(it#file)
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -126,5 +126,5 @@ extern identifier!(open-input-string) as openstring(str) -> port
 
 // Output into a string
 extern identifier!(open-output-string) as openstring() -> ostringport
-extern identifier!(get-output-string) as str(ostringport) -> str
+extern identifier!(get-output-string) as str(explicit ostringport) -> str
 #pragma prolog { (predicate (coerce ostringport port)) }

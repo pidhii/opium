@@ -17,14 +17,14 @@ require "number"
 }
 extern concat :: concat
 
-extern identifier!(list->string) as str(list(char)) -> str
+extern identifier!(list->string) as str(explicit list(char)) -> str
 str(iter) = {
   assert { next(iter) }
   list(iter).str()
 }
 
-extern identifier!(string-copy) as copy(str) -> str
-extern identifier!(string-copy) as copy(str, num, num) -> str
+extern identifier!(string-copy) as copy(explicit str) -> str
+extern identifier!(string-copy) as copy(explicit str, num, num) -> str
 
 // STRING + STRING -> str
 //
@@ -34,10 +34,7 @@ s1 + s2 = concat(s1, s2)
 // STRING[INDEX] -> char
 //
 // String element access
-extern identifier!(string-ref) as identifier!(osl#ref)(str, num) -> char
-extern identifier!(string-set!) as identifier!(osl#set)(str, num, char) -> void
-
-substr(s str, start num, end num) = {
+substr(s explicit str, start num, end num) = {
   extern substring(str, num, num) -> str
 
   if start < 0 then
@@ -46,9 +43,11 @@ substr(s str, start num, end num) = {
     set end = length(s) + end + 1
   return substring(s, start, end)
 }
-s::str[r::range(num)] = substr(s, r#start, r#end)
+extern identifier!(string-ref) as identifier!(osl#ref)(explicit str, num) -> char
+identifier!(osl#ref)(s explicit str, r range(num)) = substr(s, r#start, r#end)
+extern identifier!(string-set!) as identifier!(osl#set)(explicit str, num, char) -> void
 
-view(s str, start num, end num) = {
+view(s explicit str, start num, end num) = {
   extern identifier!(substring/shared)(str, num, num) -> str
   let start = if start < 0 then length(s) + start + 1 else start in
   let end = if end < 0 then length(s) + end + 1 else end in
@@ -56,33 +55,33 @@ view(s str, start num, end num) = {
 }
 
 // String comparison operators
-extern identifier!(string=?) as (==) (str, str) -> bool
-s1::str != s2::str = not (s1 == s2)
-extern identifier!(string<?) as (<) (str, str) -> bool
-extern identifier!(string>?) as (>) (str, str) -> bool
-extern identifier!(string<=?) as (<=) (str, str) -> bool
-extern identifier!(string>=?) as (>=) (str, str) -> bool
+extern identifier!(string=?) as (==) (explicit str, str) -> bool
+(!=) (s1 explicit str, s2 str) = not (s1 == s2)
+extern identifier!(string<?) as (<) (explicit str, str) -> bool
+extern identifier!(string>?) as (>) (explicit str, str) -> bool
+extern identifier!(string<=?) as (<=) (explicit str, str) -> bool
+extern identifier!(string>=?) as (>=) (explicit str, str) -> bool
 
-extern identifier!(char=?) as (==) (char, char) -> bool
-s1::char != s2::char = not (s1 == s2)
-extern identifier!(char<?) as (<) (char, char) -> bool
-extern identifier!(char>?) as (>) (char, char) -> bool
-extern identifier!(char<=?) as (<=) (char, char) -> bool
-extern identifier!(char>=?) as (>=) (char, char) -> bool
+extern identifier!(char=?) as (==) (explicit char, char) -> bool
+(!=) (c1 explicit char, c2 char) = not (c1 == c2)
+extern identifier!(char<?) as (<) (explicit char, char) -> bool
+extern identifier!(char>?) as (>) (explicit char, char) -> bool
+extern identifier!(char<=?) as (<=) (explicit char, char) -> bool
+extern identifier!(char>=?) as (>=) (explicit char, char) -> bool
 
 
 // String length
-extern identifier!(string-length) as length(str) -> num
+extern identifier!(string-length) as length(explicit str) -> num
 
 // Casts
-str(s str) = s
-extern identifier!(string->list) as list(str) -> list(char)
-num(s str) = {
+str(s explicit str) = s
+extern identifier!(string->list) as list(explicit str) -> list(char)
+num(s explicit str) = {
   extern identifier!(string->number) as str2num(str) -> num?
   return if let n = str2num(s) then *n else 0
 }
-extern identifier!(integer->char) as char(num) -> char
-extern identifier!(char->integer) as num(char) -> num
+extern identifier!(integer->char) as char(explicit num) -> char
+extern identifier!(char->integer) as num(explicit char) -> num
 
 // If STRING ends with SUFFIX, then this procedure returns a copy of its first
 // argument with the suffix removed, otherwise returns STRING unchanged.
@@ -93,7 +92,7 @@ extern identifier!(string-chomp) as chomp(str, str) -> str
 
 // String iterators
 type strIterator = { s str, i num }
-next(it strIterator) = {
+next(it explicit strIterator) = {
   if it#i < length(it#s) then
   {
     c = it#s[it#i]
@@ -103,6 +102,6 @@ next(it strIterator) = {
   else
     return Nothing
 }
-iter(s str, from num, to num) = strIterator(view(s, from, to), 0)
-iter(s str, from num) = strIterator(s, from)
-iter(s str) = strIterator(s, 0)
+iter(s explicit str, from num, to num) = strIterator(view(s, from, to), 0)
+iter(s explicit str, from num) = strIterator(s, from)
+iter(s explicit str) = strIterator(s, 0)
